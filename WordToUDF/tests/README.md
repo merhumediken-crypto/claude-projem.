@@ -7,7 +7,7 @@ node tests/logic.test.js
 python tests/e2e.py          # CHROMIUM=/yol/chrome ile tarayıcı yolu verilebilir
 ```
 
-`logic.test.js`: 72 test (v1.3.2'nin 23 regresyonu, 7'si yeni standarda göre bilinçli olarak revize edildi ve adında REVİZE yazar; 49 yeni WTU kural testi).
+`logic.test.js`: 77 test (v1.4.1'in 5 düzeltme testi; v1.3.2'nin 23 regresyonu, 7'si yeni standarda göre bilinçli olarak revize edildi ve adında REVİZE yazar; 49 WTU kural testi).
 
 `e2e.py`: Chromium içinde DOCX→UDF (hukuk ve Word biçimini koru profilleri), Dumanbey tipi tam dilekçe (ortak sekme, tek DOSYA NO, UETS, satır içi bölümler, gerçek listeler, tarih, imza, önizlemede iki nokta x-konumu eşitliği), UDF→DOCX geri dönüşte gerçek Word listeleri, ZIP/DTD/CRC saldırı reddi ve 1.500 paragraflık belge.
 

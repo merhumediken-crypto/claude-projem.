@@ -1,4 +1,4 @@
-/* Semantic legal-petition typography layer (v1.4.0).
+/* Semantic legal-petition typography layer (v1.4.1).
  *
  * Pipeline: docx.js keeps the source → normalize.js applies page/AÇIKLAMALAR
  * geometry → this layer canonicalises a legal petition → udf.js serialises.
@@ -40,9 +40,14 @@
     hangingPt: 18,            // list number column
     bodyLine: 1.5,            // explanation/result/section line spacing
     kunyeLine: 1,
+    font: 'Times New Roman',  // legal profile: one petition font, never Word theme fonts (Cambria/Calibri)
     resultIntro: 'Yukarıda arz edilen sebeplerle;',
     defaultClosing: 'Karar verilmesini vekâleten talep ederim.',
     timeZone: 'Europe/Istanbul',
+    // The petition writer's own attorney profile. Used for the VEKİLİ row when
+    // the source names this attorney; other attorneys get a UETS number only
+    // when the user enters one for them (otherwise the value stays plain).
+    ownAttorney: Object.freeze({name: 'Av. Fatih NAKIŞLI', uets: '16615-16448-62422'}),
     lists: Object.freeze({
       result: Object.freeze({id: '1', type: 'NUMBER_TYPE_NUMBER_DOT', format: 'decimal', suffix: '.'}),
       attachments: Object.freeze({id: '2', type: 'NUMBER_TYPE_NUMBER_DOT', format: 'decimal', suffix: '.'}),
@@ -278,13 +283,14 @@
     const segments = v.split(/\s*,\s*(?=(?:Av\.|Avukat)\s)/u);
     const fused = extras.uets.filter(Boolean);
     const out = segments.map(seg => {
-      let s = nameCase(seg, ctx.changes);
+      // A bare "(UETS)" marker without a number is replaced by the real
+      // number when one is known, otherwise removed (left empty).
+      let s = nameCase(clean(seg.replace(/\s*\(\s*UETS\s*\)\s*/giu, ' ')), ctx.changes);
       if(/UETS/iu.test(s) || !ctx.opts.markUets) return s;
       const known = ctx.uets.get(personKey(s.replace(/\(.*$/u, '')));
       if(known){ ctx.changes.push({type: 'uets-profile', before: s, after: `${s} (UETS: ${known})`}); return `${s} (UETS: ${known})`; }
       if(fused.length && segments.length === 1) return `${s} (UETS: ${fused.join(', ')})`;
-      ctx.changes.push({type: 'uets-mark', before: s, after: `${s} (UETS)`});
-      return `${s} (UETS)`;
+      return s;
     });
     v = out.join(', ');
     if(fused.length && segments.length > 1) v += ` (UETS: ${fused.join(', ')})`;
@@ -303,6 +309,9 @@
   }
   // One physical "LABEL<TAB>: value" paragraph (plus an optional first label
   // line when the label is too wide for the shared colon column).
+  // Field rows are always left aligned: in a justified paragraph UDF editors
+  // ignore the TabSet (Swing adds a fixed gap), so KONU/HUKUKİ SEBEPLER colons
+  // drifted right of the shared colon column.
   function fieldRows(label, valueRuns, source, role, ctx, {fieldKind, line, alignment = 'left', above = 0, below = 0} = {}){
     const origin = originRun(source);
     delete origin.italic; delete origin.strike;
@@ -347,16 +356,29 @@
     b.runs = trimRuns(sliceRuns(block.runs, m[0].length));
     return {block: b, removed: clean(m[0]), sub};
   }
+  const alphaMarker = n => { let out = ''; while(n > 0){ n--; out = String.fromCharCode(97 + (n % 26)) + out; n = Math.floor(n / 26); } return out; };
   function makeListItem(block, list, role, ctx, line){
     const {block: b, removed, sub} = stripListPrefix(block);
     const spec = sub ? {...list, ...SCHEMA.lists.sub} : list;
-    b.list = {kind: 'number', id: list.id, level: sub ? 1 : 0, raw: spec.type, format: spec.format, suffix: spec.suffix};
     delete b.numId; delete b.ilvl;
     b.role = role;
     b.alignment = 'justify';
     b.left = SCHEMA.hangingPt * (sub ? 2 : 1); b.first = -SCHEMA.hangingPt; b.right = 0;
     b.above = 0; b.below = 0; b.line = line; b.tabStops = [];
-    if(removed) ctx.changes.push({type: 'manual-number', before: `${removed} ${clean(flatten(b)).slice(0, 60)}`, after: 'otomatik liste numarası'});
+    if(removed) ctx.changes.push({type: 'manual-number', before: `${removed} ${clean(flatten(b)).slice(0, 60)}`, after: ctx.opts.listMode === 'text' ? 'sıralı liste numarası' : 'otomatik liste numarası'});
+    if(ctx.opts.listMode === 'text'){
+      // Visible "1.<TAB>" number in the hanging column. Some UDF viewers draw
+      // an automatic list number on top of the first word ("114.10.2026");
+      // a text number with an explicit tab stop renders identically everywhere.
+      const counters = ctx.listCounters[list.id] ||= [0, 0];
+      if(sub) counters[1]++; else { counters[0]++; counters[1] = 0; }
+      const marker = sub ? `${alphaMarker(counters[1])}${spec.suffix}` : `${counters[0]}${spec.suffix}`;
+      delete b.list;
+      b.listMarker = marker;
+      b.tabStops = [{pos: b.left, align: 'left', leader: 'none'}];
+      b.runs = [plainRun(`${marker}\t`, {...originRun(b), bold: false, italic: false, underline: false}), ...b.runs];
+    } else b.list = {kind: 'number', id: list.id, level: sub ? 1 : 0, raw: spec.type, format: spec.format, suffix: spec.suffix};
+
     return b;
   }
 
@@ -388,7 +410,7 @@
       if(!fields.includes(f)) fields.push(f);
       const rows = fieldRows(f.label, valueText ? textRuns(valueText, f.source) : [], f.source,
         kind === 'topic' ? 'topic' : kind === 'case' ? 'case-number' : 'metadata', ctx,
-        {fieldKind: kind, alignment: kind === 'topic' ? 'justify' : 'left'});
+        {fieldKind: kind, alignment: 'left'});
       if(f.rows){ out.splice(out.indexOf(f.rows[0]), f.rows.length, ...rows); }
       else out.push(...rows);
       f.rows = rows;
@@ -493,7 +515,7 @@
     const b = blocks[i];
     const line = ctx.opts.lineSpacing;
     if(field.value){
-      out.push(...fieldRows(stripColon(field.label), sliceRuns(b.runs, field.valueOffset), b, 'section-field', ctx, {fieldKind: field.section.kind, line, alignment: 'justify'}));
+      out.push(...fieldRows(stripColon(field.label), sliceRuns(b.runs, field.valueOffset), b, 'section-field', ctx, {fieldKind: field.section.kind, line, alignment: 'left'}));
       return i;
     }
     const stop = sectionStartIndex(blocks, i + 1, end);
@@ -501,7 +523,7 @@
     for(let j = i + 1; j < stop; j++) if(blocks[j].kind === 'paragraph' && clean(flatten(blocks[j]))) filled.push(j);
     if(filled.length === 1 && blocks[filled[0]].source !== 'table'){
       const j = filled[0];
-      out.push(...fieldRows(stripColon(field.label), blocks[j].runs, b, 'section-field', ctx, {fieldKind: field.section.kind, line, alignment: 'justify'}));
+      out.push(...fieldRows(stripColon(field.label), blocks[j].runs, b, 'section-field', ctx, {fieldKind: field.section.kind, line, alignment: 'left'}));
       ctx.changes.push({type: 'section-inline', before: `${stripColon(field.label)} / ${clean(flatten(blocks[j])).slice(0, 60)}`, after: 'başlıkla aynı paragraf'});
       for(let k = j + 1; k < stop; k++) out.push(blocks[k]);
       return stop - 1;
@@ -548,10 +570,17 @@
       const t = textOf(seq[k]);
       if(!t || seq[k].block.kind !== 'paragraph') continue;
       const stripped = t.replace(TRAILING_DATE_RE, '');
-      if(CLOSING_TAIL_RE.test(stripped) && stripped.length <= 220){
+      // A long last request that ends with "... karar verilmesini ... talep
+      // ederiz." carries the closing itself: split it instead of appending a
+      // second (default) closing sentence.
+      if(CLOSING_TAIL_RE.test(stripped) && stripped.length > 220){
+        const split = CLOSING_SPLIT_RE.exec(stripListPrefix(seq[k].block).block.runs.map(r => r.text).join('').replace(TRAILING_DATE_RE, ''));
+        if(!split || !clean(split[1])) continue;
+      }
+      if(CLOSING_TAIL_RE.test(stripped)){
         const numbered = LIST_PREFIX_RE.test(t) || SUB_PREFIX_RE.test(t);
         const split = CLOSING_SPLIT_RE.exec(stripListPrefix(seq[k].block).block.runs.map(r => r.text).join('').replace(TRAILING_DATE_RE, ''));
-        if(!numbered && (!split || /^(?:karar|hüküm)/iu.test(stripped))){ closing = k; closingBlock = seq[k].block; break; }
+        if(!numbered && (!split || /^(?:karar|hüküm)/iu.test(stripped)) && stripped.length <= 220){ closing = k; closingBlock = seq[k].block; break; }
         if(split && clean(split[1])){
           // "4. Yargılama giderlerinin ... yükletilmesine karar verilmesini talep ederim."
           const item = cloneBlock(seq[k].block);
@@ -703,6 +732,7 @@
     } else if(['result-item', 'attachment-item', 'result-closing'].includes(role)){
       setAllRuns(b, {size: SCHEMA.bodySize});
     }
+    if(ctx.opts.font) setAllRuns(b, {font: ctx.opts.font});
     // Citation typography is a secondary, run-level concern; never on labels.
     const isLabel = r => r.underline === true && r.bold === true && ['metadata', 'topic', 'case-number', 'section-field', 'result-heading', 'major-heading', 'field-label-line'].includes(role);
     styleRegex(b, LAW_RE, {italic: true}, {skipRuns: isLabel});
@@ -738,10 +768,17 @@
       lineSpacing: Number.isFinite(options.lineSpacing) ? options.lineSpacing : (NORMAL_RULES().explanationLine ?? SCHEMA.bodyLine),
       dateMode: options.dateMode === 'keep' ? 'keep' : 'today',
       now: options.now ?? new Date(), timeZone: options.timeZone || SCHEMA.timeZone,
-      markUets: options.markUets !== false, colonTabCm: options.colonTabCm
+      markUets: options.markUets !== false, colonTabCm: options.colonTabCm,
+      listMode: options.listMode === 'auto' ? 'auto' : 'text',
+      font: options.font === null ? null : (options.font || SCHEMA.font)
     };
     const registry = parseUetsRegistry(options.uetsRegistry);
-    const ctx = {opts, uets: registry.map, changes: [], dateLines: [], stats: {merged: 0, paired: 0, resultItems: 0, attachments: 0}};
+    // Own attorney profile first; explicit registry entries may override it.
+    const own = options.ownAttorney === null ? null : (options.ownAttorney || SCHEMA.ownAttorney);
+    const uets = new Map();
+    if(own?.name && UETS_NUMBER_RE.test(own.uets || '')) uets.set(personKey(own.name), own.uets);
+    for(const [k, v] of registry.map) uets.set(k, v);
+    const ctx = {opts, uets, changes: [], dateLines: [], listCounters: {}, stats: {merged: 0, paired: 0, resultItems: 0, attachments: 0}};
     const blocks = input.map(cloneBlock);
     const auto = globalThis.WordToUDFNormalize?.detection?.(blocks) || {start: -1, end: -1};
     const given = options.selection && Number.isInteger(options.selection.start);
@@ -795,5 +832,5 @@
   }
 
   globalThis.WordToUDFLegalTypography = {apply, flatten, clean, upper, isCourtHeading, isPetitionTitle, isInternalHeading,
-    parseField: lineField, nameCase, todayTR, parseUetsRegistry, labelWidthPt, integrity, SCHEMA};
+    parseField: lineField, nameCase, todayTR, parseUetsRegistry, personKey, labelWidthPt, integrity, SCHEMA};
 })();

@@ -1,6 +1,15 @@
-# Word ↔ UDF / PDF — WordToUDF 1.4.0
+# Word ↔ UDF / PDF — WordToUDF 1.4.1
 
-**Sürüm:** 1.4.0 | **Çalışma biçimi:** Manifest V3 / çevrimdışı / sunucusuz / Chrome izni yok
+**Sürüm:** 1.4.1 | **Çalışma biçimi:** Manifest V3 / çevrimdışı / sunucusuz / Chrome izni yok
+
+## 1.4.1 — Kullanıcı geri bildirimi düzeltmeleri
+
+- **Tek kapanış:** SONUÇ VE İSTEM'deki uzun son talep `... karar verilmesini saygıyla talep ederiz. 14.10.2026` ile bitiyorsa kapanış bu talepten ayrılır; ikinci bir `Karar verilmesini vekâleten talep ederim.` cümlesi **eklenmez**. Talep metnindeki eski tarih de kalkar; tarih yalnız kapanışın sonunda bir kez yazılır.
+- **Liste numarası iç içe girmiyor:** bazı UDF görüntüleyicileri otomatik liste numarasını ilk sözcüğün üstüne çiziyordu (`114.10.2026`). Varsayılan artık **metin numarası + sekme** (`1.` ⇥ metin, 18 pt asılı girinti, 18 pt sekme durağı). Eski davranış “Liste numarası → UDF otomatik liste” seçeneğiyle kullanılabilir.
+- **Yazı tipi Times New Roman:** hukuk dilekçesi profilinde bütün metin ve UDF varsayılan stili Times New Roman 12 pt'dir; Word tema yazı tipleri (Cambria, Calibri vb.) taşınmaz.
+- **Kendi vekil profili:** varsayılan vekil `Av. Fatih NAKIŞLI`, UETS `16615-16448-62422`. VEKİLİ satırı: `VEKİLİ : Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)`. Ad ve UETS arayüzden değiştirilebilir.
+- **Başka vekil butonu:** “Başka vekil var” kutucuğu işaretlenince ad + UETS satırları ve “+ Başka vekil / UETS hesabı ekle” butonu açılır. UETS girilirse eklenir; **boş bırakılırsa VEKİLİ satırına numara yazılmaz** (artık numarasız `(UETS)` ibaresi de yazılmaz).
+- **KONU iki nokta hizası:** iki yana yaslı KONU / HUKUKİ SEBEPLER satırlarında UDF sekmesi kayıyor, iki nokta ortak sütunun sağına düşüyordu. Etiketli satırlar artık sola yaslı; bütün iki noktalar aynı sütunda.
 
 ## 1.4.0 — Nihai hukuk dilekçesi standardı
 
@@ -27,7 +36,7 @@ Hukuk dilekçesi profili artık son kararlaştırılan dilekçe standardını uy
 1. ZIP paketini bilgisayarınızda **klasörün tamamını koruyarak** çıkarın.
 2. Masaüstü Chrome adres çubuğuna `chrome://extensions` yazın.
 3. **Geliştirici modu**nu açın → **Paketlenmemiş öğe yükle**yi seçin.
-4. ZIP'ten çıkan `WordToUDF-1.4.0` klasörünü seçin (içinde `manifest.json` bulunan klasör).
+4. ZIP'ten çıkan `WordToUDF-1.4.1` klasörünü seçin (içinde `manifest.json` bulunan klasör).
 5. Araç çubuğundaki **Word ↔ UDF** simgesine tıklayın → dönüştürme yönünü seçin.
 6. Word → UDF için DOCX dosyasını seçin; önizlemeyi, “Hukuk profilinin metin değişiklikleri” listesini ve varsa dönüşüm uyarılarını denetleyin. Gerekirse AÇIKLAMALAR bölümünün başlangıç/bitiş başlığını elle seçin.
 7. **UDF oluştur ve indir** ile `.udf` dosyasını kaydedin. UDF → Word / PDF için UDF seçin; Word düğmesi `.docx` indirir, PDF düğmesi Chrome yazdır penceresini açar. PDF hedefini **PDF olarak kaydet** seçin.

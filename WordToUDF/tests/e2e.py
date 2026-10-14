@@ -114,7 +114,8 @@ def main():
         full=udf_text(root)
         assert 'HMK m. 119' in full and '2026/3190 K.' in full
         assert 'DAVACI\t: Ali VELİ' in full
-        assert 'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS)' in full
+        assert 'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)' in full
+        assert b'Cambria' not in etree.tostring(root) and all(c.get('family') in (None,'Times New Roman') for c in root.iter('content'))
         assert full.count('ŞANLIURFA')==1
         paras=root.xpath('./elements/paragraph')
         court=[p for p in paras if any('ŞANLIURFA' in full[int(r.get('startOffset')):int(r.get('startOffset'))+int(r.get('length'))] for r in p)]
@@ -202,6 +203,7 @@ def main():
         print('PASS 1500 gövde paragrafı: 1504 UDF paragrafı (kapanış ayrıldı), metin kaybı yok')
         # v1.4.0 dilekçe standardı: ortak sekme, tek DOSYA NO, UETS, satır içi bölümler, gerçek listeler, tarih.
         petition=tmp/'petition.docx';write_petition(petition)
+        page.locator('#listMode').select_option('auto')  # bu bölüm gerçek UDF listelerini denetler
         page.locator('#fileInput').set_input_files(str(petition))
         page.wait_for_function("document.getElementById('status').textContent.includes('petition.docx')",timeout=7000)
         if not page.locator('#reviewLabel').is_hidden():page.locator('#review').check()
@@ -223,7 +225,7 @@ def main():
         lines=[ptext(p).rstrip('\n') for p in paras]
         for expected in ['DOSYA NO\t: 2026/713 E. 2026/708 K.','İTİRAZ EDEN\t: Dumanbey Rezistans Isı Sistemleri ve Sanayi Ticaret Limited Şirketi',
                          'ADRESİ\t: Başpınar OSB, Şehitkamil/Gaziantep','VEKİLİ\t: Av. Ayşe Nur GEYİK ÖZTÜRKMEN (UETS: 16615-16448-62422)',
-                         'TALEP EDEN\t: Pimar Plastik Kimya Tekstil Makina Sanayi ve Ticaret Limited Şirketi','VEKİLİ\t: Av. Emin KABLAMA (UETS)',
+                         'TALEP EDEN\t: Pimar Plastik Kimya Tekstil Makina Sanayi ve Ticaret Limited Şirketi','VEKİLİ\t: Av. Emin KABLAMA',
                          'İCRA DOSYA NO\t: İstanbul Anadolu 10. İcra Dairesi, 2026/18304 E.','KONU\t: İhtiyati haciz kararına itiraz edilmesi istemidir.',
                          'AÇIKLAMALAR\t:','HUKUKİ SEBEPLER\t: İİK m. 50, 257, 258, 259 ve 265; HMK m. 6.','HUKUKİ DELİLLER\t: Çek, imza sirküleri, ticaret sicili kayıtları.',
                          'SONUÇ VE İSTEM\t: Yukarıda arz edilen sebeplerle;','EKLER\t:']:
@@ -250,6 +252,18 @@ def main():
         body=[p for p,l in zip(paras,lines) if l.startswith('Mahkemenizce')][0]
         assert body.get('LineSpacing')=='0.5' and body.get('Alignment')=='3'
         print('PASS dilekçe standardı: ortak sekme, tek DOSYA NO, UETS, satır içi bölümler, otomatik listeler, tarih, imza')
+        # v1.4.1 varsayılan: metin numarası + sekme (numara ilk sözcüğün üstüne binmez).
+        page.locator('#listMode').select_option('text')
+        out_t=tmp/'petition-text.udf';save_download(page,'#download',out_t)
+        root_t=data_xml(out_t);txt_t=udf_text(root_t)
+        paras_t=root_t.xpath('./elements/paragraph')
+        lines_t=[''.join(txt_t[int(r.get('startOffset')):int(r.get('startOffset'))+int(r.get('length'))] for r in p).rstrip('\n') for p in paras_t]
+        assert not any(p.get('Numbered') for p in paras_t)
+        items_t=[(p,l) for p,l in zip(paras_t,lines_t) if re.match(r'^\d+\.\t',l)]
+        assert [l for _,l in items_t]==['1.\tYetki itirazının kabulüne,','2.\tİhtiyati haciz kararının kaldırılmasına,','3.\tYargılama giderlerinin karşı tarafa yükletilmesine,','1.\tİhtiyati haciz kararı örneği.','2.\tÇek örneği.'],items_t
+        assert all(p.get('LeftIndent')=='18' and p.get('FirstLineIndent')=='-18' and p.get('TabSet')=='18:0:0' and p[1].tag=='tab' for p,_ in items_t)
+        print('PASS metin numaralı liste: 1.<TAB> asılı girinti, Numbered özniteliği yok')
+        page.locator('#listMode').select_option('auto')
         # Word → UDF → Word: lists stay real Word lists with separate numbering.
         reverse.locator('#fileInput').set_input_files(str(out))
         reverse.wait_for_function("!document.getElementById('downloadWord').disabled",timeout=20000)

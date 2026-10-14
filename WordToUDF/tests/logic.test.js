@@ -20,7 +20,9 @@ const text=b=>b.runs.map(r=>r.text).join('');
 const arr=x=>[...x];
 const NOW=new Date('2026-10-14T09:00:00Z');
 const COLON=Math.round(6*72/2.54*100)/100;
-const run=(items,opts={})=>{const n=normal.apply(items.map(x=>typeof x==='string'?para(x):x));return legal.apply(n.blocks,{selection:n.selection,now:NOW,...opts});};
+// v1.4.1: default list mode is 'text' (visible 1.<TAB>); the real-list tests run with listMode 'auto'.
+const run=(items,opts={})=>{const n=normal.apply(items.map(x=>typeof x==='string'?para(x):x));return legal.apply(n.blocks,{selection:n.selection,now:NOW,listMode:'auto',...opts});};
+const runText=(items,opts={})=>run(items,{listMode:'text',...opts});
 const find=(blocks,re)=>blocks.find(b=>re.test(text(b)));
 let count=0,failed=0;
 function test(name,fn){try{fn();console.log('PASS',name);count++;}catch(e){failed++;console.error('FAIL',name);console.error(e.message);}}
@@ -121,7 +123,7 @@ test('taraf etiketi kısaltılır, etiket+iki nokta kalın-altı çizili, isim n
   const b=r.blocks[0];assert.equal(text(b),'İTİRAZ EDEN\t: Dumanbey Rezistans Isı Sistemleri ve Sanayi Ticaret Limited Şirketi');
   assert.equal(b.runs[0].bold,true);assert.equal(b.runs[0].underline,true);assert.equal(b.runs[2].bold,true);assert.equal(b.runs[2].underline,true);assert.equal(b.runs[3].bold,false);
   assert.equal(b.first,0);assert.equal(b.left,0);assert.equal(b.tabStops[0].pos,COLON);
-  assert.equal(text(r.blocks[1]),'VEKİLİ\t: Av. Ayşe Nur GEYİK ÖZTÜRKMEN (UETS)');
+  assert.equal(text(r.blocks[1]),'VEKİLİ\t: Av. Ayşe Nur GEYİK ÖZTÜRKMEN');
   assert.equal(r.blocks[1].runs[3].bold,false);
 });
 test('vergi adres UETS etiketleri aynı hizada kalır (REVİZE WTU-024: ortak durak, ADRES→ADRESİ)',()=>{
@@ -132,8 +134,9 @@ test('vergi adres UETS etiketleri aynı hizada kalır (REVİZE WTU-024: ortak du
 });
 test('vekili adı aynı satırda, KONU ortak sekmede ve tam genişlikte (REVİZE WTU-036/041)',()=>{
   const r=legal.apply([para('VEKİLİ:'),para('Av. Emin Kablama'),para('KONU: Çok uzun anlatımlı konu başlığı'),para('AÇIKLAMALAR')]).blocks;
-  assert.equal(text(r[0]),'VEKİLİ\t: Av. Emin KABLAMA (UETS)');
-  assert.equal(r[1].role,'topic');assert.equal(r[1].left,0);assert.equal(r[1].alignment,'justify');assert.equal(r[1].tabStops[0].pos,COLON);
+  assert.equal(text(r[0]),'VEKİLİ\t: Av. Emin KABLAMA');
+  assert.equal(r[1].role,'topic');assert.equal(r[1].left,0);assert.equal(r[1].alignment,'left'); // REVİZE v1.4.1: iki yana yaslı satırda UDF sekmesi kayıyordu
+  assert.equal(r[1].tabStops[0].pos,COLON);
   assert.equal(text(r[1]),'KONU\t: Çok uzun anlatımlı konu başlığı');
 });
 test('karşı taraf gibi betimleyici ifadeler soyadı sanılmaz',()=>{
@@ -238,15 +241,15 @@ test('WTU-035/038 vekil UETS aynı paragrafta; ayrı ADRES VE UETS satırı yok,
   const r=legal.apply([para('VEKİLİ: Av. Ali Kaya'),para('VEKİL ADRESİ: Kızılay Mah. Ankara'),para('UETS: 11111-22222-33333'),para('AÇIKLAMALAR')]).blocks;
   assert.equal(r.length,2);assert.equal(text(r[0]),'VEKİLİ\t: Av. Ali KAYA (UETS: 11111-22222-33333), Kızılay Mah. Ankara');
 });
-test('WTU-036 bilinmeyen UETS numarası uydurulmaz',()=>{
-  const t=text(find(B,/KABLAMA/u));assert.equal(t,'VEKİLİ\t: Av. Emin KABLAMA (UETS)');assert(!/\d/u.test(t));
+test('WTU-036 bilinmeyen UETS numarası uydurulmaz (v1.4.1: numarasız vekilde UETS alanı boş kalır)',()=>{
+  const t=text(find(B,/KABLAMA/u));assert.equal(t,'VEKİLİ\t: Av. Emin KABLAMA');assert(!/\d/u.test(t));
   assert.equal(text(legal.apply([para('VEKİLİ: Av. Emin Kablama'),para('AÇIKLAMALAR')],{markUets:false}).blocks[0]),'VEKİLİ\t: Av. Emin KABLAMA');
 });
 test('WTU-037 kullanıcı UETS listesi yalnız tam eşleşen vekile uygulanır',()=>{
   const reg='Av. Fatih NAKIŞLI = 16615-16448-62422\nAv. Hatalı Kayıt = 123';
   const r=legal.apply([para('VEKİLİ: Av. Fatih Nakışlı'),para('VEKİLİ: Av. Fatih Nakış'),para('AÇIKLAMALAR')],{uetsRegistry:reg});
   assert.equal(text(r.blocks[0]),'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)');
-  assert.equal(text(r.blocks[1]),'VEKİLİ\t: Av. Fatih NAKIŞ (UETS)');
+  assert.equal(text(r.blocks[1]),'VEKİLİ\t: Av. Fatih NAKIŞ');
   assert.deepEqual(Array.from(r.statistics.uetsRegistryErrors),[2]);
 });
 test('WTU-039 farklı künye alanları birbirinin değerine girmez',()=>{
@@ -395,7 +398,7 @@ test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
 test('WTU-072 manifest izinleri, CSP ve sürüm',()=>{
   const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
   assert.equal(m.manifest_version,3);assert.deepEqual(m.permissions,[]);assert.deepEqual(m.host_permissions,[]);
-  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.4.0');
+  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.4.1');
   for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);
 });
 test('WTU-078 tek kaynak: sekme durağı ve satır aralığı normalize.RULES içinde tanımlı',()=>{
@@ -403,5 +406,56 @@ test('WTU-078 tek kaynak: sekme durağı ve satır aralığı normalize.RULES i�
   const n=normal.apply([para('DAVACI\t: Ali')]);assert.equal(n.blocks[0].tabStops[0].pos,COLON);
 });
 
+/* ----------------------------- v1.4.1 düzeltmeleri ----------------------------- */
+const ISA=['ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ\'NE','DOSYA NO\t:\t2026/1929 Esas','DAVALI\t:\tİsa ÇİFTÇİ','VEKİLİ\t:\tAv. Fatih NAKIŞLI','DAVACI\t:\tYapı ve Kredi Bankası Anonim Şirketi',
+  'KONU\t:\t14.10.2026 tarihli duruşmaya ilişkin mesleki mazeretimizin sunulması talebidir.','AÇIKLAMALAR','Mahkemenizin yukarıda esas numarası belirtilen dosyasının duruşmasına katılamayacağız.',
+  'SONUÇ VE İSTEM: Yukarıda açıklanan nedenlerle; 14.10.2026 tarihli duruşmaya ilişkin mesleki mazeretimizin kabulüne, müvekkil yönünden cevap süresi henüz sona ermediğinden ön inceleme duruşmasının dilekçeler aşamasının tamamlanmasından sonraki bir tarihe bırakılmasına, 06.10.2026 tarihli dilekçemizde ileri sürdüğümüz ihtiyati tedbire yönelik itirazlarımızın kabulüyle tedbir kararının kaldırılmasına, aksi hâlde tedbirin kapsamı ve teminat yönünden taleplerimizin değerlendirilmesine, yeni duruşma gününün UYAP üzerinden öğrenilmesine karar verilmesini saygıyla talep ederiz. 14.10.2026',
+  'Davalı İsa Çiftçi Vekili','Av. Fatih NAKIŞLI'];
+const ISA_R=runText(ISA,{now:new Date('2026-10-14T09:00:00Z')});
+const IB=ISA_R.blocks;
+test('v1.4.1 uzun son talepteki kapanış ayrılır; ikinci "Karar verilmesini" kapanışı eklenmez',()=>{
+  const closings=IB.filter(b=>b.role==='result-closing');
+  assert.equal(closings.length,1);
+  assert.equal(text(closings[0]),'Karar verilmesini saygıyla talep ederiz. 14.10.2026');
+  assert(!IB.some(b=>/vekâleten talep ederim/u.test(text(b))));
+  assert(!ISA_R.statistics.changes.some(c=>c.type==='closing-added'));
+  const item=IB.find(b=>b.role==='result-item');
+  assert(/öğrenilmesine,$/u.test(text(item)));assert(!/talep ederiz|14\.10\.2026$/u.test(text(item)));
+  assert.equal(IB.filter(b=>/14\.10\.2026$/u.test(text(b))).length,1,'tarih yalnız kapanışta');
+});
+test('v1.4.1 liste numarası metin + sekme; numara ile ilk sözcük iç içe girmez',()=>{
+  const item=IB.find(b=>b.role==='result-item');
+  assert(!item.list,'otomatik liste özniteliği yok');
+  assert.equal(item.runs[0].text,'1.\t');assert.equal(item.left,18);assert.equal(item.first,-18);
+  assert.equal(item.tabStops.length,1);assert.equal(item.tabStops[0].pos,18);
+  assert(/^1\.\t14\.10\.2026 tarihli/u.test(text(item)));
+  const w=writer.write(IB,{font:'Times New Roman'});
+  assert(!/Numbered="true"/u.test(w.xml));
+  assert(/<paragraph[^>]*LeftIndent="18"[^>]*FirstLineIndent="-18"[^>]*TabSet="18:0:0"/u.test(w.xml));
+  const r=runText(['SONUÇ VE İSTEM','1. Birinci talebin kabulüne,','a) alt talep,','2. İkinci talebin kabulüne,','Karar verilmesini talep ederim.','EKLER','EK-1 Vekaletname','EK-2 Karar']).blocks;
+  assert.deepEqual(arr(r.filter(b=>b.role==='result-item').map(b=>b.runs[0].text)),['1.\t','a)\t','2.\t']);
+  assert.deepEqual(arr(r.filter(b=>b.role==='attachment-item').map(text)),['1.\tVekaletname','2.\tKarar']);
+});
+test('v1.4.1 hukuk profilinde bütün metin Times New Roman (Cambria/tema yazı tipi kalmaz)',()=>{
+  const r=runText([{kind:'paragraph',runs:[{text:'DAVACI: Ali Veli',font:'Cambria'}]},{kind:'paragraph',runs:[{text:'AÇIKLAMALAR',font:'Calibri'}]},{kind:'paragraph',runs:[{text:'Gövde metni.',font:'Cambria'}]}]).blocks;
+  assert(r.every(b=>b.runs.every(x=>x.font==='Times New Roman')));
+  assert(IB.every(b=>b.runs.every(x=>x.font==='Times New Roman')));
+  const w=writer.write(r,{font:'Times New Roman'});assert(!/Cambria|Calibri/u.test(w.xml));
+});
+test('v1.4.1 kendi vekil profili: Av. Fatih NAKIŞLI satırına UETS numarası otomatik eklenir',()=>{
+  assert.equal(text(IB.find(b=>b.fieldLabel==='VEKİLİ')),'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)');
+  const r=legal.apply([para('VEKİLİ: Av. Fatih Nakışlı (UETS)'),para('AÇIKLAMALAR')]).blocks;
+  assert.equal(text(r[0]),'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)');
+});
+test('v1.4.1 başka vekil: UETS girilirse eklenir, girilmezse boş bırakılır',()=>{
+  const none=legal.apply([para('VEKİLİ: Av. Ali Kaya'),para('AÇIKLAMALAR')]).blocks;
+  assert.equal(text(none[0]),'VEKİLİ\t: Av. Ali KAYA');
+  const withU=legal.apply([para('VEKİLİ: Av. Ali Kaya'),para('AÇIKLAMALAR')],{uetsRegistry:[{name:'Av. Ali KAYA',uets:'11111-22222-33333'}]}).blocks;
+  assert.equal(text(withU[0]),'VEKİLİ\t: Av. Ali KAYA (UETS: 11111-22222-33333)');
+  const two=legal.apply([para('VEKİLİ: Av. Fatih Nakışlı, Av. Ali Kaya'),para('AÇIKLAMALAR')]).blocks;
+  assert.equal(text(two[0]),'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422), Av. Ali KAYA');
+  const off=legal.apply([para('VEKİLİ: Av. Fatih Nakışlı'),para('AÇIKLAMALAR')],{ownAttorney:null}).blocks;
+  assert.equal(text(off[0]),'VEKİLİ\t: Av. Fatih NAKIŞLI');
+});
 console.log(failed?`SONUÇ ${count} başarılı, ${failed} BAŞARISIZ`:`SONUÇ ${count} mantık testi başarılı`);
 if(failed)process.exitCode=1;

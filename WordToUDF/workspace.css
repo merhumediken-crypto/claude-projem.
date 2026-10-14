@@ -8,3 +8,7 @@
 .legal-options textarea{width:100%;border:1px solid #cad4e4;border-radius:7px;padding:8px 9px;font:12px/1.4 ui-monospace,Consolas,monospace;color:var(--ink);resize:vertical}
 .note.small{font-size:11px;margin:6px 0 0}.note.warn{color:#aa382d}
 .subhead{font-size:13px;margin:10px 0 4px}.report ul.changes li{color:#2d4e7d}
+.legal-options input[type=text]{width:100%;border:1px solid #cad4e4;border-radius:7px;padding:8px 9px;font:12px/1.4 inherit;color:var(--ink);background:white}
+.attorney{border:1px solid var(--line);border-radius:9px;padding:6px 12px 12px;margin:12px 0 0}.attorney legend{font-size:11px;font-weight:750;color:var(--muted);padding:0 4px}
+.other-row{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;margin:8px 0 0}.other-row button{border:1px solid #ccd6e4;background:white;color:#aa382d;border-radius:7px;padding:6px 9px}
+.small-btn{margin-top:10px;width:100%;padding:9px 10px!important}

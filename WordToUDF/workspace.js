@@ -2,11 +2,40 @@
   'use strict';
   const $=id=>document.getElementById(id);
   const state={file:null,source:null,result:null,selection:{start:'auto',end:'auto'},profile:'legal',loadSerial:0};
-  const REGISTRY_KEY='wordtoudf.uetsRegistry.v1';
+  const ATTORNEY_KEY='wordtoudf.attorneys.v2';
+  const LEGAL_FONT='Times New Roman';
+  const UETS_RE=/^\d{5}-\d{5}-\d{5}$/u;
   // Per-browser convenience only: the attorney/UETS list never leaves this
   // computer and the extension still has no Chrome permissions.
-  const storage={get(){try{return localStorage.getItem(REGISTRY_KEY)||'';}catch{return '';}},set(v){try{localStorage.setItem(REGISTRY_KEY,v);return true;}catch{return false;}}};
-  const settings=()=>({lineSpacing:Number($('lineSpacing').value)||1.5,dateMode:$('dateToday').checked?'today':'keep',markUets:$('markUets').checked,uetsRegistry:$('uetsRegistry').value});
+  const storage={get(){try{return JSON.parse(localStorage.getItem(ATTORNEY_KEY)||'null');}catch{return null;}},set(v){try{localStorage.setItem(ATTORNEY_KEY,JSON.stringify(v));return true;}catch{return false;}}};
+  const OWN=WordToUDFLegalTypography.SCHEMA.ownAttorney;
+  const normUets=v=>String(v||'').replace(/\s+/gu,'').trim();
+  function otherRows(){return [...$('otherList').querySelectorAll('.other-row')].map(row=>({name:row.querySelector('.o-name').value.trim(),uets:normUets(row.querySelector('.o-uets').value)}));}
+  function attorneyState(){return {own:{name:$('ownName').value.trim(),uets:normUets($('ownUets').value)},otherEnabled:$('otherAttorney').checked,others:otherRows()};}
+  function saveAttorneys(){storage.set(attorneyState());}
+  // Only rows with a name AND a well-formed UETS go to the registry: an empty
+  // UETS means "leave it blank", never "(UETS)" or a guessed number.
+  function settings(){
+    const a=attorneyState();
+    const registry=a.otherEnabled?a.others.filter(o=>o.name&&UETS_RE.test(o.uets)):[];
+    return {lineSpacing:Number($('lineSpacing').value)||1.5,dateMode:$('dateToday').checked?'today':'keep',markUets:$('markUets').checked,listMode:$('listMode').value==='auto'?'auto':'text',font:LEGAL_FONT,
+      ownAttorney:a.own.name?{name:a.own.name,uets:a.own.uets}:null,uetsRegistry:registry};
+  }
+  function addOtherRow(data={}){
+    const row=document.createElement('div');row.className='other-row';
+    const name=document.createElement('input');name.type='text';name.className='o-name';name.placeholder='Av. Ad SOYAD';name.value=data.name||'';name.spellcheck=false;name.setAttribute('aria-label','Başka vekil adı');
+    const uets=document.createElement('input');uets.type='text';uets.className='o-uets';uets.placeholder='UETS (boş bırakılabilir)';uets.value=data.uets||'';uets.inputMode='numeric';uets.spellcheck=false;uets.setAttribute('aria-label','Başka vekil UETS');
+    const del=document.createElement('button');del.type='button';del.textContent='Sil';del.setAttribute('aria-label','Bu vekili sil');
+    del.addEventListener('click',()=>{row.remove();saveAttorneys();render();});
+    for(const el of [name,uets])el.addEventListener('change',()=>{saveAttorneys();render();});
+    row.append(name,uets,del);$('otherList').append(row);return row;
+  }
+  function uetsWarnings(){
+    const a=attorneyState(),bad=[];
+    if(a.own.uets&&!UETS_RE.test(a.own.uets))bad.push('kendi UETS');
+    if(a.otherEnabled)a.others.forEach((o,i)=>{if(o.uets&&!UETS_RE.test(o.uets))bad.push(`${i+1}. başka vekil`);});
+    return bad.length?`Geçersiz UETS (${bad.join(', ')}) yok sayıldı. Biçim: 12345-12345-12345`:'';
+  }
   const fileInput=$('fileInput'),drop=$('dropZone'),status=$('status');
   const download=$('download'),reportDownload=$('reportDownload'),review=$('review'),profileSelect=$('typographyProfile');
   function message(text,kind='') {status.textContent=text;status.className=`status ${kind}`;}
@@ -53,7 +82,7 @@
     if(list.kind==='bullet')return '•';
     return `${list.format==='lowerLetter'?alpha(counters[level]):counters[level]}${list.suffix===')'?')':'.'}`;
   }
-  const CHANGE_LABELS={label:'Etiket kısaltıldı','case-number':'Dosya/karar no tek etikette',surname:'Soyadı büyük harf','name-ambiguous':'Ad/soyad belirsiz','uets-mark':'UETS ibaresi eklendi','uets-profile':'UETS kayıtlı profilden','attorney-fuse':'Vekil adres/UETS satırı birleşti','label-split':'Uzun etiket iki satıra bölündü','explanations-split':'AÇIKLAMALAR metni yeni paragrafta','section-inline':'Bölüm değeri başlık satırında','result-intro':'SONUÇ girişi','closing-split':'Kapanış listeden ayrıldı','closing-added':'Kapanış cümlesi eklendi','manual-number':'Metindeki numara otomatik listeye çevrildi',date:'Kapanış tarihi','blank-removed':'Boş satır kaldırıldı'};
+  const CHANGE_LABELS={label:'Etiket kısaltıldı','case-number':'Dosya/karar no tek etikette',surname:'Soyadı büyük harf','name-ambiguous':'Ad/soyad belirsiz','uets-profile':'UETS kayıtlı vekilden','attorney-fuse':'Vekil adres/UETS satırı birleşti','label-split':'Uzun etiket iki satıra bölündü','explanations-split':'AÇIKLAMALAR metni yeni paragrafta','section-inline':'Bölüm değeri başlık satırında','result-intro':'SONUÇ girişi','closing-split':'Kapanış listeden ayrıldı','closing-added':'Kapanış cümlesi eklendi','manual-number':'Metindeki numara otomatik listeye çevrildi',date:'Kapanış tarihi','blank-removed':'Boş satır kaldırıldı'};
   function changeText(c){return `${CHANGE_LABELS[c.type]||c.type}: ${c.before} → ${c.after}`;}
   function showChanges(stats){
     const list=$('changeList');list.replaceChildren();
@@ -63,8 +92,7 @@
     if(!changes.length){const li=document.createElement('li');li.className='ok';li.textContent='Metinde hukuk profiline bağlı değişiklik yapılmadı.';list.append(li);}
     for(const c of changes.slice(0,80)){const li=document.createElement('li');li.textContent=changeText(c);list.append(li);}
     if(changes.length>80){const li=document.createElement('li');li.textContent=`… ve ${changes.length-80} değişiklik daha (raporda tamamı).`;list.append(li);}
-    const errs=stats.uetsRegistryErrors||[];
-    $('uetsInfo').textContent=errs.length?`Geçersiz UETS satırı: ${errs.join(', ')}. Biçim: Av. Ad SOYAD = 12345-12345-12345`:'';
+    $('uetsInfo').textContent=uetsWarnings();
   }
   function makeParagraph(block,listState=new Map()){
     const p=document.createElement('div');p.className='paragraph'+(block.source==='table'?' table-row':'');if(block.role)p.dataset.role=block.role;
@@ -111,7 +139,9 @@
       const tabs=JSON.parse(p.dataset.tabStops||'[]');
       // Match the export's custom TabSet in the preview. DOM pixel widths
       // are measured only after the new page has been attached to the tree.
-      const rowLeft=p.getBoundingClientRect().left+(parseFloat(getComputedStyle(p).paddingLeft)||0);
+      // Tab positions are measured from the paragraph box (page margin), as in
+      // Word, so a hanging list number "1.<TAB>" lands on the indent.
+      const rowLeft=p.getBoundingClientRect().left;
       for(const tab of p.querySelectorAll('.tab-stop')){
         let x=tab.getBoundingClientRect().left-rowLeft;
         const target=tabs.find(t=>t.pos*(96/72)>x+1);
@@ -140,7 +170,7 @@
     paper.style.width=source.options.landscape?'1123px':'794px';
     paper.style.minHeight=source.options.landscape?'794px':'1123px';
     for(const side of ['top','right','bottom','left'])paper.style[`padding${side[0].toUpperCase()+side.slice(1)}`]=`${state.result.margins[side]*96/72}px`;
-    paper.style.fontFamily=source.options.font;paper.style.fontSize=`${source.options.size}pt`;
+    paper.style.fontFamily=state.profile==='legal'?LEGAL_FONT:source.options.font;paper.style.fontSize=`${state.profile==='legal'?12:source.options.size}pt`;
     const frag=document.createDocumentFragment();
     const max=state.result.blocks.length,listState=new Map();
     for(let i=0;i<max;i++){
@@ -185,10 +215,19 @@
   for(const name of ['dragleave','drop'])drop.addEventListener(name,e=>{e.preventDefault();drop.classList.remove('drag');});
   drop.addEventListener('drop',e=>{if(e.dataTransfer?.files?.length)handleFile(e.dataTransfer.files[0]);});
   review.addEventListener('change',setReady);
-  $('uetsRegistry').value=storage.get();
+  const saved=storage.get();
+  $('ownName').value=saved?.own?.name??OWN.name;$('ownUets').value=saved?.own?.uets??OWN.uets;
+  $('otherAttorney').checked=!!saved?.otherEnabled;$('otherBox').hidden=!$('otherAttorney').checked;
+  for(const o of saved?.others||[])addOtherRow(o);
   const syncSpec=()=>{$('specLine').textContent=`${$('lineSpacing').value==='1'?'1,0':'1,5'} · iki yana yaslı`;};
-  for(const id of ['lineSpacing','dateToday','markUets'])$(id).addEventListener('change',()=>{syncSpec();render();});
-  $('uetsRegistry').addEventListener('change',()=>{storage.set($('uetsRegistry').value);render();});
+  for(const id of ['lineSpacing','dateToday','markUets','listMode'])$(id).addEventListener('change',()=>{syncSpec();render();});
+  for(const id of ['ownName','ownUets'])$(id).addEventListener('change',()=>{saveAttorneys();render();});
+  $('otherAttorney').addEventListener('change',()=>{
+    $('otherBox').hidden=!$('otherAttorney').checked;
+    if($('otherAttorney').checked&&!$('otherList').children.length)addOtherRow().querySelector('.o-name').focus();
+    saveAttorneys();render();
+  });
+  $('addAttorney').addEventListener('click',()=>{addOtherRow().querySelector('.o-name').focus();saveAttorneys();});
   profileSelect.addEventListener('change',e=>{state.profile=e.target.value==='faithful'?'faithful':'legal';render();});
   $('startSection').addEventListener('change',e=>{state.selection.start=e.target.value;render();});
   $('endSection').addEventListener('change',e=>{state.selection.end=e.target.value;render();});
@@ -200,7 +239,7 @@
       const t=norm.typography||{},ls=String(t.lineSpacing??1.5).replace('.',',');
       parts.push('Sayfa kenar boşlukları: 1,5 cm',`Açıklamalar gövdesi: ${norm.bodyCount} paragraf`,`Açıklamalar ara başlığı: ${norm.headingCount||0}`,'AÇIKLAMALAR öncesi ve başlıklar: 0 pt / 0 pt','AÇIKLAMALAR gövdesi paragraf önce/sonra: 0,15 cm / 0,15 cm','AÇIKLAMALAR sonrası paragraf önce/sonra: 0 pt / 0 pt',`AÇIKLAMALAR: 1,25 cm ilk satır, ${ls} satır aralığı, iki yana yaslama (1.3.2 sürümünde 1,0 idi)`,
         `Ortak iki nokta sekme durağı: ${(t.colonTabPt||0).toFixed(2)} pt (${((t.colonTabPt||0)*2.54/72).toFixed(2)} cm); etiket ve iki nokta kalın-altı çizili, değer normal, devam satırı girintisiz`,
-        `SONUÇ talepleri: ${t.resultItems||0} madde, gerçek otomatik liste (ListId 1)`,`EKLER: ${t.attachments||0} madde, ayrı otomatik liste (ListId 2)`,
+        `SONUÇ talepleri: ${t.resultItems||0} madde, ${$('listMode').value==='auto'?'gerçek otomatik liste (ListId 1)':'metin numarası + sekme'}`,`EKLER: ${t.attachments||0} madde, ${$('listMode').value==='auto'?'ayrı otomatik liste (ListId 2)':'ayrı numaralı liste'}`,`Yazı karakteri: ${LEGAL_FONT}`,
         `Kapanış: ${t.closing||'—'}`,`Kapanış tarihi: ${t.date||'kaynaktaki gibi bırakıldı'}`);
       parts.push('','Hukuk profilinin yaptığı metin değişiklikleri:');
       parts.push(...((t.changes||[]).length?t.changes.map(c=>`- ${changeText(c)}`):['- Yok']));
@@ -220,7 +259,8 @@
     if(!state.result)return;
     download.disabled=true;message('UDF oluşturuluyor ve içeriği doğrulanıyor…');
     try{
-      const {blocks,margins}=state.result;const {font,landscape}=state.source.options;const fileName=state.file.name;
+      const {blocks,margins}=state.result;const {landscape}=state.source.options;const fileName=state.file.name;
+      const font=state.profile==='legal'?LEGAL_FONT:state.source.options.font;
       const size=state.profile==='legal'?12:state.source.options.size;
       const writer=WordToUDFWriter.write(blocks,{margins,font,size,landscape});
       const checked=WordToUDFWriter.verify(writer.xml,writer.fullText);
