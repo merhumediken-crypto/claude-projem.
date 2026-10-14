@@ -15,6 +15,8 @@
     if(run.underline!==undefined)attrs.underline=!!run.underline;
     if(run.strike!==undefined)attrs.strikeThrough=!!run.strike;
     if(typeof run.color==='string'&&/^[0-9A-Fa-f]{6}$/.test(run.color))attrs.foreground=rgbInt(run.color);
+    // v1.10 experimental (opt-in, not yet confirmed in UYAP): text highlight.
+    if(run.highlight===true)attrs.background=rgbInt('FFF176');
     return attrs;
   }
   // Real UDF list metadata (Word→UDF). Attribute names match the ones the

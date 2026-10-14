@@ -1,0 +1,53 @@
+<main id="main">
+<div class="page-head">
+  <div><span class="eyebrow">Süre hesapla</span><h1>Yasal sürenin son gününü hesaplayın</h1>
+  <p>Tebliğ (başlangıç) tarihini ve süreyi seçin; hafta sonu, resmî tatiller, dini bayramlar, arifeler ve adli tatil hesaba katılır. Sonuç yardımcıdır: kesin süre için kanun metni, tebliğ kaydı ve güncel tatil takvimiyle kontrol edin.</p></div>
+  <div class="feature-chips" aria-label="Özellikler">
+    <span><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>HMK m. 92–93</span>
+    <span><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>Adli tatil HMK m. 102–104</span>
+    <span><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Takvime ekle</span>
+  </div>
+</div>
+<div class="layout">
+<section class="left" aria-label="Süre bilgileri">
+  <div class="panel">
+    <h2><span class="step" aria-hidden="true"></span>Süre</h2>
+    <label for="dStart" class="setting-label">Başlangıç (tebliğ / öğrenme) tarihi</label>
+    <input type="date" id="dStart">
+    <label for="dKind" class="setting-label">Süre</label>
+    <select id="dKind" class="profile-select"></select>
+    <div id="dCustom" class="two" hidden>
+      <div><label for="dAmount" class="setting-label">Miktar</label><input type="number" id="dAmount" min="1" max="3650" value="7" inputmode="numeric"></div>
+      <div><label for="dUnit" class="setting-label">Birim</label><select id="dUnit" class="profile-select"><option value="gun">gün</option><option value="hafta">hafta</option><option value="ay">ay</option><option value="yil">yıl</option></select></div>
+    </div>
+    <p class="note small warn" id="dKindNote" hidden></p>
+    <label class="check"><input type="checkbox" id="dRecess" checked><span>Adli tatile tabi iş: süre 20 Temmuz – 31 Ağustos arasında biterse bir hafta uzar (HMK m. 104)</span></label>
+    <label class="check"><input type="checkbox" id="dSaturday" checked><span>Cumartesi tatil sayılsın (adliyeler kapalı)</span></label>
+  </div>
+</section>
+<section class="right" aria-label="Sonuç">
+  <div class="panel deadline-result" id="dResult" aria-live="polite">
+    <span class="eyebrow">Son gün</span>
+    <div class="d-date" id="dDate">—</div>
+    <div class="d-left" id="dLeft"></div>
+    <h3 class="subhead">Hesap adımları</h3>
+    <ol class="d-steps" id="dSteps"></ol>
+    <ul class="d-warn" id="dWarn" hidden></ul>
+    <p class="note small">Kural: gün olarak belirlenen sürede başlangıç günü sayılmaz; hafta, ay ve yıl olarak belirlenen süre son haftanın / ayın aynı gününde biter (HMK m. 92). Son gün tatile rastlarsa süre izleyen ilk iş gününe uzar (HMK m. 93). Arife gibi yarım gün tatillerde süre uzamaz. Dini bayram tarihleri Diyanet takviminden alınmıştır (2025–2027). İdari izin ve köprü günleri resmî tatil değildir.</p>
+  </div>
+  <div class="panel actions-card">
+    <h2>Kaydet</h2>
+    <label for="dLabel" class="setting-label">Dosya / not (isteğe bağlı)</label>
+    <input type="text" id="dLabel" placeholder="ör. 2026/1929 E. – İsa ÇİFTÇİ – cevap" autocomplete="off" maxlength="160">
+    <div class="controls">
+      <div class="row2">
+        <button type="button" id="dIcs" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Takvime ekle (.ics)</button>
+        <button type="button" id="dCopy" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-report"/></svg>Hesabı kopyala</button>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+</div>
+</main>
+<script src="deadline.js"></script>

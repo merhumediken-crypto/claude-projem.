@@ -15,8 +15,8 @@ const root=path.resolve(__dirname,'..');
 // A tiny in-memory localStorage for settings.js / library.js.
 const store=new Map();const localStorage={getItem:k=>store.has(k)?store.get(k):null,setItem:(k,v)=>{store.set(k,String(v));},removeItem:k=>{store.delete(k);}};
 const ctx=vm.createContext({Intl,Date,localStorage});
-for(const name of ['normalize.js','settings.js','legal-rules.js','legal-typography.js','edits.js','checks.js','udf.js','templates.js','paste.js','library.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
-const lib=ctx.WordToUDFLibrary;
+for(const name of ['normalize.js','settings.js','legal-rules.js','legal-typography.js','edits.js','checks.js','udf.js','templates.js','paste.js','library.js','pipeline.js','deadline.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
+const lib=ctx.WordToUDFLibrary, pipe=ctx.WordToUDFPipeline, dl=ctx.WordToUDFDeadline;
 const normal=ctx.WordToUDFNormalize, legal=ctx.WordToUDFLegalTypography, writer=ctx.WordToUDFWriter, checks=ctx.WordToUDFChecks, settingsApi=ctx.WordToUDFSettings, tpl=ctx.WordToUDFTemplates, edits=ctx.WordToUDFEdits, paste=ctx.WordToUDFPaste;
 const para=(text,attributes={})=>({kind:'paragraph',runs:[{text}],...attributes});
 const text=b=>b.runs.map(r=>r.text).join('');
@@ -401,7 +401,7 @@ test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
 test('WTU-072 manifest izinleri, CSP ve sürüm',()=>{
   const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
   assert.equal(m.manifest_version,3);assert.deepEqual(m.permissions,[]);assert.deepEqual(m.host_permissions,[]);
-  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.9.0');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
+  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.10.0');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
   // sw.js (PWA offline cache) may fetch, but only its own origin.
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(/url\.origin !== location\.origin\) return/u.test(sw));
   for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')&&f!=='sw.js'))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);
@@ -581,7 +581,9 @@ test('v1.5 şablon: mahkeme başlığı, esas no ve kaynak satırları',()=>{
   assert.equal(tpl.trDate('2026-10-14'),'14.10.2026');
   for(const t of tpl.TEMPLATES){
     const f={hearingDate:'14.10.2026',serviceDate:'01.10.2026',orderDate:'25.09.2026',learnDate:'01.10.2026',reason:'durusma',otherCourt:'X Mahkemesi 2026/1 E.',grounds:'Tedbir şartları oluşmamıştır.',security:true,subject:'Beyan.',
-      reportDate:'01.10.2026',objections:'Hesaplama hatalıdır.',supplement:true,newExpert:true,method:'segbis',place:'Gaziantep Adliyesi',witnesses:'Ali VELİ – Gaziantep – ödeme hususu',advancePaid:true,access:true,client:'İsa ÇİFTÇİ'};
+      reportDate:'01.10.2026',objections:'Hesaplama hatalıdır.',supplement:true,newExpert:true,method:'segbis',place:'Gaziantep Adliyesi',witnesses:'Ali VELİ – Gaziantep – ödeme hususu',advancePaid:true,access:true,client:'İsa ÇİFTÇİ',
+      kind:'kismi',oldAmount:'1.000 TL',newAmount:'45.000 TL',feePaid:true,points:'İddialar yerinde değildir.',matters:'ayıpların niteliği',expert:true,advance:true,
+      amount:'250.000 TL',due:'15.09.2026',basis:'çek',authority:true,costs:'mutabakat',what:'avans',holder:'Av. Fatih NAKIŞLI',iban:'TR00 0001',role:'DAVALI'};
     const lines=tpl.sourceLines({court:'Şanlıurfa 8. Asliye Hukuk Mahkemesi',caseNo:'2026/1929',role:'DAVALI',client:'İsa ÇİFTÇİ',other:'Yapı ve Kredi Bankası Anonim Şirketi'},
       {topic:t.topic(f),body:t.body(f),requests:t.requests(f),closing:t.closing,attachments:t.attachments(f)},{attorneyName:'Av. Fatih NAKIŞLI'});
     const n=normal.apply(tpl.toBlocks(lines));const r=legal.apply(n.blocks,{selection:n.selection,now:NOW});
@@ -596,8 +598,11 @@ test('v1.5 şablon: mahkeme başlığı, esas no ve kaynak satırları',()=>{
     assert(!checks.run(B2,r.statistics,{now:NOW}).some(c=>c.level==='error'),t.id);
     assert(!lines.some(l=>l.includes('…')),t.id+' boş alan kalmadı');
   }
-  assert.equal(tpl.TEMPLATES.length,8);
-  const ids=new Set(tpl.TEMPLATES.map(t=>t.id));assert.equal(ids.size,8,'şablon kimlikleri tekil');
+  assert.equal(tpl.TEMPLATES.length,14);
+  const ids=new Set(tpl.TEMPLATES.map(t=>t.id));assert.equal(ids.size,14,'şablon kimlikleri tekil');
+  // v1.10: davacı → cevaba cevap, davalı → ikinci cevap.
+  assert(/cevaba cevap dilekçemizin/u.test(tpl.byId('replik').topic({role:'DAVACI'})));assert(/ikinci cevap/u.test(tpl.byId('replik').topic({role:'DAVALI'})));
+  assert.deepEqual(arr(tpl.byId('islah').attachments({kind:'tam',feePaid:true})),['Islah harcı makbuzu','Islah edilmiş dava dilekçesi']);
   const bk=tpl.byId('bilirkisi');assert.deepEqual(arr(bk.requests({supplement:false,newExpert:true})),['Bilirkişi raporuna yönelik itirazlarımızın kabulüne,','Yeni bir bilirkişi (heyeti) atanarak yeniden inceleme yapılmasına,']);
   assert(/e-Duruşma/u.test(tpl.byId('segbis').body({method:'edurusma',hearingDate:'20.10.2026'})[0]));
   assert.deepEqual(arr(tpl.byId('tanik').body({witnesses:'A – B – C\nD – E – F'}).slice(1)),['Tanık 1: A – B – C','Tanık 2: D – E – F']);
@@ -818,6 +823,51 @@ test('v1.9 kendi şablonu: adlar alana çevrilir, alanlar bulunur ve doldurulur,
   assert.equal(parts.body,'Mahkemenizin yukarıda esas numarası belirtilen dosyasının duruşmasına katılamayacağız.');
   assert.equal(parts.requests.split('\n').length,5);assert.equal(parts.closing,'Karar verilmesini saygıyla talep ederiz.','tarih şablona girmez');
   lib.removeTemplate(lib.templates()[0].id);assert.equal(lib.templates().length,0);
+});
+/* ----------------------------- v1.10.0 ----------------------------- */
+test('v1.10 tutar yazıyla: Türkçe sayı okunuşu, kuruş, önerisi ve düzeltmesi; yazılmış tutar ve ekli sözcük atlanır',()=>{
+  const W=n=>edits.numberWords(n);
+  assert.deepEqual([0,1,11,100,101,1000,1001,1500,10500,100000,1000000,1001000,1234567,2000000000].map(W),['sıfır','bir','on bir','yüz','yüz bir','bin','bin bir','bin beş yüz','on bin beş yüz','yüz bin','bir milyon','bir milyon bin','bir milyon iki yüz otuz dört bin beş yüz altmış yedi','iki milyar']);
+  assert.equal(edits.amountWords('12.345','5'),'on iki bin üç yüz kırk beş Türk lirası elli kuruş');
+  const m=t=>arr(edits.cleanupMatches(t,'amounts').map(x=>x.to));
+  assert.deepEqual(m('Toplam 10.000,00 TL ödendi; 250 ₺ ve 5 Türk lirası.'),['10.000,00 TL (on bin Türk lirası)','250 ₺ (iki yüz elli Türk lirası)','5 Türk lirası (beş Türk lirası)']);
+  assert.deepEqual(m('1.500 TL (bin beş yüz Türk lirası) ve 5 TL\'nin yarısı, 2026/1929 TL.'),[]);
+  const src=runText([para('AÇIKLAMALAR'),para('Davacıya 15.000 TL ödenmiştir.')]).blocks;
+  assert(checks.suggestions(src).some(c=>c.code==='fix-amounts'&&/1 tutarın yazıyla karşılığı yok/u.test(c.message)));
+  const r=edits.apply(src,{[edits.DOC_KEY]:{cleanups:['amounts']}});
+  assert(r.blocks.some(b=>text(b)==='Davacıya 15.000 TL (on beş bin Türk lirası) ödenmiştir.'));
+  assert(!checks.suggestions(r.blocks).some(c=>c.code==='fix-amounts'),'düzeltmeden sonra öneri kalmaz');
+});
+test('v1.10 süre hesabı: hafta, ay sonu, bayram, Cumartesi, adli tatil, arife, bilinmeyen yıl',()=>{
+  const d=s=>new Date(s+'T00:00:00Z'),day=r=>r.end.toISOString().slice(0,10);
+  assert.equal(day(dl.compute(d('2026-10-14'),1,'hafta')),'2026-10-21');
+  assert.equal(day(dl.compute(d('2026-10-14'),2,'gun')),'2026-10-16','gün hesabında başlangıç sayılmaz');
+  assert.equal(day(dl.compute(d('2026-01-31'),1,'ay')),'2026-03-02','28 Şubat Cumartesi → Pazartesi');
+  assert.equal(day(dl.compute(d('2026-01-31'),1,'ay',{saturday:false})),'2026-02-28');
+  assert.equal(day(dl.compute(d('2026-05-13'),2,'hafta')),'2026-06-01','Kurban Bayramı 27–30 Mayıs ve Pazar atlanır');
+  assert.equal(day(dl.compute(d('2026-10-22'),7,'gun')),'2026-10-30','29 Ekim tatil');
+  const arife=dl.compute(d('2026-10-21'),7,'gun');assert.equal(day(arife),'2026-10-28');assert(/arifesi/u.test(arife.warnings[0]),'arife uyarısı, süre uzamaz');
+  const rec=dl.compute(d('2026-07-10'),2,'hafta');assert.equal(day(rec),'2026-09-07');assert(rec.steps.some(s=>/HMK m\. 104/u.test(s)));
+  assert.equal(day(dl.compute(d('2026-07-10'),2,'hafta',{recess:false})),'2026-07-24');
+  assert.equal(day(dl.compute(d('2026-03-12'),1,'hafta')),'2026-03-19','Ramazan arifesi yarım gün: süre uzamaz');
+  assert.equal(day(dl.compute(d('2026-03-13'),1,'hafta')),'2026-03-23','Ramazan Bayramı 20–22 Mart');
+  assert(/2028 yılının dini bayram/u.test(dl.compute(d('2028-01-03'),7,'gun').warnings.join(' ')));
+  assert.equal(dl.compute(d('2026-10-01'),1,'hafta',{today:d('2026-10-14')}).left,-6);
+  assert.throws(()=>dl.compute(d('2026-10-01'),0,'gun'),/1 ile 3650/u);
+  const ics=dl.ics({end:d('2026-09-07'),title:'Son gün: Cevap; 2026/1929',description:'a,b\nc'});
+  assert(ics.includes('DTSTART;VALUE=DATE:20260907')&&ics.includes('DTEND;VALUE=DATE:20260908')&&ics.includes('SUMMARY:Son gün: Cevap\\; 2026/1929')&&ics.includes('DESCRIPTION:a\\,b\\nc')&&ics.includes('TRIGGER:-P2D'));
+  assert.equal(dl.PRESETS.flatMap(g=>g.items).length,15);assert.equal(dl.preset('temyiz').law,'HMK m. 361');
+});
+test('v1.10 dosya adı kalıbı ve ayarlar',()=>{
+  assert.equal(pipe.fileName('{TARİH}_{MÜVEKKİL}_{TÜR}',{date:'14.10.2026',client:'İsa ÇİFTÇİ',type:'Mazeret dilekçesi',source:'x'}),'14.10.2026_İsa ÇİFTÇİ_Mazeret dilekçesi');
+  assert.equal(pipe.fileName('',{source:'Isa_Ciftci.docx'}),'Isa_Ciftci');
+  assert.equal(pipe.fileName('{ESAS}',{caseNo:'2026/1929 Esas'}),'2026-1929 Esas');
+  assert.equal(pipe.fileName('{MÜVEKKİL}',{source:'kaynak'}),'kaynak','boş kalırsa kaynak adı');
+  const st=settingsApi.sanitize({fileName:'  {TARİH}  ',experimental:'evet'});assert.equal(st.fileName,'{TARİH}');assert.equal(st.experimental,false);
+  assert.equal(settingsApi.sanitize({experimental:true}).experimental,true);
+  // Deneysel vurgu UDF'de background olarak yazılır.
+  const w=writer.write([{kind:'paragraph',runs:[{text:'a'},{text:'vurgulu',highlight:true}]}],{});assert(/background="-2702"/u.test(w.xml)||/background="-\d+"/u.test(w.xml),w.xml.slice(0,400));
+  assert.equal(edits.sanitize({marks:[{text:'x',highlight:true}]}).marks[0].highlight,true);
 });
 console.log(failed?`SONUÇ ${count} başarılı, ${failed} BAŞARISIZ`:`SONUÇ ${count} mantık testi başarılı`);
 if(failed)process.exitCode=1;

@@ -10,7 +10,7 @@
   const blocking=source=>(source?.warnings||[]).filter(w=>!w.minor);
   function setReady(){
     const blocked=!state.source||!state.result||(blocking(state.source).length>0&&!review.checked);
-    download.disabled=blocked;downloadDocx.disabled=blocked;
+    download.disabled=blocked;downloadDocx.disabled=blocked;$('printPdf').disabled=blocked;
     reportDownload.disabled=!state.source||!state.result;
     // Phone: quick actions at the bottom once a document is loaded.
     $('mobileBar').hidden=!state.source;$('mbDownload').disabled=blocked;
@@ -19,8 +19,16 @@
   }
   // The empty-state card shipped in the HTML comes back whenever no document is loaded.
   const emptyPaper=$('paper').firstElementChild?.cloneNode(true);
-  function clearPaper(){$('paper').replaceChildren(...(emptyPaper?[emptyPaper.cloneNode(true)]:[]));}
+  function clearPaper(){$('paper').replaceChildren(...(emptyPaper?[emptyPaper.cloneNode(true)]:[]));$('paper').style.minHeight='';$('pageNote').hidden=true;$('chgLegend').hidden=true;}
   const safeName=s=>P.safeName(s);
+  // Download name from the user's pattern (settings: fileName).
+  function outBase(){
+    const blocks=state.result?.blocks||[];
+    const info=blocks.length?Lib.caseFromBlocks(blocks,state.settings.ownAttorney?.name)||{}:{};
+    const title=blocks.find(b=>b.role==='petition-title');
+    return P.fileName(state.settings.fileName,{date:L.todayTR(),client:info.client,caseNo:info.caseNo,type:title?WordToUDFNormalize.flatten(title).trim():'Dilekçe',source:safeName(state.file?.name||'Dilekce')});
+  }
+  function showFileName(){$('fileNamePreview').textContent=state.result?`→ ${outBase()}.udf`:'';}
   function downloadBlob(bytes,name,mime){
     const blob=new Blob([bytes],{type:mime});const url=URL.createObjectURL(blob);
     const a=document.createElement('a');a.href=url;a.download=name;
@@ -33,13 +41,15 @@
   // saved (sanitised) and triggers a re-render.
   function readForm(){
     return S.sanitize({...state.settings,ownAttorney:{name:$('ownName').value,uets:$('ownUets').value},otherEnabled:$('otherAttorney').checked,others:otherRows(),
-      listMode:$('listMode').value,lineSpacing:Number($('lineSpacing').value),dateToday:$('dateToday').checked,markUets:$('markUets').checked,splitRequests:$('splitRequests').checked});
+      listMode:$('listMode').value,lineSpacing:Number($('lineSpacing').value),dateToday:$('dateToday').checked,markUets:$('markUets').checked,splitRequests:$('splitRequests').checked,
+      fileName:$('fileNamePattern').value,experimental:$('experimental').checked});
   }
   function writeForm(s){
     $('ownName').value=s.ownAttorney.name;$('ownUets').value=s.ownAttorney.uets;
     $('otherAttorney').checked=s.otherEnabled;$('otherBox').hidden=!s.otherEnabled;
     $('otherList').replaceChildren();for(const o of s.others)addOtherRow(o);
     $('listMode').value=s.listMode;$('lineSpacing').value=String(s.lineSpacing);$('dateToday').checked=s.dateToday;$('markUets').checked=s.markUets;$('splitRequests').checked=s.splitRequests;
+    $('fileNamePattern').value=s.fileName;$('experimental').checked=s.experimental;$('experimentBox').hidden=!s.experimental;
     syncSpec();
   }
   // Vekil/imza settings feed the pasted-petition skeleton too.
@@ -158,18 +168,32 @@
     const n=t.typography.splittableRequests||0;
     $('splitHint').textContent=n>1&&!$('splitRequests').checked?`(bu belgede ${n} talep tek maddede)`:'';
     const legal=state.profile==='legal';
-    WordToUDFPreview.render($('paper'),t.blocks,{margins:norm.margins,landscape:source.options.landscape,font:legal?P.LEGAL_FONT:source.options.font,size:legal?P.LEGAL_SIZE:source.options.size});
+    const pg=WordToUDFPreview.render($('paper'),t.blocks,{margins:norm.margins,landscape:source.options.landscape,font:legal?P.LEGAL_FONT:source.options.font,size:legal?P.LEGAL_SIZE:source.options.size});
+    state.pages=pg.pages;
+    showPageNote(pg);
+    // "Değişiklikleri göster": words the rules added or changed, per-paragraph notes.
+    $('changesToggle').hidden=!legal;$('chgLegend').hidden=!(legal&&state.showChanges);
+    if(legal&&state.showChanges)WordToUDFPreview.markChanges($('paper'),source.blocks,(t.typography.changes||[]).map(c=>({after:String(c.after||'').trim(),text:changeText(c)})));
     fitPaper();
     editor.decorate();
     const ty=t.typography;
     const typeInfo=ty?.enabled?` · ${ty.metadataMerged||0} künye satırı birleştirildi · ${ty.resultItems||0} talep ve ${ty.attachments||0} ek numaralı listede · hukuk tipografisi etkin`:' · Word biçimi profili';
     $('sectionInfo').textContent=norm.selection.start<0?'AÇIKLAMALAR başlığı bulunamadı; gerekirse başlangıç başlığını seçin.':`${norm.bodyCount} gövde paragrafı ve ${norm.headingCount||0} ara başlık açıklamalar düzeninde işlendi${typeInfo}.`;
-    $('previewCount').textContent=`${source.statistics.paragraphs} paragraf · A4 ${source.options.landscape?'yatay':'dikey'}`;
+    $('previewCount').textContent=`${source.statistics.paragraphs} paragraf · ≈ ${pg.pages} sayfa · A4 ${source.options.landscape?'yatay':'dikey'}`;
+    showFileName();
     setReady();
   }
+  function showPageNote(pg){
+    $('pageNote').hidden=!pg.signatureAlone;
+    $('pageNote').textContent=pg.signatureAlone?`Uyarı (yaklaşık): imza bloğu ${pg.pages}. sayfaya tek başına düşüyor. Bir paragrafı kısaltmayı ya da boşlukları azaltmayı düşünün; UYAP'ta kontrol edin.`:'';
+  }
+  $('changesToggle').addEventListener('click',()=>{
+    state.showChanges=!state.showChanges;$('changesToggle').setAttribute('aria-pressed',String(state.showChanges));$('changesToggle').classList.toggle('on',state.showChanges);
+    render();
+  });
   // Paragraph editor (editor-ui.js): tap a paragraph in the preview.
   const editor=WordToUDFEditorUI.attach({paper:$('paper'),toolbar:$('previewTools'),getBlocks:()=>state.result?.blocks,
-    onChange:render,onMessage:m=>message(m,'success'),enabled:()=>!!state.result});
+    onChange:render,onMessage:m=>message(m,'success'),enabled:()=>!!state.result,extraStyles:()=>state.settings.experimental?['highlight']:[]});
 
   /* ------------------------------ files ------------------------------ */
   async function handleFile(file){
@@ -377,7 +401,7 @@
   }
   reportDownload.addEventListener('click',()=>{
     if(!state.source||!state.result)return;
-    downloadBlob(new TextEncoder().encode(reportText()),safeName(state.file.name)+'-donusum-raporu.txt','text/plain;charset=utf-8');
+    downloadBlob(new TextEncoder().encode(reportText()),outBase()+'-donusum-raporu.txt','text/plain;charset=utf-8');
   });
   function outputOptions(){
     const legal=state.profile==='legal';
@@ -390,9 +414,8 @@
     if(!state.result)return;
     download.disabled=true;message('UDF oluşturuluyor ve içeriği doğrulanıyor…');
     try{
-      const fileName=state.file.name;
       const res=await P.toUdf(state.result.blocks,outputOptions());
-      downloadBlob(res.bytes,safeName(fileName)+'.udf','application/octet-stream');
+      downloadBlob(res.bytes,outBase()+'.udf','application/octet-stream');
       const errors=(state.result.checks||[]).filter(c=>c.level==='error').length;
       message(`UDF hazır: ${res.paragraphs} paragraf, ${res.lists} otomatik liste maddesi, ${res.breaks} sayfa sonu.${errors?` Dilekçe denetiminde ${errors} hata var; göndermeden önce bakın.`:''} İndirilen dosyayı UYAP'ta denetleyin.`,errors?'error':'success');
     }catch(err){message(`Dönüştürme başarısız: ${err.message}`,'error');}
@@ -407,7 +430,7 @@
       const o=outputOptions();
       P.assertHasText(state.result.blocks);
       const bytes=await WordToUDFDocxWriter.create({options:{margins:o.margins,landscape:o.landscape,font:o.font,size:o.size},blocks:state.result.blocks,headers:[],footers:[]});
-      downloadBlob(bytes,safeName(state.file.name)+'-duzenlenmis.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      downloadBlob(bytes,outBase()+'-duzenlenmis.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       message('Düzenlenmiş Word belgesi indirildi (UDF ile aynı düzen).','success');
     }catch(err){message(`Word oluşturulamadı: ${err.message}`,'error');}
     finally{setReady();}
@@ -446,6 +469,31 @@
     }catch(err){message(err.message,'error');}
   });
   refreshLibrary();
+
+  // PDF: the browser's print dialog with only the petition on A4 pages.
+  $('printPdf').addEventListener('click',()=>{
+    if(!state.source||!state.result||$('printPdf').disabled)return;
+    if(state.profile==='legal')render();
+    if(!state.result)return;
+    try{
+      message('Yazdırma penceresinde hedef olarak “PDF olarak kaydet”i seçin; “Üstbilgi ve altbilgi” kutusunu kapatın.','success');
+      WordToUDFPrint.printBlocks(state.result.blocks,{...outputOptions(),title:outBase()});
+    }catch(err){message(`PDF hazırlanamadı: ${err.message}`,'error');}
+  });
+  $('fileNamePattern').addEventListener('input',()=>{state.settings.fileName=$('fileNamePattern').value;S.save(state.settings);showFileName();});
+  // Experimental UDF features (opt-in): text highlight.
+  $('experimental').addEventListener('change',()=>{$('experimentBox').hidden=!$('experimental').checked;settingsChanged();editor.close();});
+  $('experimentSample').addEventListener('click',async()=>{
+    const run=(text,extra={})=>({text,font:P.LEGAL_FONT,size:P.LEGAL_SIZE,...extra});
+    const para=(runs,extra={})=>({kind:'paragraph',runs,alignment:'left',left:0,first:0,right:0,above:0,below:6,line:1.15,...extra});
+    const blocks=[para([run('WORDTOUDF DENEYSEL ÖZELLİK DENEMESİ',{bold:true,size:14})],{alignment:'center'}),
+      para([run('Bu dosya yalnız UYAP Doküman Editörü\'nde görünümü denemek içindir; dilekçe değildir.')]),
+      para([run('Aşağıdaki satırda '),run('bu sözcükler sarı vurgulu',{highlight:true}),run(' görünmelidir.')]),
+      para([run('Vurgu ile birlikte '),run('kalın ve vurgulu',{highlight:true,bold:true}),run(' ve '),run('italik ve vurgulu',{highlight:true,italic:true}),run(' sözcükler.')]),
+      para([run('Vurgu görünüyor ve dosya hatasız açılıyorsa bu özelliği kullanabilirsiniz; görünmüyorsa deneysel seçeneği kapatın.')])];
+    try{const res=await P.toUdf(blocks,{});downloadBlob(res.bytes,'WordToUDF-deneme-vurgu.udf','application/octet-stream');message('Deneme UDF\'si indirildi; UYAP Doküman Editörü\'nde açıp sarı vurgunun göründüğünü kontrol edin.','success');}
+    catch(err){message(`Deneme UDF\'si oluşturulamadı: ${err.message}`,'error');}
+  });
 
   $('mbDownload').addEventListener('click',()=>download.click());
   $('mbPreview').addEventListener('click',()=>$('previewSection').scrollIntoView({behavior:'smooth',block:'start'}));

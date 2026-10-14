@@ -119,7 +119,7 @@
       else if(key||v)warning('theme-color','Word tema rengi çözümlenemedi; varsayılan renk kullanıldı.');
     }
     if(toggle(rpr,'vanish')||toggle(rpr,'webHidden'))props.hidden=true;
-    if(kid(rpr,'highlight')||kid(rpr,'shd'))warning('highlight','Metin vurgusu/arka plan gölgesi korunmadı.');
+    if(kid(rpr,'highlight')||kid(rpr,'shd'))warning('highlight','Word metin vurgusu / arka plan gölgesi aktarılmadı; metin aynen aktarıldı.',true);
     // Caps are real capitals in UDF (same look, same text); small caps become
     // capitals too. Purely visual effects never lose text: they are listed
     // as information and do not block the download.

@@ -62,6 +62,20 @@
       .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/gu, '_').replace(/\s+/gu, ' ').trim().replace(/[. ]+$/u, '').slice(0, 90) || 'Belge';
   }
 
+  // Download name from the user's pattern (v1.10): {TARİH} {MÜVEKKİL} {ESAS}
+  // {TÜR} {KAYNAK}; unknown fields stay as typed, "/" becomes "-".
+  const FILE_FIELDS = {'TARİH': 'date', 'TARIH': 'date', 'MÜVEKKİL': 'client', 'MUVEKKIL': 'client', 'ESAS': 'caseNo', 'ESASNO': 'caseNo', 'TÜR': 'type', 'TUR': 'type', 'KAYNAK': 'source'};
+  function fileName(pattern, vars = {}){
+    const p = String(pattern || '').trim() || '{KAYNAK}';
+    const out = p.replace(/\{([^{}]{1,20})\}/gu, (all, k) => {
+      const f = FILE_FIELDS[k.toLocaleUpperCase('tr-TR').replace(/\s+/gu, '')];
+      return f ? String(vars[f] || '').replace(/[\\/]+/gu, '-').trim() : all;
+    });
+    const name = out.replace(/[{}]/gu, '').replace(/_{2,}/gu, '_').replace(/^[_\s-]+|[_\s-]+$/gu, '');
+    // Every field empty: fall back to the source / template name.
+    return name ? safeName(name) : vars.source ? safeName(vars.source) : 'Dilekce';
+  }
+
   // Batch: every DOCX goes through the same pipeline; a failing file does not
   // stop the others and is listed in the batch report instead.
   async function batch(files, {settings, profile = 'legal', now = new Date(), onProgress} = {}){
@@ -94,5 +108,5 @@
     return {bytes, converted: entries.length - 1, total: files.length, report};
   }
 
-  globalThis.WordToUDFPipeline = {LEGAL_FONT, LEGAL_SIZE, EMPTY_DOC, assertHasText, legalOptions, typeset, toUdf, batch, safeName};
+  globalThis.WordToUDFPipeline = {LEGAL_FONT, LEGAL_SIZE, EMPTY_DOC, assertHasText, legalOptions, typeset, toUdf, batch, safeName, fileName};
 })();

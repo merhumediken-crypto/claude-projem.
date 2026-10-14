@@ -17,6 +17,7 @@
     if(run.strike!==undefined)attrs.push(t('strike',run.strike?1:0));
     if(run.color)attrs.push(`<w:color w:val="${color(run.color)}"/>`);
     if(run.background)attrs.push(`<w:shd w:val="clear" w:color="auto" w:fill="${color(run.background)}"/>`);
+    else if(run.highlight===true)attrs.push('<w:highlight w:val="yellow"/>');
     return attrs.length?`<w:rPr>${attrs.join('')}</w:rPr>`:'';
   };
   function runs(source){

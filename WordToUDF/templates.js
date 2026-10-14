@@ -178,6 +178,121 @@
       requests: () => ['Beyanlarımızın dikkate alınmasına,'],
       closing: 'Karar verilmesini saygıyla talep ederiz.',
       attachments: () => []
+    },
+    /* ---------- v1.10 ---------- */
+    {
+      id: 'islah', title: 'Islah dilekçesi (HMK m. 176)',
+      fields: [
+        {id: 'kind', label: 'Islah türü', type: 'select', options: [['kismi', 'Kısmi ıslah (talep miktarının artırılması vb.)'], ['tam', 'Tamamen ıslah']]},
+        {id: 'subject', label: 'Islah edilen talep / kalem', type: 'text', placeholder: 'ör. fazla çalışma ücreti alacağı'},
+        {id: 'oldAmount', label: 'Dava dilekçesindeki miktar', type: 'text', showIf: f => f.kind !== 'tam', placeholder: 'ör. 1.000 TL'},
+        {id: 'newAmount', label: 'Islahla istenen miktar', type: 'text', showIf: f => f.kind !== 'tam', placeholder: 'ör. 45.000 TL'},
+        {id: 'feePaid', label: 'Islah harcı / eksik harç yatırıldı', type: 'checkbox', value: true}
+      ],
+      topic: f => f.kind === 'tam' ? 'HMK m. 176 vd. uyarınca davanın tamamen ıslahı talebimizdir.' : 'HMK m. 176 vd. uyarınca kısmi ıslah talebimizin sunulmasıdır.',
+      body: f => [
+        'Mahkemenizin yukarıda esas numarası belirtilen dosyasında, HMK m. 177 uyarınca tahkikat sona erinceye kadar kullanılabilecek ıslah hakkımızı kullanmaktayız.',
+        f.kind === 'tam'
+          ? `Dava dilekçemizi ${or(f.subject, D)} yönünden tamamen ıslah ediyoruz; ıslah edilmiş dava dilekçemiz HMK m. 180 uyarınca ekte sunulmuştur.`
+          : `Dava dilekçemizde ${or(f.subject, D)} yönünden ${or(f.oldAmount, D)} olarak gösterdiğimiz talebimizi ${or(f.newAmount, D)} olarak ıslah ediyoruz.`,
+        f.feePaid ? 'Islah nedeniyle yatırılması gereken harç yatırılmış olup makbuzu dilekçemiz ekindedir.' : 'Islah nedeniyle tamamlanması gereken harç yatırılacaktır.'
+      ],
+      requests: f => f.kind === 'tam'
+        ? ['Islah talebimizin kabulüne,', 'Islah edilmiş dava dilekçemiz doğrultusunda yargılamaya devam edilmesine,']
+        : ['Kısmi ıslah talebimizin kabulüne,', `${cap(or(f.subject, D))} yönünden talebimizin ${or(f.newAmount, D)} olarak dikkate alınmasına,`, 'Yargılama giderleri ve vekâlet ücretinin karşı tarafa yükletilmesine,'],
+      closing: 'Karar verilmesini saygıyla talep ederiz.',
+      attachments: f => [...(f.feePaid ? ['Islah harcı makbuzu'] : []), ...(f.kind === 'tam' ? ['Islah edilmiş dava dilekçesi'] : [])]
+    },
+    {
+      id: 'replik', title: 'Cevaba cevap / ikinci cevap dilekçesi (HMK m. 136)',
+      fields: [
+        {id: 'serviceDate', label: 'Karşı tarafın dilekçesinin tebliğ tarihi', type: 'date'},
+        {id: 'points', label: 'Karşı tarafın iddialarına cevaplarımız (her paragraf ayrı satırda)', type: 'textarea', placeholder: 'ör. Davalının ödeme yapıldığına ilişkin iddiası, sunduğu belgelerle sabit değildir.'}
+      ],
+      // Davacı: cevaba cevap; davalı: ikinci cevap.
+      topic: f => f.role === 'DAVALI' ? 'Davacının cevaba cevap dilekçesine karşı ikinci cevap dilekçemizin sunulmasıdır.' : 'Davalının cevap dilekçesine karşı cevaba cevap dilekçemizin sunulmasıdır.',
+      body: f => [
+        `Karşı tarafın ${or(f.serviceDate, D)} tarihinde tarafımıza tebliğ edilen ${f.role === 'DAVALI' ? 'cevaba cevap' : 'cevap'} dilekçesine karşı beyanlarımızı HMK m. 136 uyarınca iki haftalık süre içinde sunuyoruz.`,
+        ...(String(f.points || '').split(/\r?\n/u).map(clean).filter(Boolean).length ? String(f.points).split(/\r?\n/u).map(clean).filter(Boolean) : ['Karşı tarafın dilekçesinde ileri sürülen iddialar gerçeği yansıtmamaktadır.']),
+        `${f.role === 'DAVALI' ? 'Cevap' : 'Dava'} dilekçemizdeki açıklama ve taleplerimizi aynen tekrar ediyoruz.`
+      ],
+      requests: f => f.role === 'DAVALI'
+        ? ['Haksız ve hukuki dayanaktan yoksun davanın reddine,', 'Yargılama giderleri ve vekâlet ücretinin davacıya yükletilmesine,']
+        : ['Davamızın kabulüne,', 'Yargılama giderleri ve vekâlet ücretinin davalıya yükletilmesine,'],
+      closing: 'Karar verilmesini saygıyla talep ederiz.',
+      attachments: () => []
+    },
+    {
+      id: 'kesif', title: 'Keşif ve bilirkişi incelemesi talebi (HMK m. 288)',
+      fields: [
+        {id: 'place', label: 'Keşif yapılacak yer', type: 'text', placeholder: 'ör. Haliliye/Şanlıurfa, 123 ada 4 parsel'},
+        {id: 'matters', label: 'Keşifle tespit edilmesi istenen hususlar', type: 'textarea', placeholder: 'ör. taşınmazdaki ayıpların niteliği ve giderim bedeli'},
+        {id: 'expert', label: 'Keşif bilirkişi eşliğinde yapılsın (HMK m. 266)', type: 'checkbox', value: true},
+        {id: 'advance', label: 'Keşif ve bilirkişi gider avansı yatırıldı', type: 'checkbox', value: false}
+      ],
+      topic: () => 'Dava konusu yerde keşif yapılması ve bilirkişi incelemesi talebimizdir.',
+      body: f => [
+        `Uyuşmazlığın çözümü için ${or(f.place, D)} adresindeki dava konusu yerde keşif yapılması zorunludur.`,
+        `Keşifle ${or(f.matters, D)} hususlarının yerinde tespit edilmesi gerekmektedir.`,
+        ...(f.expert ? ['Tespit edilecek hususlar özel ve teknik bilgi gerektirdiğinden keşfin alanında uzman bilirkişi eşliğinde yapılmasını talep ediyoruz.'] : []),
+        f.advance ? 'Keşif ve bilirkişi gider avansı yatırılmış olup makbuzu ektedir.' : 'Keşif ve bilirkişi gider avansı, Mahkemenizce verilecek süre içinde yatırılacaktır.'
+      ],
+      requests: f => ['Dava konusu yerde keşif yapılmasına,', ...(f.expert ? ['Keşfin bilirkişi eşliğinde yapılarak rapor alınmasına,'] : []), 'Keşif gününün UYAP üzerinden tarafımıza bildirilmesine,'],
+      closing: 'Karar verilmesini saygıyla talep ederiz.',
+      attachments: f => f.advance ? ['Gider avansı makbuzu'] : []
+    },
+    {
+      id: 'ihtiyatihaciz', title: 'İhtiyati haciz talebi (İİK m. 257)',
+      fields: [
+        {id: 'amount', label: 'Alacak tutarı', type: 'text', placeholder: 'ör. 250.000 TL'},
+        {id: 'due', label: 'Vade tarihi', type: 'date'},
+        {id: 'basis', label: 'Alacağın dayanağı', type: 'text', placeholder: 'ör. 15.09.2026 keşide tarihli, 250.000 TL bedelli çek'},
+        {id: 'security', label: 'Teminat', type: 'select', options: [['teminat', 'Mahkemece takdir edilecek teminat yatırılacak (İİK m. 259)'], ['ilam', 'Alacak ilama dayandığından teminat istenmemesi']]}
+      ],
+      topic: () => 'İİK m. 257 vd. uyarınca ihtiyati haciz kararı verilmesi talebimizdir.',
+      body: f => [
+        `Müvekkilin karşı taraftan ${or(f.amount, D)} tutarında, vadesi ${or(f.due, D)} tarihinde gelmiş ve rehinle temin edilmemiş para alacağı bulunmaktadır.`,
+        `Alacağın dayanağı ${or(f.basis, D)} olup belge örneği dilekçemiz ekinde sunulmuştur.`,
+        'Bu nedenle İİK m. 257 uyarınca borçlunun menkul ve gayrimenkul malları ile üçüncü kişilerdeki hak ve alacaklarının ihtiyaten haczine karar verilmesini talep ediyoruz.',
+        f.security === 'ilam' ? 'Alacağımız ilama dayandığından İİK m. 259 uyarınca teminat alınmamasını talep ediyoruz.' : 'Mahkemenizce İİK m. 259 uyarınca takdir edilecek teminatı yatırmaya hazırız.'
+      ],
+      requests: f => [`${or(f.amount, D)} alacağın tahsilini teminen borçlunun menkul ve gayrimenkul malları ile üçüncü kişilerdeki hak ve alacaklarının ihtiyaten haczine,`,
+        f.security === 'ilam' ? 'Teminat alınmamasına,' : 'Teminat miktarının takdirine,', 'Yargılama giderlerinin karşı tarafa yükletilmesine,'],
+      closing: 'Karar verilmesini saygıyla talep ederiz.',
+      attachments: () => ['Alacağın dayanağı belge örneği']
+    },
+    {
+      id: 'feragat', title: 'Davadan feragat dilekçesi (HMK m. 307)',
+      fields: [
+        {id: 'authority', label: 'Vekâletnamede davadan feragat yetkisi var (HMK m. 74)', type: 'checkbox', value: true},
+        {id: 'costs', label: 'Yargılama giderleri', type: 'select', options: [['mutabakat', 'Karşı tarafla mutabakat: karşılıklı gider ve vekâlet ücreti talebi yok'], ['genel', 'HMK m. 312 uyarınca karar verilsin']]}
+      ],
+      topic: () => 'Davadan feragat beyanımızın sunulmasıdır.',
+      body: f => [
+        'Mahkemenizin yukarıda esas numarası belirtilen dosyasında açılan davadan HMK m. 307 vd. uyarınca feragat ediyoruz.',
+        f.authority ? 'Dosyada mevcut vekâletnamemizde davadan feragat yetkisi bulunmaktadır.' : 'Davadan feragat yetkisini içeren vekâletname örneği dilekçemiz ekinde sunulmuştur.',
+        ...(f.costs === 'mutabakat' ? ['Karşı tarafla varılan mutabakat uyarınca taraflar birbirinden yargılama gideri ve vekâlet ücreti talep etmemektedir.'] : [])
+      ],
+      requests: f => ['Feragat nedeniyle davanın reddine,', f.costs === 'mutabakat' ? 'Taraflar lehine yargılama gideri ve vekâlet ücretine hükmedilmemesine,' : 'Yargılama giderleri hakkında HMK m. 312 uyarınca karar verilmesine,'],
+      closing: 'Karar verilmesini saygıyla talep ederiz.',
+      attachments: f => f.authority ? [] : ['Feragat yetkili vekâletname örneği']
+    },
+    {
+      id: 'iade', title: 'Gider avansı / harç iadesi talebi',
+      fields: [
+        {id: 'what', label: 'İadesi istenen', type: 'select', options: [['avans', 'Kullanılmayan gider avansı (HMK m. 333)'], ['harc', 'Fazla yatırılan harç']]},
+        {id: 'holder', label: 'Hesap sahibi', type: 'text', placeholder: 'ör. Av. Fatih NAKIŞLI'},
+        {id: 'iban', label: 'IBAN', type: 'text', placeholder: 'TR00 0000 0000 0000 0000 0000 00'}
+      ],
+      topic: f => f.what === 'harc' ? 'Fazla yatırılan harcın iadesi talebimizdir.' : 'Kullanılmayan gider avansının iadesi talebimizdir.',
+      body: f => [
+        f.what === 'harc' ? 'Mahkemenizin yukarıda esas numarası belirtilen dosyasında fazladan harç yatırılmış olup iadesi gerekmektedir.'
+          : 'Mahkemenizin yukarıda esas numarası belirtilen dosyasında yargılama sona ermiş olup kullanılmayan gider avansının HMK m. 333 uyarınca iadesi gerekmektedir.',
+        `İadenin ${or(f.holder, D)} adına kayıtlı ${or(f.iban, D)} IBAN numaralı hesaba yapılmasını talep ediyoruz.`
+      ],
+      requests: f => [`${f.what === 'harc' ? 'Fazla yatırılan harcın' : 'Kullanılmayan gider avansının'} ${or(f.iban, D)} IBAN numaralı hesaba iadesine,`],
+      closing: 'Karar verilmesini saygıyla talep ederiz.',
+      attachments: () => []
     }
   ];
   const byId = id => TEMPLATES.find(t => t.id === id) || TEMPLATES[0];

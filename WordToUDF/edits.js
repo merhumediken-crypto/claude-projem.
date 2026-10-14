@@ -44,8 +44,9 @@
   const INDENTS = Object.freeze([0, 0.5, 1, 1.25, 2, 3]); // cm
   const BOOL = ['bold', 'italic', 'underline', 'remove', 'blankBefore', 'blankAfter', 'breakBefore', 'mergeNext'];
   // Inline (word / sentence) styles.
-  const MARK_STYLES = Object.freeze(['bold', 'italic', 'underline', 'strike']);
-  const MARK_TEXT = Object.freeze({bold: 'kalın', italic: 'italik', underline: 'altı çizili', strike: 'üstü çizili'});
+  // 'highlight' is the opt-in experimental UDF text highlight (v1.10).
+  const MARK_STYLES = Object.freeze(['bold', 'italic', 'underline', 'strike', 'highlight']);
+  const MARK_TEXT = Object.freeze({bold: 'kalın', italic: 'italik', underline: 'altı çizili', strike: 'üstü çizili', highlight: 'vurgulu'});
   // Edits that belong to the whole document (not one paragraph) live under this key.
   const DOC_KEY = '*doc';
   // Key of a paragraph the user added after <parent>: "<parent>#+<id>".
@@ -133,10 +134,37 @@
   // when the user presses "Düzelt". Each is idempotent and keeps run styles.
   const pad2 = v => String(v).padStart(2, '0');
   const okDate = (d, m, y) => { const t = new Date(Date.UTC(+y, +m - 1, +d)); return t.getUTCMonth() === +m - 1 && t.getUTCDate() === +d; };
+  // "10.500,50" → "on bin beş yüz Türk lirası elli kuruş" (TDK: numbers written separately).
+  const ONES = ['', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz'];
+  const TENS = ['', 'on', 'yirmi', 'otuz', 'kırk', 'elli', 'altmış', 'yetmiş', 'seksen', 'doksan'];
+  const SCALES = ['', 'bin', 'milyon', 'milyar', 'trilyon'];
+  function hundreds(n){
+    const h = Math.floor(n / 100), t = Math.floor(n / 10) % 10, o = n % 10;
+    return [h ? (h === 1 ? 'yüz' : `${ONES[h]} yüz`) : '', TENS[t], ONES[o]].filter(Boolean).join(' ');
+  }
+  function numberWords(n){
+    n = Math.floor(Number(n));
+    if(!Number.isFinite(n) || n < 0 || n >= 1e15) return '';
+    if(n === 0) return 'sıfır';
+    const parts = [];
+    for(let i = 0; n > 0; i++, n = Math.floor(n / 1000)){
+      const g = n % 1000; if(!g) continue;
+      parts.unshift(i === 1 && g === 1 ? 'bin' : [hundreds(g), SCALES[i]].filter(Boolean).join(' '));
+    }
+    return parts.join(' ');
+  }
+  function amountWords(intPart, kurus){
+    const lira = numberWords(Number(String(intPart).replace(/\./gu, '')));
+    const k = kurus ? Number(String(kurus).padEnd(2, '0')) : 0;
+    return lira ? `${lira} Türk lirası${k ? ` ${numberWords(k)} kuruş` : ''}` : '';
+  }
   const CLEANUPS = Object.freeze({
     spaces: {label: 'sözcükler arasındaki fazla boşluklar teke indirildi', re: /(?<=\S) {2,}(?=\S)/gu, to: () => ' '},
     'punct-space': {label: 'noktalama işaretinden önceki boşluk kaldırıldı', re: /(?<=\S) +(?=[,.;!?)])|(?<=\() +/gu, to: () => ''},
     'comma-space': {label: 'virgülden sonra boşluk eklendi', re: /,(?=\p{L})/gu, to: () => ', '},
+    // An amount without "(… Türk lirası)" after it gets its written form.
+    amounts: {label: 'tutarların yazıyla karşılığı eklendi', re: /(?<![\d.,/])(\d{1,3}(?:\.\d{3})+|\d{1,15})(?:,(\d{1,2}))?(?:\s?(?:TL|₺)|\s(?:Türk lirası|TÜRK LİRASI))(?![\p{L}\d'’])(?!\s*\()/gu,
+      to: m => { const w = amountWords(m[1], m[2]); return w ? `${m[0]} (${w})` : m[0]; }},
     dates: {label: 'tarihler GG.AA.YYYY biçimine çevrildi', re: /(?<![\d./-])(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?![\d/-])/gu, to: m => okDate(m[1], m[2], m[3]) ? `${pad2(m[1])}.${pad2(m[2])}.${m[3]}` : m[0]}
   });
   function cleanupMatches(text, id){
@@ -580,5 +608,5 @@
   }
 
   globalThis.WordToUDFEdits = {ROLES, ALIGN, SIZES, LINES, SPACES, INDENTS, MARK_STYLES, MARK_TEXT, DOC_KEY, sanitize, sanitizeDoc, blockKeys, apply, describe, describeStyle, state,
-    renumber, sentences, findMatches, bodyText, markerLength, rangeHas, childKey, parentOf, styleRange, replaceRange, CLEANUPS, cleanupMatches, countCleanup};
+    renumber, sentences, findMatches, bodyText, markerLength, rangeHas, childKey, parentOf, styleRange, replaceRange, CLEANUPS, cleanupMatches, countCleanup, numberWords, amountWords};
 })();

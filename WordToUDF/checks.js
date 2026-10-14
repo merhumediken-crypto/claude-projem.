@@ -152,7 +152,8 @@
     spaces: n => `${n} yerde sözcükler arasında birden fazla boşluk var.`,
     'punct-space': n => `${n} yerde noktalama işaretinden (virgül, nokta, parantez) önce boşluk var.`,
     'comma-space': n => `${n} yerde virgülden sonra boşluk yok.`,
-    dates: n => `${n} tarih GG/AA/YYYY ya da GG-AA-YYYY biçiminde; dilekçede GG.AA.YYYY kullanılır.`
+    dates: n => `${n} tarih GG/AA/YYYY ya da GG-AA-YYYY biçiminde; dilekçede GG.AA.YYYY kullanılır.`,
+    amounts: n => `${n} tutarın yazıyla karşılığı yok (ör. “10.000 TL (on bin Türk lirası)”).`
   };
   // Repeated full law names: the abbreviation after the first mention is enough.
   const LAWS = [['Hukuk Muhakemeleri Kanunu', 'HMK'], ['Türk Borçlar Kanunu', 'TBK'], ['Türk Medeni Kanunu', 'TMK'], ['İcra ve İflas Kanunu', 'İİK'],

@@ -2,6 +2,35 @@
 
 WordToUDF'nin bütün sürümleri, yeniden eskiye. Kullanım kılavuzu: [README.md](README.md).
 
+## 1.10.0 — Süre hesabı, PDF, sayfa ve değişiklik görünümü, yeni şablonlar
+
+### Süre hesapla (yeni sayfa)
+- Tebliğ tarihi ve süre seçilir; **son gün** gün adıyla, kalan gün sayısıyla ve adım adım hesabıyla gösterilir.
+- Hazır süreler: cevap, cevaba cevap / ikinci cevap, ek süre, bilirkişi raporuna itiraz, istinaf, temyiz (iki hafta, HMK m. 361), ihtiyati tedbire itiraz; ödeme emrine itiraz, kambiyo, şikâyet, ihtiyati hacze itiraz; idari dava, vergi davası, idari istinaf; ya da gün / hafta / ay / yıl olarak kendi süreniz.
+- Kurallar: gün olarak sürede başlangıç günü sayılmaz, hafta / ay / yıl son haftanın / ayın aynı gününde biter, ayda o gün yoksa ayın son günü (HMK m. 92); son gün Pazar, Cumartesi (isteğe bağlı) ya da resmî / dini bayram ise ilk iş günü (HMK m. 93); adli tatile (20 Temmuz – 31 Ağustos) rastlayan süre bir hafta uzar (HMK m. 104). Arife (yarım gün) uyarılır, süreyi uzatmaz.
+- Dini bayram tarihleri Diyanet takviminden (2025–2027); tablo dışındaki yıl için uyarı verilir. İcra sürelerinde adli tatil uzatması varsayılan olarak uygulanmaz ve bu açıkça yazılır.
+- **Takvime ekle (.ics):** son gün, iki gün önceden hatırlatmalı; **Hesabı kopyala:** adımlarıyla not.
+
+### PDF olarak kaydet
+- Dönüştür ve Şablonlar sayfalarında **PDF** düğmesi: yazdırma penceresinde yalnız dilekçe, belgenin kenar boşluklarıyla A4 sayfalara dizilir; hedef “PDF olarak kaydet” seçilir. Önerilen dosya adı, aşağıdaki dosya adı kalıbıdır.
+
+### Önizleme
+- **Yaklaşık sayfa sonları:** kesik çizgi ve “≈ 2. sayfa” etiketi; sayfa sayısı önizleme başlığında. İmza bloğu son sayfaya tek başına düşüyorsa uyarı verilir. (Chrome'un dizgisi UYAP'ınkiyle birebir aynı değildir; bu nedenle “≈”.)
+- **Değişiklikleri göster:** hukuk profilinin eklediği ya da değiştirdiği sözcükler (UETS, büyük harfe çevrilen soyadı, eklenen kapanış, tarih…) sarıyla işaretlenir; fareyle paragrafın üzerine gelince yapılan değişikliğin açıklaması görünür.
+
+### Şablonlar ve öneriler
+- **6 yeni şablon** (toplam 14): ıslah (HMK m. 176; kısmi / tamamen), cevaba cevap / ikinci cevap (HMK m. 136; müvekkilin sıfatına göre başlık ve talepler), keşif ve bilirkişi incelemesi (HMK m. 288), ihtiyati haciz (İİK m. 257; teminat seçeneği), davadan feragat (HMK m. 307), gider avansı / harç iadesi (HMK m. 333).
+- **Tutar yazıyla önerisi:** “15.000 TL” yanında yazıyla karşılığı yoksa öneri çıkar; **Düzelt** ile “15.000 TL (on beş bin Türk lirası)” yazılır (kuruş dahil). Esas no gibi sayılar ve ekli kullanım (“5 TL'nin”) atlanır.
+
+### Dosya adı ve deneysel UDF
+- **İndirilen dosya adı kalıbı:** {TARİH} {MÜVEKKİL} {ESAS} {TÜR} {KAYNAK} alanlarıyla (ör. “14.10.2026_İsa ÇİFTÇİ_2026-1929 Esas”); UDF, Word, rapor ve PDF'de kullanılır, önizlemesi gösterilir.
+- **Deneysel (isteğe bağlı) metin vurgusu:** ayarlardan açılırsa biçim çubuğunda **V** (sarı vurgu) düğmesi çıkar; UDF'ye `background` özniteliğiyle yazılır. UYAP'ta henüz doğrulanmadığı için kapalı gelir; “Deneme UDF'si indir” ile önce UYAP'ta denenir.
+
+### Diğer
+- Word'deki metin vurgusu / gölge bildirimi de “Bilgi” olarak listelenir (indirme onayı istemez).
+- Açılır pencereye ve giriş sayfasına “Süre hesapla” eklendi; üst çubukta dört bölüm (telefonda kısa adlarla).
+- Testler: 102 mantık testi (sayı okunuşu, tutar düzeltmesi, süre hesabı ve .ics, dosya adı, vurgu), yeni tarayıcı testi `v110_tools`, CSP açık sayfa testine PDF ve süre sayfası; 600 rastgele dilekçeyle zorlama testi.
+
 ## 1.9.0 — Dosya kartları, kendi şablonlarınız, bul / değiştir, düzeltme önerileri
 
 ### Dosya kartları

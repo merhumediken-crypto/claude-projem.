@@ -22,7 +22,11 @@
     lineSpacing: 1.5,
     dateToday: true,
     markUets: true,
-    splitRequests: false
+    splitRequests: false,
+    // v1.10: download file name pattern ('' = source / template name) and
+    // opt-in UDF features not yet confirmed in UYAP (text highlight).
+    fileName: '',
+    experimental: false
   });
 
   const str = (v, max = 200) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/gu, ' ').trim().slice(0, max);
@@ -46,7 +50,9 @@
       lineSpacing: Number(src.lineSpacing) === 1 ? 1 : 1.5,
       dateToday: src.dateToday !== false,
       markUets: src.markUets !== false,
-      splitRequests: !!src.splitRequests
+      splitRequests: !!src.splitRequests,
+      fileName: str(src.fileName, 120),
+      experimental: src.experimental === true
     };
   }
   function load(){

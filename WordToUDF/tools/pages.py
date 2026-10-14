@@ -14,8 +14,8 @@ SRC = Path(__file__).resolve().parent / 'pages'
 VERSION = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))['version']
 CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'"
 # (page, label, short label for phones, icon)
-NAV = [('workspace.html', 'Dönüştür', 'Dönüştür', 'i-doc'), ('templates.html', 'Şablonlar', 'Şablonlar', 'i-layers'),
-       ('reverse.html', 'UDF → Word / PDF', 'UDF → Word', 'i-swap')]
+NAV = [('workspace.html', 'Dönüştür', 'Dönüştür', 'i-doc'), ('templates.html', 'Şablonlar', 'Şablon', 'i-layers'),
+       ('reverse.html', 'UDF → Word / PDF', 'UDF→Word', 'i-swap'), ('sure.html', 'Süre hesapla', 'Süre', 'i-clock')]
 
 def head(title, extra_css=()):
     css = ''.join(f'<link rel="stylesheet" href="{c}">' for c in ('workspace.css', *extra_css))
@@ -48,6 +48,7 @@ PAGES = {
     'workspace.html': ('Word → UDF Dönüştürücü', ()),
     'templates.html': ('Şablondan Dilekçe', ()),
     'reverse.html': ('UDF → Word / PDF', ('reverse.css',)),
+    'sure.html': ('Süre hesapla', ()),
     'index.html': ('Word ↔ UDF', ()),
 }
 

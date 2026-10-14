@@ -310,6 +310,7 @@ def main():
         v17_no_jump(browser,petition)
         v18_marks(browser,tmp,petition)
         v19_library(browser,tmp)
+        v110_tools(browser,tmp,petition)
         csp_check(browser)
         browser.close()
 
@@ -442,7 +443,7 @@ def v15_checks(browser,tmp,petition,sample):
     assert any('ihtiyati tedbir kararının kaldırılmasına' in p.text for p in Document(str(td)).paragraphs)
     # Bütün şablonlar önizleme üretir; şablon önizlemesinde de paragraf düzenleyici çalışır.
     ids=page.evaluate("()=>[...document.getElementById('tpl').options].map(o=>o.value)")
-    assert len(ids)==8,ids
+    assert len(ids)==14,ids
     for tid in ids:
         page.locator('#tpl').select_option(tid);page.wait_for_timeout(250)
         assert page.locator('#paper [data-role="court-heading"]').count()==1,tid
@@ -453,7 +454,7 @@ def v15_checks(browser,tmp,petition,sample):
     assert page.locator('#paper .paragraph.edited').evaluate("p=>p.style.textAlign")=='right'
     page.keyboard.press('Escape')
     assert not errors,errors
-    print('PASS şablon sayfası: 8 şablon, mazeret ve tedbir itirazı → UDF/DOCX, boş alan kalmadı, düzenleme korunuyor, paragraf düzenleyici çalışıyor')
+    print('PASS şablon sayfası: 14 şablon, mazeret ve tedbir itirazı → UDF/DOCX, boş alan kalmadı, düzenleme korunuyor, paragraf düzenleyici çalışıyor')
     ctx.close()
     # --- Başlangıç sayfası ve PWA dosyaları.
     import json as _j
@@ -781,6 +782,82 @@ def v19_library(browser,tmp):
     ctx.close()
     print('PASS kütüphane ve öneriler: Düzelt düğmeleri, Ctrl+F bul/değiştir ve vurgu, hepsi kalın, kural kaldır/geri al, dosya kartı ve kendi şablonu, sayfalar arası kullanım, dışa aktarma')
 
+def v110_tools(browser,tmp,petition):
+    """1.10: approximate pages and lonely signature, show changes, PDF print,
+    file name pattern, experimental highlight, deadline page, new templates."""
+    ctx=browser.new_context(accept_downloads=True,viewport={'width':1440,'height':900})
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html');fetch_data(page,petition)
+    assert re.search(r'≈ \d+ sayfa',page.locator('#previewCount').text_content()),page.locator('#previewCount').text_content()
+    # Sayfa hesabı: sentetik paragraf yükseklikleriyle; imza tek başına yeni sayfaya düşer.
+    res=page.evaluate("""()=>{const paper=document.createElement('article');paper.className='paper';document.body.append(paper);
+      const add=(h,role,text)=>{const p=document.createElement('div');p.className='paragraph';p.dataset.role=role;p.textContent=text;p.style.height=h+'px';paper.append(p);};
+      add(994,'explanation-body','gövde');add(16,'result-closing','Karar verilmesini talep ederim.');add(30,'signature','Av. Ali VELİ');
+      const r=WordToUDFPreview.paginate(paper,{margins:{top:42.52,bottom:42.52}});const g=paper.querySelectorAll('.page-guide').length;
+      paper.lastChild.previousSibling.style.height='5px';paper.firstChild.style.height='900px';const r2=WordToUDFPreview.paginate(paper,{margins:{top:42.52,bottom:42.52}});
+      paper.remove();return [r.pages,r.signatureAlone,g,r2.pages,r2.signatureAlone];}""")
+    assert res==[2,True,1,1,False],res
+    # Değişiklikleri göster.
+    page.locator('#changesToggle').click();page.wait_for_timeout(250)
+    marks=page.evaluate("[...document.querySelectorAll('#paper mark.chg')].map(m=>m.textContent)")
+    assert marks and page.locator('#chgLegend').is_visible() and page.locator('#paper .has-chg').count()>=1,marks
+    assert 'Dosya' not in marks,'kaynakta aynen olan sözcük işaretlenmez'
+    page.locator('#changesToggle').click();page.wait_for_timeout(250)
+    assert page.locator('#paper mark.chg').count()==0 and page.locator('#chgLegend').is_hidden()
+    # PDF: yalnız dilekçe, @page kenar boşlukları, sonra her şey eski hâline.
+    page.evaluate("""()=>{window.print=()=>{const s=document.adoptedStyleSheets.at(-1);window.__p={text:document.getElementById('docPrint').innerText,cls:document.body.className,title:document.title,
+      page:[...s.cssRules].map(r=>r.cssText).join(' ')};window.dispatchEvent(new Event('afterprint'));};}""")
+    page.locator('#printPdf').click();page.wait_for_timeout(200)
+    pr=page.evaluate('window.__p')
+    assert 'İSTANBUL 22. ASLİYE TİCARET MAHKEMESİNE' in pr['text'] and pr['cls']=='print-doc' and 'a4 portrait' in pr['page'].lower() and '42.5' in pr['page'] and pr['title']==petition.stem,pr
+    assert 'Önizleme' not in pr['text'] and 'Çoklu seçim' not in pr['text'],'yalnız dilekçe yazdırılır'
+    after=page.evaluate("[document.body.className,document.adoptedStyleSheets.length,document.getElementById('docPrint').children.length,document.title]")
+    assert after==['',0,0,'Word → UDF Dönüştürücü'],after
+    # Dosya adı kalıbı indirilen dosyaya uygulanır.
+    page.locator('.file-name summary').click();page.locator('#fileNamePattern').fill('{ESAS}_{TÜR}')
+    assert page.locator('#fileNamePreview').text_content()=='→ 2026-713 E. 2026-708 K._İHTİYATİ HACİZ KARARINA İTİRAZ VE İVEDİ İNCELEME TALEPLİDİR.udf',page.locator('#fileNamePreview').text_content()
+    name=save_download(page,'#download',tmp/'v110.udf')
+    assert name=='2026-713 E. 2026-708 K._İHTİYATİ HACİZ KARARINA İTİRAZ VE İVEDİ İNCELEME TALEPLİDİR.udf',name
+    # Deneysel vurgu: kapalıyken düğme yok; açınca seçime uygulanır, UDF'de background.
+    assert page.evaluate(SELECT_JS,['#paper .paragraph','verilen karara']);page.wait_for_timeout(250)
+    assert page.locator('.mark-pop .mp-highlight').is_hidden()
+    page.evaluate('getSelection().removeAllRanges()');page.locator('#experimental').check();page.wait_for_timeout(300)
+    assert page.locator('#experimentBox').is_visible()
+    assert page.evaluate(SELECT_JS,['#paper .paragraph','verilen karara']);page.wait_for_timeout(250)
+    page.locator('.mark-pop .mp-highlight').click();page.wait_for_timeout(200)
+    hu=tmp/'v110-hl.udf';save_download(page,'#download',hu)
+    assert any(t=='verilen karara' and a.get('background') for t,a in udf_runs(hu)),[r for r in udf_runs(hu) if 'karara' in r[0]]
+    sample=tmp/'deneme.udf';save_download(page,'#experimentSample',sample)
+    assert sum(1 for t,a in udf_runs(sample) if a.get('background'))==3
+    assert not errors,errors
+    ctx.close()
+    # Süre hesapla sayfası ve takvim dosyası.
+    ctx=browser.new_context(accept_downloads=True);page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'sure.html')
+    page.locator('#dStart').fill('2026-07-10');page.locator('#dKind').select_option('istinaf');page.wait_for_timeout(150)
+    assert page.locator('#dDate').text_content()=='7 Eylül 2026 Pazartesi' and page.locator('#dRecess').is_checked()
+    page.locator('#dKind').select_option('odeme');page.wait_for_timeout(150)
+    assert not page.locator('#dRecess').is_checked() and 'İcra' in page.locator('#dKindNote').text_content()
+    assert page.locator('#dDate').text_content()=='17 Temmuz 2026 Cuma'
+    page.locator('#dKind').select_option('custom');page.locator('#dAmount').fill('1');page.locator('#dUnit').select_option('ay');page.locator('#dStart').fill('2026-01-31');page.wait_for_timeout(150)
+    assert page.locator('#dDate').text_content()=='2 Mart 2026 Pazartesi',page.locator('#dDate').text_content()
+    page.locator('#dLabel').fill('2026/1929 E. – deneme')
+    with page.expect_download() as info: page.locator('#dIcs').click()
+    ics=Path(info.value.path()).read_text(encoding='utf-8')
+    assert 'DTSTART;VALUE=DATE:20260302' in ics and '2026/1929 E. – deneme' in ics,ics
+    assert not errors,errors
+    ctx.close()
+    # Yeni şablonlar: cevaba cevap / ikinci cevap tarafa göre.
+    ctx=browser.new_context();page=ctx.new_page();load_page(page,'templates.html');page.wait_for_timeout(300)
+    page.locator('#tpl').select_option('replik');page.wait_for_timeout(250)
+    page.locator('#role').select_option('DAVACI');page.wait_for_timeout(300)
+    assert 'cevaba cevap dilekçemizin' in page.locator('#topic').input_value()
+    page.locator('#role').select_option('DAVALI');page.wait_for_timeout(300)
+    assert 'ikinci cevap' in page.locator('#topic').input_value() and 'Davanın reddine' not in page.locator('#requests').input_value()
+    assert 'davanın reddine' in page.locator('#requests').input_value().lower()
+    ctx.close()
+    print('PASS 1.10 araçları: yaklaşık sayfa ve yalnız kalan imza, değişiklikleri göster, PDF (yalnız dilekçe, @page), dosya adı kalıbı, deneysel vurgu (UDF background + deneme dosyası), süre hesabı ve takvim, cevaba cevap / ikinci cevap')
+
 def csp_check(browser):
     """The other tests strip the pages' CSP; here the real pages are served
     over HTTP with their CSP intact and every security-policy violation or
@@ -800,8 +877,12 @@ def csp_check(browser):
         paste_into(page,WORD_HTML,'x');paste_into(page,GDOCS_HTML,'x')
         page.locator('#paper .paragraph').nth(2).click();page.locator('.edit-sheet .chip',has_text='Kalın').click();page.keyboard.press('Escape')
         with page.expect_download(): page.locator('#download').click()
+        # PDF: constructed @page stylesheet and the print surface under the real CSP.
+        page.evaluate("()=>{window.print=()=>{window.__printSheets=document.adoptedStyleSheets.length;window.dispatchEvent(new Event('afterprint'));};}")
+        page.locator('#printPdf').click();page.wait_for_timeout(200)
+        assert page.evaluate('window.__printSheets')==1
         v=page.evaluate('window.__csp')
-        for name in ['templates.html','reverse.html','index.html']:
+        for name in ['templates.html','reverse.html','index.html','sure.html']:
             page.goto(f'http://127.0.0.1:{port}/{name}');page.wait_for_timeout(300);v+=page.evaluate('window.__csp')
         assert not v,v
         assert not errors,errors

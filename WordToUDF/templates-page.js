@@ -98,7 +98,7 @@
   function regenerate(force){
     if(edited && !force){ schedule(); return; }
     // Template text may use the common fields too (e.g. the client's name).
-    const t = current(), f = {client: $('client').value.trim(), caseNo: $('caseNo').value.trim(), ...extraValues()};
+    const t = current(), f = {client: $('client').value.trim(), caseNo: $('caseNo').value.trim(), role: $('role').value, ...extraValues()};
     $('topic').value = t.topic(f); $('body').value = t.body(f).join('\n'); $('requests').value = t.requests(f).join('\n');
     $('closing').value = typeof t.closing === 'function' ? t.closing(f) : t.closing; $('attachments').value = t.attachments(f).join('\n');
     edited = false; schedule();
@@ -128,7 +128,11 @@
   function render(){
     try{
       const t = build(); state.result = t;
-      WordToUDFPreview.render($('paper'), t.blocks, {margins: t.norm.margins, font: P.LEGAL_FONT, size: P.LEGAL_SIZE});
+      const pg = WordToUDFPreview.render($('paper'), t.blocks, {margins: t.norm.margins, font: P.LEGAL_FONT, size: P.LEGAL_SIZE});
+      $('previewCount').textContent = `≈ ${pg.pages} sayfa · A4`;
+      $('pageNote').hidden = !pg.signatureAlone;
+      $('pageNote').textContent = pg.signatureAlone ? `Uyarı (yaklaşık): imza bloğu ${pg.pages}. sayfaya tek başına düşüyor; bir paragrafı kısaltmayı düşünün.` : '';
+      showFileName();
       fitPaper();
       editor.decorate();
       const list = $('checkList'); list.replaceChildren(); $('checksPanel').hidden = false;
@@ -148,7 +152,7 @@
   // keyed by paragraph text, so changing a template field that alters a
   // paragraph simply leaves that paragraph's old edit unused.
   const editor = WordToUDFEditorUI.attach({paper: $('paper'), toolbar: $('previewTools'), getBlocks: () => state.result?.blocks,
-    onChange: render, onMessage: m => message(m, 'success'), enabled: () => !!state.result});
+    onChange: render, onMessage: m => message(m, 'success'), enabled: () => !!state.result, extraStyles: () => settings.experimental ? ['highlight'] : []});
 
   // Restore draft or start from the first template.
   // A deleted user template falls back to the first built-in one.
@@ -194,7 +198,8 @@
     read: () => Object.fromEntries(COMMON.map(k => [k, $(k).value])),
     apply: c => { for(const k of COMMON) if(k === 'role' ? T.ROLES.includes(c.role) : c[k] !== undefined) $(k).value = c[k] || ''; regenerate(false); },
     onMessage: (m, kind) => message(m, kind || 'success')});
-  $('role').addEventListener('change', () => { $('otherRole').value = T.OPPOSITE[$('role').value] || $('otherRole').value; schedule(); });
+  // Some template texts depend on the side (e.g. cevaba cevap / ikinci cevap).
+  $('role').addEventListener('change', () => { $('otherRole').value = T.OPPOSITE[$('role').value] || $('otherRole').value; regenerate(false); });
   for(const k of COMMON) $(k).addEventListener('input', () => regenerate(false));
   for(const k of TEXT) $(k).addEventListener('input', () => { edited = true; schedule(); });
   $('regen').addEventListener('click', () => regenerate(true));
@@ -204,8 +209,20 @@
   function fileBase(){
     const client = P.safeName($('client').value || 'Dilekce').replace(/\s+/gu, '_');
     const t = current();
-    return `${client}_${t.fileId || t.id}_${L.todayTR().replace(/\./gu, '_')}`;
+    const source = `${client}_${t.fileId || t.id}_${L.todayTR().replace(/\./gu, '_')}`;
+    // The user's file name pattern (shared with the converter page).
+    return P.fileName(settings.fileName, {date: L.todayTR(), client: $('client').value.trim(), caseNo: T.caseNumber($('caseNo').value), type: t.title, source});
   }
+  function showFileName(){ $('fileNamePreview').textContent = `→ ${fileBase()}.udf`; }
+  $('fileNamePattern').value = settings.fileName || '';
+  $('fileNamePattern').addEventListener('input', () => { settings.fileName = $('fileNamePattern').value; S.save(settings); showFileName(); });
+  $('printPdf').addEventListener('click', () => {
+    render(); const t = state.result; if(!t) return;
+    try{
+      message('Yazdırma penceresinde hedef olarak “PDF olarak kaydet”i seçin; “Üstbilgi ve altbilgi” kutusunu kapatın.', 'success');
+      WordToUDFPrint.printBlocks(t.blocks, {margins: t.norm.margins, font: P.LEGAL_FONT, size: P.LEGAL_SIZE, title: fileBase()});
+    }catch(err){ message(`PDF hazırlanamadı: ${err.message}`, 'error'); }
+  });
   $('download').addEventListener('click', async () => {
     render(); const t = state.result; if(!t) return;
     const errors = t.checks.filter(c => c.level === 'error');

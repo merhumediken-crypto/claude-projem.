@@ -36,9 +36,12 @@
     'explanation-body': 'gövde paragrafı', body: 'düz paragraf', 'result-item': 'talep maddesi', 'attachment-item': 'ek maddesi', 'result-closing': 'kapanış cümlesi', signature: 'imza satırı'};
   const detected = role => DETECTED[role] || (String(role).startsWith('edit-') ? E().ROLES[role.slice(5)]?.toLocaleLowerCase('tr-TR') : '');
   // Format buttons: [style, label on the button, accessible name, shortcut letter]
-  const STYLE_BTNS = [['bold', 'K', 'Kalın', 'B'], ['italic', 'İ', 'İtalik', 'I'], ['underline', 'A', 'Altı çizili', 'U'], ['strike', 'S', 'Üstü çizili', '']];
+  const STYLE_BTNS = [['bold', 'K', 'Kalın', 'B'], ['italic', 'İ', 'İtalik', 'I'], ['underline', 'A', 'Altı çizili', 'U'], ['strike', 'S', 'Üstü çizili', ''], ['highlight', 'V', 'Vurgu (deneysel)', '']];
+  // Styles shown only when the page enables them (experimental UDF features).
+  const OPTIONAL = new Set(['highlight']);
 
-  function attach({paper, toolbar, getBlocks, onChange, onMessage = () => {}, enabled = () => true}){
+  function attach({paper, toolbar, getBlocks, onChange, onMessage = () => {}, enabled = () => true, extraStyles = () => []}){
+    const shown = k => !OPTIONAL.has(k) || extraStyles().includes(k);
     const edits = new Map();          // key → edit object ('*doc' → whole-document rules)
     const history = [], future = [];  // snapshots for undo / redo
     const selected = new Set();       // keys
@@ -273,7 +276,7 @@
       }
       popSel = s; lastSel = {s, t: performance.now()};
       const b = blockFor(s.key);
-      for(const [k] of STYLE_BTNS){ const on = E().rangeHas(b, s.start, s.end, k); const btn = pop.querySelector(`.mp-${k}`); btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', String(on)); }
+      for(const [k] of STYLE_BTNS){ const on = E().rangeHas(b, s.start, s.end, k); const btn = pop.querySelector(`.mp-${k}`); btn.hidden = !shown(k); btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', String(on)); }
       pop.hidden = false;
       const docked = window.matchMedia('(max-width: 760px), (pointer: coarse)').matches;
       pop.classList.toggle('docked', docked);
@@ -595,7 +598,7 @@
         el('p', {class: 'note small', text: sents.length > 1 ? 'Biçimlemek istediğiniz cümlelere dokunun, sonra K / İ / A / S. Sözcük için metin kutusunda seçin ya da önizlemede fareyle / parmakla seçin.' : 'Cümleye dokunun ya da metin kutusunda / önizlemede sözcüğü seçin, sonra K / İ / A / S.'}),
         sents.length ? el('div', {class: 'sent-list', role: 'group', 'aria-label': 'Cümleler'}, ...sentButtons) : null,
         el('div', {class: 'row mark-row'},
-          ...STYLE_BTNS.map(([k, label, name, sc]) => {
+          ...STYLE_BTNS.filter(([k]) => shown(k)).map(([k, label, name, sc]) => {
             // Lit when every selected sentence already has the style (the button then removes it).
             const on = sentSel.size > 0 && [...sentSel].every(i => sents[i] && E().rangeHas(b, sents[i].start, sents[i].end, k));
             return el('button', {type: 'button', class: `chip mark-btn mark-${k}` + (on ? ' on' : ''), 'aria-pressed': String(on), text: label, 'aria-label': name, title: sc ? `${name} (Ctrl+${sc})` : name, 'data-ctl': `mark-${k}`, onclick: () => apply(k)});

@@ -1,4 +1,4 @@
-# WordToUDF 1.9.0 – Mimari
+# WordToUDF 1.10.0 – Mimari
 
 ## Dönüşüm hattı
 
@@ -109,3 +109,11 @@ tools/pages.py ─► workspace.html · templates.html · reverse.html · index.
 - **edits.js** `'*doc'` kurallarına `cleanups` eklendi (`spaces`, `punct-space`, `comma-space`, `dates`): idempotent, biçimi koruyan düzeltmeler; kullanıcının yazdığı metin dahil bütün paragraflara uygulanır. Bul-değiştir kuralı dizgi metnine uygulanır; kullanıcının elle yazdığı metinler (paragraf metni, eklenen paragraflar) “Tümünü değiştir” anında bir kez güncellenir — böylece aynı metin iki kez değişmez.
 - **checks.js** `suggestions()` → `{level: 'suggest', code, message, fix?}`; `fix` varsa sayfa “Düzelt” düğmesi gösterir ve `editor.applyFix()` belge kuralını ekler.
 - **editor-ui.js** bul kutusu: eşleşmeleri `findMatches()` ile sayar, CSS Custom Highlight API ile vurgular (`::highlight(wtu-find)`; desteklenmeyen tarayıcıda vurgu olmadan çalışır).
+
+## 1.10.0 — süre, yazdırma, sayfa ve değişiklik görünümü
+
+- **deadline.js** — saf hesap (`compute()`, `ics()`, tatil tablosu) ve `sure.html` sayfasının arayüzü aynı dosyada; arayüz yalnız `#dKind` varsa kurulur, böylece Node testleri hesabı doğrudan sınar. Tarihler UTC gece yarısı olarak tutulur (saat dilimi kayması yok); “bugün” Europe/Istanbul'a göre alınır.
+- **print.js** — son blok modelini ekran dışındaki `#docPrint` yüzeyine yazdırılabilir genişlikte yeniden çizer (sekme durakları önizlemedeki gibi ölçülür), `@page` boyutu ve kenar boşluklarını oluşturulmuş bir stil sayfasıyla (`adoptedStyleSheets`, satır içi stil yok) verir, `body.print-doc` iken yalnız bu yüzey yazdırılır; `afterprint` ile her şey eski hâline döner.
+- **preview.js** — `render()` artık `paginate()` sonucunu döndürür: kesik çizgi sayfa kılavuzları (mutlak konumlu, paragraf akışına girmez), sayfa sayısı, imzanın yalnız kalması. `markChanges()` çıktıdaki sözcükleri kaynak sözcük havuzuyla (büyük/küçük harf duyarlı) karşılaştırıp yalnız DOM'da `<mark class="chg">` ile işaretler; biçim çubuğunun ofset eşlemesi Range / TreeWalker ile yapıldığından bu işaretlerden etkilenmez.
+- **edits.js** — `amounts` düzeltmesi (`numberWords()`, `amountWords()`; TDK'ye göre ayrı yazım) ve isteğe bağlı `highlight` biçimi; **udf.js** vurguyu `background`, **docx-writer.js** `w:highlight` olarak yazar.
+- **pipeline.js** `fileName()` — dosya adı kalıbı; boş kalan alanlar kaynak adına düşer.

@@ -1,4 +1,4 @@
-# WordToUDF 1.9.0 güvenlik notları
+# WordToUDF 1.10.0 güvenlik notları
 
 - Manifest V3; host izni ve genişletilmiş tarayıcı izni yoktur.
 - Ağ erişimi kapalıdır (`connect-src 'none'`); uzaktan script/kod kullanılmaz.
@@ -20,5 +20,6 @@
 - 1.6.1: yapıştırılan Word/Google HTML'indeki satır içi stiller ayrıştırmadan önce etkisiz hâle getirilir; sayfa CSP'si hiçbir ihlal kaydı üretmez (`tests/e2e.py` sayfaları CSP açık HTTP sunucusundan yükleyerek doğrular).
 - 1.7.0 arayüz: HTML sayfaları `tools/pages.py` ile üretilir ve üretim sırasında satır içi `style="…"` veya satır içi `<script>` bulunursa durur; CSP'ye `unsafe-inline` eklenmedi. Simgeler aynı sayfadaki SVG setinden (`<use href="#…">`) gelir, dış kaynak yüklenmez. Tema seçimi (`wordtoudf.theme`: auto/light/dark) yalnız yerel depolamada tutulur; okunan değer bu üç değerden biri değilse yok sayılır. Manifest izinleri değişmedi (`permissions: []`, `host_permissions: []`).
 - 1.9.0 kütüphane: dosya kartları (en çok 300) ve kendi şablonlarınız (en çok 100, her metin alanı 20.000 karakter) yalnız yerel depolamadadır; yüklemede, kayıtta ve içe aktarmada bilinen alanlara indirgenir, kontrol karakterleri atılır. Şablon alanları ({…}) yalnız harf/rakam/boşluk içerebilir ve düz metin olarak doldurulur; hiçbir değer HTML olarak işlenmez.
+- 1.10.0: PDF için yalnız tarayıcının kendi yazdırma penceresi kullanılır; `@page` kuralı oluşturulmuş stil sayfasıyla eklenir (CSP'ye `unsafe-inline` eklenmedi; CSP açık sayfa testi yazdırmayı da kapsar). Süre hesabı tamamen yereldir; takvim dosyası (.ics) kullanıcının indirdiği düz metindir. Deneysel vurgu varsayılan olarak kapalıdır ve yalnız kullanıcı açarsa UDF'ye `background` özniteliği yazılır.
 
 Bu kontroller dosyanın hukuki veya içerik doğruluğunu garanti etmez; yalnızca dönüştürme yüzeyini sertleştirir.
