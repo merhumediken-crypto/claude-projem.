@@ -293,6 +293,7 @@ def main():
         print('PASS tarayıcı JS konsolu: hata yok')
         v15_checks(browser,tmp,petition,source)
         v16_paste(browser,tmp)
+        csp_check(browser)
         browser.close()
 
 def udf_lines(path):
@@ -542,5 +543,34 @@ def v16_paste(browser,tmp):
     assert not errors,errors
     print('PASS yapıştır (dağınık metin): eksikler formdan tamamlandı, dilekçe baştan kuruldu, düzenleyici ve rapor çalışıyor')
     ctx.close()
+
+def csp_check(browser):
+    """The other tests strip the pages' CSP; here the real pages are served
+    over HTTP with their CSP intact and every security-policy violation or
+    console error fails the test."""
+    import threading,functools,http.server,socketserver
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def log_message(self,*a):pass
+    handler=functools.partial(Quiet,directory=str(ROOT))
+    srv=socketserver.TCPServer(('127.0.0.1',0),handler);port=srv.server_address[1]
+    threading.Thread(target=srv.serve_forever,daemon=True).start()
+    try:
+        ctx=browser.new_context(accept_downloads=True)
+        ctx.add_init_script("window.__csp=[];document.addEventListener('securitypolicyviolation',e=>window.__csp.push(e.violatedDirective+' '+(e.sourceFile||'')+':'+e.lineNumber));")
+        page=ctx.new_page();errors=[]
+        page.on('pageerror',lambda e:errors.append(str(e)));page.on('console',lambda m:errors.append(m.text) if m.type=='error' else None)
+        page.goto(f'http://127.0.0.1:{port}/workspace.html')
+        paste_into(page,WORD_HTML,'x');paste_into(page,GDOCS_HTML,'x')
+        page.locator('#paper .paragraph').nth(2).click();page.locator('.edit-sheet .chip',has_text='Kalın').click();page.keyboard.press('Escape')
+        with page.expect_download(): page.locator('#download').click()
+        v=page.evaluate('window.__csp')
+        for name in ['templates.html','reverse.html','index.html']:
+            page.goto(f'http://127.0.0.1:{port}/{name}');page.wait_for_timeout(300);v+=page.evaluate('window.__csp')
+        assert not v,v
+        assert not errors,errors
+        ctx.close()
+        print('PASS güvenlik kuralı (CSP) açık sayfalar: yapıştırma, düzenleyici, indirme, şablon; ihlal ve konsol hatası yok')
+    finally:
+        srv.shutdown()
 
 if __name__=='__main__':main()

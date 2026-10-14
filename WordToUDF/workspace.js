@@ -169,7 +169,7 @@
   const pasteFill=()=>({court:$('pc_court').value,caseNo:$('pc_caseNo').value,role:$('pc_role').value,client:$('pc_client').value,otherRole:$('pc_otherRole').value,
     other:$('pc_other').value,topic:$('pc_topic').value,addHeadings:$('pc_headings').checked,addSignature:$('pc_signature').checked});
   function pasteName(){
-    const who=$('pc_client').value.trim()||state.pasteInfo?.court||'';
+    const who=$('pc_client').value.trim();
     return `${who?`${who} `:''}Dilekce ${L.todayTR()}.docx`;
   }
   function buildFromPaste(fresh){
@@ -194,7 +194,11 @@
     $('pasteSource').hidden=false;$('pasteSource').textContent=`Kaynak: ${parsed.sourceLabel}`;
     const notes=$('pasteNotes');notes.replaceChildren();
     for(const n of [`${parsed.sourceLabel} kaynağından ${parsed.paragraphs} paragraf okundu.`,...parsed.notes,...(asm.added.length?[`Eklenen: ${asm.added.join(', ')}.`]:[])]){const li=document.createElement('li');li.textContent=n;notes.append(li);}
-    state.pasteInfo={source:parsed.sourceLabel,notes:parsed.notes,added:asm.added,court:''};
+    state.pasteInfo={source:parsed.sourceLabel,notes:parsed.notes,added:asm.added};
+    // Adding künye rows shifts paragraph positions: a manually chosen
+    // AÇIKLAMALAR start/end would then point at the wrong paragraph.
+    const shifted=!fresh&&state.source&&state.source.blocks.length!==asm.blocks.length;
+    if(shifted&&(state.selection.start!=='auto'||state.selection.end!=='auto')){state.selection={start:'auto',end:'auto'};message('Paragraf sırası değiştiği için AÇIKLAMALAR sınırları yeniden otomatik algılanıyor.');}
     const text=asm.blocks.map(b=>WordToUDFNormalize.flatten(b));
     state.source={blocks:asm.blocks,warnings:[],statistics:{paragraphs:asm.blocks.filter(b=>b.kind==='paragraph').length,tables:0,characters:text.join('').length,pages:0},
       options:{margins:{},landscape:false,font:P.LEGAL_FONT,size:P.LEGAL_SIZE}};
@@ -210,9 +214,10 @@
     const html=e.clipboardData?.getData('text/html')||'',text=e.clipboardData?.getData('text/plain')||'';
     if(!html&&!text)return;
     e.preventDefault();
-    $('pasteBox').value=text||WordToUDFPaste.parse({html}).blocks.map(b=>WordToUDFNormalize.flatten(b)).join('\n');
     state.paste={html,text,typed:false};
     buildFromPaste(true);
+    // Show the readable text in the box (formatted-only clipboards included).
+    $('pasteBox').value=text||state.paste?.parsed?.blocks.map(b=>WordToUDFNormalize.flatten(b)).join('\n')||'';
   });
   $('pasteBox').addEventListener('input',()=>{$('pasteBuild').classList.add('pending');});
   $('pasteBuild').addEventListener('click',()=>{
@@ -337,6 +342,7 @@
     downloadDocx.disabled=true;message('Düzenlenmiş Word belgesi oluşturuluyor…');
     try{
       const o=outputOptions();
+      P.assertHasText(state.result.blocks);
       const bytes=await WordToUDFDocxWriter.create({options:{margins:o.margins,landscape:o.landscape,font:o.font,size:o.size},blocks:state.result.blocks,headers:[],footers:[]});
       downloadBlob(bytes,safeName(state.file.name)+'-duzenlenmis.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       message('Düzenlenmiş Word belgesi indirildi (UDF ile aynı düzen).','success');

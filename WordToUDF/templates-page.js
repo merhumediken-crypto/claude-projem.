@@ -146,6 +146,7 @@
   $('downloadDocx').addEventListener('click', async () => {
     render(); const t = state.result; if(!t) return;
     try{
+      P.assertHasText(t.blocks);
       const bytes = await WordToUDFDocxWriter.create({options: {margins: t.norm.margins, landscape: false, font: P.LEGAL_FONT, size: P.LEGAL_SIZE}, blocks: t.blocks, headers: [], footers: []});
       downloadBlob(bytes, `${fileBase()}.docx`, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       message('Word belgesi indirildi.', 'success');

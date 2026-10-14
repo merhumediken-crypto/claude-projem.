@@ -32,7 +32,8 @@
   /* ------------------------------ source detection ------------------------------ */
   const WA_RE = /^\[?\d{1,2}[./]\d{1,2}[./]\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?\]?\s*(?:-\s*)?[^:\n]{1,40}:\s/u;
   const MAIL_HEADER_RE = /^(?:Kimden|Gönderen|From|Kime|To|Bilgi|Cc|Konu|Subject|Tarih|Date|Gönderildi|Sent)\s*:/iu;
-  const MD_LINE_RE = /^(?:#{1,6}\s+\S|\s*[-*+]\s+\S|\s*\|.*\|\s*$|```)/u;
+  const MD_LINE_RE = /^(?:#{1,6}\s+\S|\s*\|.*\|\s*$|```)/u;   // strong Markdown signals
+  const MD_BULLET_RE = /^\s*[*+]\s+\S/u;                       // "- " is ordinary petition text
   const MD_INLINE_RE = /\*\*[^*\n]+\*\*|__[^_\n]+__/u;
   const SENTENCE_END_RE = /[.:;!?…)"”’»]$/u;
   const LOWER_START_RE = /^[a-zçğıöşüâîû(]/u;
@@ -62,7 +63,8 @@
     const nonEmpty = lines.filter(l => l.trim());
     if(nonEmpty.filter(l => WA_RE.test(l)).length >= 2) return 'whatsapp';
     if(nonEmpty.filter(l => /^\s*>/u.test(l)).length >= 2 || nonEmpty.slice(0, 8).filter(l => MAIL_HEADER_RE.test(l)).length >= 2) return 'mail';
-    if(nonEmpty.filter(l => MD_LINE_RE.test(l)).length >= 2 || nonEmpty.filter(l => MD_INLINE_RE.test(l)).length >= 2) return 'ai';
+    const strong = nonEmpty.filter(l => MD_LINE_RE.test(l) || MD_INLINE_RE.test(l)).length;
+    if(strong >= 2 || (strong >= 1 && nonEmpty.some(l => MD_BULLET_RE.test(l)))) return 'ai';
     const w = hardWrapScore(lines);
     if((w.joins >= 3 && w.ratio >= 0.3) || w.hyphens >= 2) return 'pdf';
     return 'plain';
@@ -94,7 +96,7 @@
     const notes = [];
     let t = String(text || '');
     if(t.length > MAX_TEXT) throw new Error('Yapıştırılan metin 2 MB sınırını aşıyor.');
-    t = t.replace(/\r\n?/gu, '\n').replace(/[​-‍⁠﻿]/gu, '').replace(/ /gu, ' ');
+    t = t.replace(/\r\n?/gu, '\n').replace(/[\u200B-\u200D\u2060\uFEFF]/gu, '').replace(/\u00A0/gu, ' ');
     let lines = t.split('\n');
 
     if(source === 'whatsapp'){
@@ -134,7 +136,10 @@
     const blocks = [];
     let mdMarks = 0, fence = false;
     for(const raw of lines){
-      let line = raw.replace(/[ ]{2,}(?=\S)/gu, m => m.length >= 4 ? '\t' : ' ').replace(/[ \t]+$/u, '');
+      // Spaces used to line up "DOSYA NO        : …" become one tab (the
+      // typography aligns colons itself); everywhere else they collapse.
+      let line = raw.replace(/^(\s*[A-ZÇĞİÖŞÜÂÎÛ][A-ZÇĞİÖŞÜÂÎÛ .]{1,45}?)[ ]{2,}(?=[:：])/u, '$1\t')
+        .replace(/(\S)[ ]{2,}(?=\S)/gu, '$1 ').replace(/[ \t]+$/u, '');
       if(source === 'ai'){
         if(/^\s*```/u.test(line)){ fence = !fence; mdMarks++; continue; }
         if(/^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$/u.test(line)){ mdMarks++; continue; } // table rule
@@ -164,7 +169,13 @@
 
   /* ------------------------------ HTML → blocks ------------------------------ */
   const BLOCK = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'PRE', 'TR', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'UL', 'OL', 'TABLE', 'TBODY', 'THEAD', 'TFOOT', 'DD', 'DT', 'DL', 'ADDRESS', 'CENTER', 'FIGURE', 'MAIN', 'NAV', 'ASIDE']);
-  const SKIP = new Set(['SCRIPT', 'STYLE', 'HEAD', 'META', 'LINK', 'TITLE', 'TEMPLATE', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'NOSCRIPT', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'CANVAS', 'VIDEO', 'AUDIO']);
+  const SKIP = new Set(['WTU-SKIP', 'SCRIPT', 'STYLE', 'HEAD', 'META', 'LINK', 'TITLE', 'TEMPLATE', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'NOSCRIPT', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'CANVAS', 'VIDEO', 'AUDIO']);
+  const STYLE_ATTR = 'data-wtu-style';
+  function defuseStyles(html){
+    return String(html)
+      .replace(/<style\b/giu, '<wtu-skip').replace(/<\/style\s*>/giu, '</wtu-skip>')
+      .replace(/(<[a-z][^<>]*?[\s"'\/])style(\s*=)/giu, `$1${STYLE_ATTR}$2`);
+  }
   const ALIGN = {left: 'left', start: 'left', center: 'center', right: 'right', end: 'right', justify: 'justify'};
   function styleOf(el, inherited){
     const s = {...inherited};
@@ -173,7 +184,7 @@
     if(tag === 'I' || tag === 'EM' || tag === 'CITE') s.italic = true;
     if(tag === 'U' || tag === 'INS') s.underline = true;
     if(tag === 'S' || tag === 'STRIKE' || tag === 'DEL') s.strike = true;
-    const css = el.getAttribute('style') || '';
+    const css = el.getAttribute(STYLE_ATTR) || '';
     const get = name => { const m = new RegExp(`(?:^|;)\\s*${name}\\s*:\\s*([^;]+)`, 'iu').exec(css); return m ? m[1].trim().toLowerCase() : null; };
     const fw = get('font-weight');
     if(fw) s.bold = /bold|bolder|[6-9]00/u.test(fw) ? true : /normal|lighter|[1-5]00/u.test(fw) ? false : s.bold;
@@ -185,7 +196,7 @@
     return s;
   }
   function alignOf(el, inherited){
-    const css = el.getAttribute?.('style') || '';
+    const css = el.getAttribute?.(STYLE_ATTR) || '';
     const m = /(?:^|;)\s*text-align\s*:\s*([a-z-]+)/iu.exec(css);
     const a = (m ? m[1] : el.getAttribute?.('align') || '').toLowerCase();
     return ALIGN[a] || (el.tagName === 'CENTER' ? 'center' : inherited);
@@ -195,7 +206,10 @@
     if(typeof DOMParser === 'undefined') throw new Error('HTML ayrıştırıcı yok.');
     if(String(html).length > MAX_HTML) throw new Error('Yapıştırılan biçimli içerik 4 MB sınırını aşıyor.');
     // DOMParser builds an inert document: scripts do not run, nothing loads.
-    const doc = new DOMParser().parseFromString(String(html), 'text/html');
+    // The page CSP (style-src 'self') would still report every inline style
+    // of the pasted HTML as a violation, so style attributes are renamed to a
+    // data attribute and <style> blocks to a skipped element first.
+    const doc = new DOMParser().parseFromString(defuseStyles(html), 'text/html');
     const notes = [], blocks = [];
     let cur = null, images = 0, tables = 0;
     const open = align => { if(!cur) cur = {runs: [], align}; };
@@ -208,7 +222,7 @@
         else runs.push({...r});
       }
       // Trim outer white space (not tabs inside), collapse spaces.
-      for(const r of runs) r.text = r.text.replace(/[  ]+/gu, ' ');
+      for(const r of runs) r.text = r.text.replace(/[ \u00A0]+/gu, ' ');
       if(runs.length){ runs[0].text = runs[0].text.replace(/^[ ]+/u, ''); runs[runs.length - 1].text = runs[runs.length - 1].text.replace(/[ \t]+$/u, ''); }
       const kept = runs.filter(r => r.text);
       blocks.push(kept.length ? para(kept.map(r => ({text: r.text, bold: !!r.bold, italic: !!r.italic, underline: !!r.underline, ...(r.strike ? {strike: true} : {}), ...(r.size ? {size: r.size} : {})})), cur.align ? {alignment: cur.align} : {}) : {kind: 'paragraph', runs: []});
@@ -216,7 +230,7 @@
     };
     const text = (s, style, align, pre) => {
       if(!s) return;
-      let v = pre ? s : s.replace(/[\r\n\f]+/gu, ' ').replace(/[  ]{2,}/gu, ' ');
+      let v = pre ? s : s.replace(/[\r\n\f]+/gu, ' ').replace(/[ \u00A0]{2,}/gu, ' ');
       if(pre && v.includes('\n')){
         const parts = v.split(/\r?\n/u);
         parts.forEach((p, i) => { open(align); if(p) cur.runs.push({...style, text: p}); if(i < parts.length - 1) flush(); });
@@ -232,7 +246,7 @@
         if(SKIP.has(tag)) continue;
         if(tag === 'IMG'){ images++; continue; }
         if(tag === 'BR'){ flush(); continue; }
-        const css = child.getAttribute('style') || '';
+        const css = child.getAttribute(STYLE_ATTR) || '';
         if(/mso-tab-count/iu.test(css)){ open(align); cur.runs.push({...style, text: '\t'}); continue; }
         if(/mso-list\s*:\s*ignore/iu.test(css)){ const n = clean(child.textContent); if(n){ open(align); cur.runs.push({...style, text: `${n} `}); } continue; }
         const st = styleOf(child, style);
@@ -290,7 +304,8 @@
     const L = LT(), R = RULES();
     const texts = blocks.map(b => clean(flatten(b)));
     const has = {court: false, caseNo: false, parties: 0, attorney: false, topic: false, explanations: false, result: false, signature: false};
-    let courtIdx = -1, lastField = -1, firstSection = -1, courtCandidate = -1;
+    let courtIdx = -1, lastField = -1, firstSection = -1, courtCandidate = -1, firstField = -1, topicIdx = -1;
+    const fields = []; // künye rows before the first section: {i, kind, label}
     texts.forEach((t, i) => {
       if(!t) return;
       if(courtIdx < 0 && i < 10 && L.isCourtHeading(t, i)){ courtIdx = i; has.court = true; return; }
@@ -303,8 +318,10 @@
         return;
       }
       if(f?.rule && firstSection < 0){
-        lastField = i;
+        lastField = i; if(firstField < 0) firstField = i;
         const k = f.rule.kind;
+        fields.push({i, kind: k, label: (f.rule.to || f.label).toLocaleUpperCase('tr-TR')});
+        if(k === 'topic' && topicIdx < 0) topicIdx = i;
         if(k === 'case') has.caseNo = true;
         else if(k === 'party') has.parties++;
         else if(k === 'attorney') has.attorney = true;
@@ -330,14 +347,26 @@
       if(R.CLOSING_TAIL_RE.test(t)){ closingIdx = nonEmpty[i]; break; }
     }
     let resultStart = closingIdx;
-    if(closingIdx > 0){
+    if(closingIdx < 0){
+      // No "… talep ederim." sentence: a numbered list at the end (before the
+      // signature) is still the request list; the closing is added later.
+      let j = nonEmpty.length - 1;
+      while(j >= 0 && (/^(?:Av\.|Avukat)\s/u.test(texts[nonEmpty[j]]) || /\b(?:Vekili|Vekilleri|Müdafii)$/u.test(texts[nonEmpty[j]]))) j--;
+      let k = j;
+      while(k >= 0 && LIST_START_RE.test(texts[nonEmpty[k]])) k--;
+      if(k < j){
+        resultStart = nonEmpty[k + 1];
+        if(k >= 0 && /^(?:yukarıda|yukarıdaki|açıklanan|arz ve izah|izah edilen|belirtilen)\b/iu.test(texts[nonEmpty[k]])) resultStart = nonEmpty[k];
+      }
+    }
+    else if(closingIdx > 0){
       for(let j = nonEmpty.indexOf(closingIdx) - 1; j >= 0; j--){
         const t = texts[nonEmpty[j]];
         if(LIST_START_RE.test(t) || /^(?:yukarıda|yukarıdaki|açıklanan|arz ve izah|izah edilen|belirtilen)\b/iu.test(t)) resultStart = nonEmpty[j];
         else break;
       }
     }
-    return {has, courtIdx, courtCandidate, lastField, firstSection, firstBody, closingIdx, resultStart};
+    return {has, courtIdx, courtCandidate, lastField, firstField, topicIdx, fields, firstSection, firstBody, closingIdx, resultStart};
   }
 
   /* ------------------------------ assemble ------------------------------ */
@@ -360,17 +389,28 @@
       if(!a.has.result && a.resultStart > 0 && a.resultStart > a.firstBody) ins(a.resultStart, 'SONUÇ VE İSTEM', 'SONUÇ VE İSTEM başlığı', 'result');
       if(!a.has.explanations && a.firstBody >= 0 && (a.firstSection < 0 || a.firstBody < a.firstSection)) ins(a.firstBody, 'AÇIKLAMALAR', 'AÇIKLAMALAR başlığı', 'explanations');
     }
-    const kunye = [];
-    if(!a.has.caseNo && clean(fill.caseNo)) kunye.push([`DOSYA NO: ${T ? T.caseNumber(fill.caseNo) : clean(fill.caseNo)}`, 'dosya no', 'caseNo']);
-    if(a.has.parties === 0 && clean(fill.client)) kunye.push([`${role}: ${clean(fill.client)}`, `${role.toLocaleLowerCase('tr-TR')} satırı`, 'client']);
-    if(!a.has.attorney && s.ownAttorney?.name && (a.has.parties > 0 || clean(fill.client))) kunye.push([`VEKİLİ: ${s.ownAttorney.name}`, 'vekil satırı', 'attorney']);
-    if(a.has.parties < 2 && clean(fill.other)) kunye.push([`${otherRole}: ${clean(fill.other)}`, `${otherRole.toLocaleLowerCase('tr-TR')} satırı`, 'other']);
-    if(!a.has.topic && clean(fill.topic)) kunye.push([`KONU: ${clean(fill.topic)}`, 'KONU', 'topic']);
-    if(kunye.length){
-      const at = a.lastField >= 0 ? a.lastField + 1 : Math.max(a.courtIdx, a.courtCandidate) + 1;
-      out.splice(at, 0, ...kunye.map(([t]) => textPara(t)));
-      added.push(...kunye.map(([, w]) => w)); for(const [, , k] of kunye) keys.add(k);
+    // Künye rows go where a lawyer would put them: DOSYA NO and a missing
+    // client row at the top, VEKİLİ right under the client's row, the other
+    // party before KONU, KONU last. Inserted from the bottom up.
+    const top = a.firstField >= 0 ? a.firstField : Math.max(a.courtIdx, a.courtCandidate) + 1;
+    const end = a.lastField >= 0 ? a.lastField + 1 : top;
+    const clientRow = a.fields.find(f => f.kind === 'party' && f.label === role) || a.fields.find(f => f.kind === 'party');
+    let clientEnd = -1;
+    if(clientRow){
+      clientEnd = clientRow.i + 1;
+      // Skip the client's own address / UETS / continuation rows.
+      for(const f of a.fields.filter(x => x.i > clientRow.i)){ if(f.i === clientEnd && ['address', 'uets', 'attorney-extra', 'other'].includes(f.kind)) clientEnd++; else break; }
     }
+    const kunye = []; // [position, order, text, what, key]
+    if(!a.has.caseNo && clean(fill.caseNo)) kunye.push([top, 0, `DOSYA NO: ${T ? T.caseNumber(fill.caseNo) : clean(fill.caseNo)}`, 'dosya no', 'caseNo']);
+    const addClient = a.has.parties === 0 && clean(fill.client);
+    if(addClient) kunye.push([top, 1, `${role}: ${clean(fill.client)}`, `${role.toLocaleLowerCase('tr-TR')} satırı`, 'client']);
+    if(!a.has.attorney && s.ownAttorney?.name && (a.has.parties > 0 || addClient)) kunye.push([addClient ? top : clientEnd, 2, `VEKİLİ: ${s.ownAttorney.name}`, 'vekil satırı', 'attorney']);
+    if(a.has.parties < 2 && clean(fill.other)) kunye.push([a.topicIdx >= 0 ? a.topicIdx : end, 3, `${otherRole}: ${clean(fill.other)}`, `${otherRole.toLocaleLowerCase('tr-TR')} satırı`, 'other']);
+    if(!a.has.topic && clean(fill.topic)) kunye.push([end, 4, `KONU: ${clean(fill.topic)}`, 'KONU', 'topic']);
+    // Same position: keep the listed order; different positions: bottom first.
+    for(const [at, , text] of [...kunye].sort((x, y) => y[0] - x[0] || y[1] - x[1])) out.splice(at, 0, textPara(text));
+    for(const [, , , what, key] of kunye){ added.push(what); keys.add(key); }
     if(!a.has.court){
       if(a.courtCandidate >= 0){
         // "Şanlıurfa 8. Asliye Hukuk Mahkemesine" typed in lower case.

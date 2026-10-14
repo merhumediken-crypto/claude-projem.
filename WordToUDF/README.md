@@ -1,6 +1,21 @@
-# Word ↔ UDF / PDF — WordToUDF 1.6.0
+# Word ↔ UDF / PDF — WordToUDF 1.6.1
 
-**Sürüm:** 1.6.0 | **Çalışma biçimi:** Manifest V3 / çevrimdışı / sunucusuz / Chrome izni yok · ayrıca çevrimdışı web uygulaması (PWA)
+**Sürüm:** 1.6.1 | **Çalışma biçimi:** Manifest V3 / çevrimdışı / sunucusuz / Chrome izni yok · ayrıca çevrimdışı web uygulaması (PWA)
+
+## 1.6.1 — Baştan sona denetim düzeltmeleri
+
+Bütün kaynak kod satır satır okundu; uç girdilerle zorlama testi, güvenlik kuralı (CSP) açık sayfa testi, erişilebilirlik ve tarayıcı uyumluluğu taraması yapıldı. Bulunan ve düzeltilenler:
+
+- **Yapıştırırken güvenlik kuralı ihlalleri:** Word/Google içeriğindeki satır içi stiller sayfa CSP'sine takılıp onlarca hata kaydı üretiyordu (Chrome'un eklenti “Hatalar” sayfasında görünür). Stiller artık ayrıştırmadan önce zararsız hâle getiriliyor; ihlal sıfır.
+- **Künye sırası:** yapıştırılan metinde eksik DOSYA NO en üste, VEKİLİ müvekkilin satırının (ve adresinin) hemen altına, karşı taraf KONU'dan önce ekleniyor; daha önce hepsi künyenin sonuna gidiyordu.
+- **Kapanışsız talep listesi:** “1. … 2. …” ile biten ama “talep ederim” cümlesi olmayan metinde de SONUÇ VE İSTEM başlığı yerine konuyor.
+- **Yanlış uyarılar:** “… tarihli duruşmada verilen karar” gibi geçmiş duruşmaya atıflar artık “geçmiş duruşma” uyarısı vermiyor; sözcük kaybı denetimi elle tutulan liste yerine kayıtlı değişikliklerle açıklanan sözcükleri düşüyor.
+- **Gövdede yanlış sekme:** satır içindeki 4+ boşluk yalnız etiket ile iki nokta arasında sekmeye çevriliyor; gövde metninde tek boşluğa iniyor.
+- **Kaynak tanıma:** yalnız “- ” madde işaretli düz dilekçe artık “yapay zekâ metni” sanılmıyor.
+- **Paragraf silme:** silinen paragrafın “önüne sayfa sonu / boş satır” eklentileri de siliniyor; bütün paragraflar silinirse anlaşılır mesaj (“Geri al ile geri getirin”).
+- **Yapıştırma sırasında olası çökme** (yalnız biçimli pano içeriği) ve **elle seçilmiş AÇIKLAMALAR sınırının kayması** giderildi.
+- Yapıştırma kutusuna ekran okuyucu etiketi; bütün sayfalara simge bağlantısı; kaynakta görünmez karakterler kaçış dizisine çevrildi.
+- Yeni kalıcı testler: güvenlik kuralı açık sayfa testi, tohumlu zorlama testi (`tests/fuzz.py`: her seferinde yüzlerce rastgele dilekçe, düzenleme, bozuk HTML ve şablon; testin hata yakaladığı kasıtlı bozmayla doğrulandı).
 
 ## 1.6.0 — Word'süz: metni yapıştır, dilekçe kurulsun
 
@@ -123,7 +138,7 @@ Hukuk dilekçesi profili artık son kararlaştırılan dilekçe standardını uy
 1. ZIP paketini bilgisayarınızda **klasörün tamamını koruyarak** çıkarın.
 2. Masaüstü Chrome adres çubuğuna `chrome://extensions` yazın.
 3. **Geliştirici modu**nu açın → **Paketlenmemiş öğe yükle**yi seçin.
-4. ZIP'ten çıkan `WordToUDF-1.6.0` klasörünü seçin (içinde `manifest.json` bulunan klasör).
+4. ZIP'ten çıkan `WordToUDF-1.6.1` klasörünü seçin (içinde `manifest.json` bulunan klasör).
 5. Araç çubuğundaki **Word ↔ UDF** simgesine tıklayın → dönüştürme yönünü seçin.
 6. Word → UDF için DOCX dosyasını seçin; önizlemeyi, “Hukuk profilinin metin değişiklikleri” listesini ve varsa dönüşüm uyarılarını denetleyin. Gerekirse AÇIKLAMALAR bölümünün başlangıç/bitiş başlığını elle seçin.
 7. **UDF oluştur ve indir** ile `.udf` dosyasını kaydedin. UDF → Word / PDF için UDF seçin; Word düğmesi `.docx` indirir, PDF düğmesi Chrome yazdır penceresini açar. PDF hedefini **PDF olarak kaydet** seçin.

@@ -192,9 +192,10 @@
       if(!key || isEmpty(e)){ out.push(key ? {...src, editKey: key} : src); continue; }
       applied++;
       log.push({key, excerpt: clean(flatten(src)).slice(0, 60), summary: describe(e)});
+      // A deleted paragraph takes its own inserted blank lines / page break with it.
+      if(e.remove){ continue; }
       if(e.breakBefore) out.push({kind: 'page-break', inserted: true, insertedBy: key});
       if(e.blankBefore) out.push(blank(key));
-      if(e.remove){ continue; }
       let b = I().cloneBlock(src);
       if(e.mergeNext){
         // Join with the next paragraph (e.g. a line Word broke in two).

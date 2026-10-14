@@ -116,7 +116,9 @@
         const dt = parseDate(m[1], m[2], m[3]);
         if(!dt){ if(!seenDates.has(m[0])){ seenDates.add(m[0]); add('error', 'date-invalid', `Geçersiz tarih: ${m[0]}.`); } continue; }
         const after = t.slice(m.index + m[0].length, m.index + m[0].length + 40).toLocaleLowerCase('tr-TR');
-        if(/^\s*tarihli\s+(?:ön\s+inceleme\s+|tahkikat\s+|sözlü\s+yargılama\s+)?duruşma/u.test(after) && dt.getTime() < today && !seenDates.has('h' + m[0])){
+        // Only an UPCOMING hearing ("… tarihli duruşmaya / duruşmasına"); a
+        // reference to a past one ("… tarihli duruşmada verilen karar") is fine.
+        if(/^\s*tarihli\s+(?:ön\s+inceleme\s+|tahkikat\s+|sözlü\s+yargılama\s+)?duruşma(?:ya|sına)\b/u.test(after) && dt.getTime() < today && !seenDates.has('h' + m[0])){
           seenDates.add('h' + m[0]);
           add('warn', 'hearing-past', `${m[0]} tarihli duruşma bugünden önce görünüyor; tarihi kontrol edin.`);
         }
@@ -130,9 +132,12 @@
     if(risky.length) add('warn', 'uyap-tab-justify', `${risky.length} iki yana yaslı paragrafta sekme var; UYAP'ta sekmeden sonraki metin kayabilir (ör. "${clean(flatten(risky[0])).slice(0, 50)}").`);
 
     // 8. Text integrity: words that disappeared without a recorded reason.
+    // Words explained by a recorded change (label shortening, SONUÇ intro,
+    // date, …) are expected to disappear; anything else is reported.
     const removed = statistics.integrity?.removed || [];
-    const expected = /^(?:ihtiyati|haciz|hacze|tebligat|adres|ilgili|dosyası|karar|ve|uets|yukarıda|açıklanan|nedenlerle|arz|edilen|sebeplerle|esas|no|numarası)(?: ×\d+)?$/u;
-    const odd = removed.filter(w => !expected.test(w));
+    const explained = new Set();
+    for(const c of statistics.changes || []) for(const w of String(c.before || '').toLocaleLowerCase('tr-TR').match(/[\p{L}\p{N}]+/gu) || []) explained.add(w);
+    const odd = removed.filter(w => !explained.has(w.replace(/ ×\d+$/u, '')));
     if(odd.length) add('warn', 'integrity', `Çıktıda azalan sözcükler: ${odd.slice(0, 12).join(', ')}${odd.length > 12 ? '…' : ''}. Dönüşüm raporundaki değişikliklerle karşılaştırın.`);
 
     if(!out.some(f => f.level !== 'info')) add('info', 'ok', 'Belirgin bir tutarsızlık bulunmadı.');

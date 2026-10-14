@@ -1,12 +1,13 @@
 {
   "name": "wordtoudf",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": true,
   "description": "Word ↔ UYAP UDF Chrome uzantısı ve çevrimdışı web uygulaması",
   "scripts": {
     "test": "node tests/logic.test.js && node tests/golden.test.js",
     "test:golden:update": "node tests/golden.test.js --update",
     "test:e2e": "python3 tests/e2e.py",
+    "test:fuzz": "python3 tests/fuzz.py 600",
     "build": "node tools/build.js"
   },
   "engines": {"node": ">=18"}

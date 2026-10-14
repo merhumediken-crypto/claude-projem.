@@ -39,8 +39,13 @@
     return {norm, blocks, typography: {...typo.statistics, overrides: applied, edits: editLog}, checks, legal};
   }
 
+  const EMPTY_DOC = 'Belgede yazdırılacak paragraf kalmadı (hepsi silinmiş olabilir); silinenleri "Geri al" ile geri getirin.';
+  function assertHasText(blocks){
+    if(!Array.isArray(blocks) || !blocks.some(b => b.kind === 'paragraph')) throw new Error(EMPTY_DOC);
+  }
   // Serialise, verify, zip, re-open and verify again. Throws on any mismatch.
   async function toUdf(blocks, {margins, landscape, font, size} = {}){
+    assertHasText(blocks);
     const writer = WordToUDFWriter.write(blocks, {margins, font: font || LEGAL_FONT, size: size || LEGAL_SIZE, landscape});
     const checked = WordToUDFWriter.verify(writer.xml, writer.fullText);
     const bytes = await WordToUDFZip.makeZip('content.xml', writer.xml);
@@ -51,7 +56,7 @@
   }
 
   function safeName(s, ext = /\.docx$/iu){
-    return String(s || 'Belge').replace(ext, '').normalize('NFKC').replace(/[​-‏‪-‮⁠-⁯﻿]/gu, '')
+    return String(s || 'Belge').replace(ext, '').normalize('NFKC').replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/gu, '')
       .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/gu, '_').replace(/\s+/gu, ' ').trim().replace(/[. ]+$/u, '').slice(0, 90) || 'Belge';
   }
 
@@ -87,5 +92,5 @@
     return {bytes, converted: entries.length - 1, total: files.length, report};
   }
 
-  globalThis.WordToUDFPipeline = {LEGAL_FONT, LEGAL_SIZE, legalOptions, typeset, toUdf, batch, safeName};
+  globalThis.WordToUDFPipeline = {LEGAL_FONT, LEGAL_SIZE, EMPTY_DOC, assertHasText, legalOptions, typeset, toUdf, batch, safeName};
 })();

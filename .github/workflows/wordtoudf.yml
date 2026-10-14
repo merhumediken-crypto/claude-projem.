@@ -34,6 +34,10 @@ jobs:
         run: |
           export CHROMIUM="$(python -c 'from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()')"
           python tests/e2e.py
+      - name: Zorlama testi (tohumlu)
+        run: |
+          export CHROMIUM="$(python -c 'from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()')"
+          python tests/fuzz.py 600
       - name: Sürüm paketi
         run: npm run build
       - uses: actions/upload-artifact@v4

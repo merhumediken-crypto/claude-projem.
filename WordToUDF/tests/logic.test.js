@@ -398,7 +398,7 @@ test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
 test('WTU-072 manifest izinleri, CSP ve sürüm',()=>{
   const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
   assert.equal(m.manifest_version,3);assert.deepEqual(m.permissions,[]);assert.deepEqual(m.host_permissions,[]);
-  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.6.0');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
+  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.6.1');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
   // sw.js (PWA offline cache) may fetch, but only its own origin.
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(/url\.origin !== location\.origin\) return/u.test(sw));
   for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')&&f!=='sw.js'))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);
@@ -555,10 +555,16 @@ test('v1.5 denetim: temiz dilekçede hata yok; hatalı dilekçede somut uyarıla
   const now=new Date('2026-10-14T09:00:00Z');
   const ok=checks.run(IB,ISA_R.statistics,{now});
   assert(!ok.some(c=>c.level==='error'),JSON.stringify(ok));
-  const bad=ISA_TEXT.slice();bad[1]='DOSYA NO: 1929';bad[3]='VEKİLİ: Av. Fatih NAKIŞLI (UETS: 1234-5)';bad[5]='KONU: 10.10.2026 tarihli duruşma ve 31.02.2026';bad[9]='Davacı Ahmet Yılmaz Vekili';bad[10]='Av. Ali Kaya';
+  const bad=ISA_TEXT.slice();bad[1]='DOSYA NO: 1929';bad[3]='VEKİLİ: Av. Fatih NAKIŞLI (UETS: 1234-5)';bad[5]='KONU: 10.10.2026 tarihli duruşmaya katılamayacağız; 31.02.2026';bad[9]='Davacı Ahmet Yılmaz Vekili';bad[10]='Av. Ali Kaya';
   const r=runText(bad,{now});const c=checks.run(r.blocks,r.statistics,{now});const codes=new Set(c.map(x=>x.code));
   for(const k of ['case-format','uets-format','date-invalid','hearing-past','signature-attorney','signature-party-name'])assert(codes.has(k),k+' '+JSON.stringify(c));
   assert.equal(c[0].level,'error','hatalar önce');
+  // Geçmiş duruşmaya atıf (duruşmada verilen karar) uyarı değildir.
+  const ref=ISA_TEXT.slice();ref[5]='KONU: 01.10.2026 tarihli duruşmada verilen ara karara itiraz.';
+  const rr=runText(ref,{now});assert(!checks.run(rr.blocks,rr.statistics,{now}).some(x=>x.code==='hearing-past'));
+  // SONUÇ girişinin başka yazılışı açıklanmamış sözcük kaybı sayılmaz.
+  const intro=runText(['SONUÇ VE İSTEM','Yukarıdaki gerekçelerden dolayı;','1. Kabulüne,','Karar verilmesini talep ederim.'],{now});
+  assert(!checks.run(intro.blocks,intro.statistics,{now}).some(x=>x.code==='integrity'),JSON.stringify(intro.statistics.integrity));
   const none=checks.run(runText(['Bir paragraf.']).blocks,{},{now});const nc=new Set(none.map(x=>x.code));
   assert(nc.has('court-missing')&&nc.has('result-missing'));
   assert.equal(checks.run([],{enabled:false},{now})[0].code,'profile');
@@ -653,6 +659,16 @@ test('v1.6 dağınık metinden dilekçe kurulur: eksik parçalar formdan, olanla
   // Zaten tam olan dilekçeye hiçbir şey eklenmez.
   const full=paste.assemble(paste.parse({text:ISA.join('\n')}).blocks,{caseNo:'9999/1',client:'X',other:'Y',topic:'Z'},{});
   assert.deepEqual(arr(full.added),[]);
+});
+test('v1.6 denetim düzeltmeleri: künye satırları doğru yere, kapanışsız talep listesi, düz madde listesi yapay zekâ sanılmaz',()=>{
+  const raw="ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ'NE\nDAVALI: İsa ÇİFTÇİ\nADRESİ: Haliliye/Şanlıurfa\nDAVACI: Yapı ve Kredi Bankası Anonim Şirketi\nKONU: Mazeret.\nDuruşmaya katılamayacağız.\nYukarıda açıklanan nedenlerle;\n1. Mazeretimizin kabulüne,\n2. Duruşmanın ertelenmesine,";
+  const asm=paste.assemble(paste.parse({text:raw}).blocks,{caseNo:'2026/1929',role:'DAVALI',addSignature:false},{});
+  assert.deepEqual(arr(asm.blocks.map(text)),["ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ'NE",'DOSYA NO: 2026/1929 Esas','DAVALI: İsa ÇİFTÇİ','ADRESİ: Haliliye/Şanlıurfa','VEKİLİ: Av. Fatih NAKIŞLI',
+    'DAVACI: Yapı ve Kredi Bankası Anonim Şirketi','KONU: Mazeret.','AÇIKLAMALAR','Duruşmaya katılamayacağız.','SONUÇ VE İSTEM','Yukarıda açıklanan nedenlerle;','1. Mazeretimizin kabulüne,','2. Duruşmanın ertelenmesine,']);
+  const one=paste.assemble(paste.parse({text:"DAVALI: Ali VELİ\nKONU: Mazeret.\nAçıklama."}).blocks,{other:'Banka A.Ş.',addSignature:false,role:'DAVALI'},{});
+  assert.deepEqual(arr(one.blocks.map(text)).slice(0,4),['DAVALI: Ali VELİ','VEKİLİ: Av. Fatih NAKIŞLI','DAVACI: Banka A.Ş.','KONU: Mazeret.'],'karşı taraf KONU\'dan önce');
+  assert.equal(paste.detect({text:'DAVALI: Ali\n- birinci madde\n- ikinci madde'}),'plain');
+  assert.equal(paste.textToBlocks('Bu  cümlede     fazla boşluk var.','plain').blocks.map(text)[0],'Bu cümlede fazla boşluk var.','gövdede sekme oluşmaz');
 });
 console.log(failed?`SONUÇ ${count} başarılı, ${failed} BAŞARISIZ`:`SONUÇ ${count} mantık testi başarılı`);
 if(failed)process.exitCode=1;

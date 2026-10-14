@@ -157,7 +157,7 @@
   // "LABEL : value", "LABEL<TAB>: value", "LABEL:" — label must be known.
   function parseField(text){
     const raw = String(text || '');
-    const m = /^[\s ]*([^:：\n]{2,60}?)[\s \t]*[:：][ \t ]*(.*)$/su.exec(raw);
+    const m = /^[\s\u00A0]*([^:：\n]{2,60}?)[\s\u00A0\t]*[:：][ \t\u00A0]*(.*)$/su.exec(raw);
     if(!m) return null;
     const label = clean(m[1]);
     const rule = fieldRule(label), section = rule ? null : sectionRule(label);
