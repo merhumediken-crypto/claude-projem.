@@ -1,0 +1,276 @@
+"""Run: python tests/e2e.py. Requires installed Chromium, Playwright and python-docx."""
+from pathlib import Path
+import io, os, tempfile, zipfile, re
+from lxml import etree
+from docx import Document
+from docx.shared import Cm, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from playwright.sync_api import sync_playwright
+ROOT=Path(__file__).resolve().parent.parent
+def load_page(page,name,scripts):
+    # Browser administration policy blocks URL navigation in this environment.
+    # The actual extension HTML and JS are nevertheless executed in Chromium
+    # after removing only external script tags and CSP (opaque test origin).
+    html=(ROOT/name).read_text(encoding='utf-8')
+    html=re.sub(r'<meta[^>]+http-equiv="Content-Security-Policy"[^>]*>', '', html)
+    html=re.sub(r'<script\s+src="[^"]+"\s*></script>', '', html)
+    html=re.sub(r'<link\s+rel="stylesheet"[^>]*>', '', html)
+    page.set_content(html,wait_until='load')
+    for css_name in (['workspace.css','reverse.css'] if name=='reverse.html' else ['workspace.css']):
+        page.add_style_tag(content=(ROOT/css_name).read_text(encoding='utf-8'))
+    for script in scripts:page.add_script_tag(content=(ROOT/script).read_text(encoding='utf-8'))
+
+def write_source(p):
+    d=Document()
+    for sec in d.sections:
+        sec.left_margin=Cm(2.3);sec.right_margin=Cm(2.4)
+        sec.top_margin=Cm(2.1);sec.bottom_margin=Cm(2.2)
+    d.add_paragraph('T.C.')
+    h=d.add_paragraph()
+    r=h.add_run('ŞANLIURFA 1. ASLİYE HUKUK MAHKEMESİNE');r.underline=True;r.bold=False
+    d.add_paragraph('DAVACI:')
+    d.add_paragraph('Ali Veli')
+    d.add_paragraph('DAVALI: Karşı taraf')
+    d.add_paragraph('VEKİLİ: Av. Fatih Nakışlı')
+    d.add_paragraph('AÇIKLAMALAR')
+    d.add_paragraph('I. TEMEL AÇIKLAMALAR')
+    v=d.add_paragraph();v.alignment=WD_ALIGN_PARAGRAPH.CENTER
+    v.paragraph_format.line_spacing=1.5
+    v.paragraph_format.space_before=Pt(13)
+    v.add_run('HMK ');r=v.add_run('m. 119');r.bold=True;v.add_run(' hükmü uygulanmalıdır.')
+    cite=d.add_paragraph();cite.add_run('Yargıtay 3.');cite.add_run(' Hukuk Dairesi 2025/5112 E., ');cite.add_run('2026/3190 K.')
+    d.add_paragraph('SONUÇ VE İSTEM')
+    d.add_paragraph('1. Davanın KABULÜNE karar verilmesini talep ederim.')
+    d.add_paragraph('Av. Fatih Nakışlı')
+    d.add_paragraph('EKLER')
+    d.add_paragraph('EK-1 Örnek belge')
+    d.save(p)
+
+def write_petition(p):
+    """Dumanbey-type petition: separate label lines, Word auto-numbered requests."""
+    d=Document()
+    for t in ['T.C.','İSTANBUL 22. ASLİYE TİCARET MAHKEMESİNE','İHTİYATİ HACİZ KARARINA İTİRAZ VE İVEDİ İNCELEME TALEPLİDİR.',
+              'DOSYA NO: 2026/713 E.','KARAR NO: 2026/708','İHTİYATİ HACZE İTİRAZ EDEN:',
+              'Dumanbey Rezistans Isı Sistemleri ve Sanayi Ticaret Limited Şirketi','ADRES: Başpınar OSB, Şehitkamil/Gaziantep',
+              'VEKİLİ: Av. Ayşe Nur Geyik Öztürkmen','ADRES VE UETS: 16615-16448-62422',
+              'İHTİYATİ HACİZ TALEP EDEN: Pimar Plastik Kimya Tekstil Makina Sanayi ve Ticaret Limited Şirketi',
+              'VEKİLİ: Av. Emin Kablama','İLGİLİ İCRA DOSYASI: İstanbul Anadolu 10. İcra Dairesi, 2026/18304 E.',
+              'KONU: İhtiyati haciz kararına itiraz edilmesi istemidir.','AÇIKLAMALAR:','Mahkemenizce verilen karara itiraz ediyoruz.',
+              'I. MAHKEMENİN YETKİSİNE İTİRAZ EDİLMEKTEDİR.','Müvekkil şirketin merkezi Gaziantep’tir.',
+              'HUKUKİ SEBEPLER: İİK m. 50, 257, 258, 259 ve 265; HMK m. 6.','HUKUKİ DELİLLER: Çek, imza sirküleri, ticaret sicili kayıtları.',
+              'SONUÇ VE İSTEM:','Yukarıda arz edilen sebeplerle;']:
+        d.add_paragraph(t)
+    for t in ['Yetki itirazının kabulüne,','İhtiyati haciz kararının kaldırılmasına,','Yargılama giderlerinin karşı tarafa yükletilmesine,']:
+        d.add_paragraph(t,style='List Number')
+    for t in ['Karar verilmesini vekâleten talep ederim.','14.10.2025','İtiraz Eden Vekili','Av. Ayşe Nur Geyik Öztürkmen','EKLER:','1- İhtiyati haciz kararı örneği.','2- Çek örneği.']:
+        d.add_paragraph(t)
+    d.save(p)
+
+def data_xml(p):
+    with zipfile.ZipFile(p) as z:
+        assert z.testzip() is None
+        return etree.fromstring(z.read('content.xml'))
+
+def one(el,tag):
+    return el.xpath(f'./{tag}')[0]
+
+def udf_text(root):
+    return ''.join(one(root,'content').itertext())
+
+def fetch_data(page,source):
+    page.locator('#fileInput').set_input_files(str(source))
+    page.wait_for_timeout(1200)
+    print('UPLOAD STATUS',page.locator('#status').text_content())
+    print('WARNINGS',page.locator('#warningList').all_text_contents())
+    print('READY',page.locator('#download').is_enabled())
+    if page.locator('#review').count() and not page.locator('#reviewLabel').is_hidden():page.locator('#review').check()
+    page.wait_for_function("!document.getElementById('download').disabled",timeout=7000)
+
+def save_download(page,button,path):
+    with page.expect_download(timeout=20000) as info: page.locator(button).click()
+    dl=info.value
+    dl.save_as(str(path))
+    assert path.exists() and path.stat().st_size>100
+    return dl.suggested_filename
+
+def main():
+    with tempfile.TemporaryDirectory(prefix='wordtoudf-e2e-') as tmp, sync_playwright() as pw:
+        tmp=Path(tmp);source=tmp/'sample.docx';write_source(source)
+        browser=pw.chromium.launch(executable_path=os.environ.get('CHROMIUM','/opt/pw-browsers/chromium' if os.path.exists('/opt/pw-browsers/chromium') else '/usr/bin/chromium'),headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
+        context=browser.new_context(accept_downloads=True,viewport={'width':1500,'height':1000})
+        page=context.new_page();errors=[]
+        page.on('pageerror',lambda e:errors.append(str(e)))
+        load_page(page,'workspace.html',['zip.js','docx.js','normalize.js','legal-typography.js','udf.js','workspace.js'])
+        fetch_data(page,source)
+        assert page.locator('[data-role="court-heading"]').count()==1
+        assert page.locator('[data-role="signature"]').count()==1
+        assert page.locator('[data-role="section-heading"]').count()==1
+        assert page.locator('[data-role="metadata"]').count()>=3
+        assert not page.locator('[data-role="metadata"]').all_text_contents()[0].count('DAVALI')
+        legal_xml=tmp/'legal.udf'
+        fname=save_download(page,'#download',legal_xml)
+        assert fname=='sample.udf',fname
+        root=data_xml(legal_xml)
+        full=udf_text(root)
+        assert 'HMK m. 119' in full and '2026/3190 K.' in full
+        assert 'DAVACI\t: Ali VELİ' in full
+        assert 'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS)' in full
+        assert full.count('ŞANLIURFA')==1
+        paras=root.xpath('./elements/paragraph')
+        court=[p for p in paras if any('ŞANLIURFA' in full[int(r.get('startOffset')):int(r.get('startOffset'))+int(r.get('length'))] for r in p)]
+        assert len(court)==1 and court[0].get('Alignment')=='1'
+        assert all(r.get('underline')=='false' for r in court[0] if r.tag=='content')
+        assert abs(float(one(one(root,'properties'),'pageFormat').get('leftMargin'))-42.52)<.02
+        print('PASS hukuk profili DOCX→UDF, metin, roller, kenar boşlukları, UDF ZIP/XML')
+        # Avoid changing the paragraph's source formatting in faithful mode.
+        page.locator('#typographyProfile').select_option('faithful')
+        page.wait_for_function("document.getElementById('sectionPanel').hidden")
+        assert page.locator('[data-role="court-heading"]').count()==0
+        faithful=tmp/'faithful.udf';save_download(page,'#download',faithful)
+        root2=data_xml(faithful)
+        props=one(one(root2,'properties'),'pageFormat')
+        assert abs(float(props.get('leftMargin'))-(2.3*72/2.54))<.03
+        paras2=root2.xpath('./elements/paragraph')
+        styles=[p for p in paras2 if p.get('Alignment')=='1' and p.get('SpaceAbove')=='13']
+        assert len(styles)>=1,'Kaynak Word paragraf aralığı/hizalama korunmadı'
+        assert 'DAVACI:\nAli Veli' in udf_text(root2)
+        print('PASS Word biçimini koru: paragraf hizası/aralığı, kenar boşlukları')
+        # Re-enter legal, upload complete DOCX with warning and verify explicit acknowledgement.
+        page.locator('#typographyProfile').select_option('legal')
+        assert page.locator('#download').is_enabled()
+        # UDF→DOCX reverse converter end-to-end.
+        reverse=context.new_page();reverse.on('pageerror',lambda e:errors.append(str(e)))
+        load_page(reverse,'reverse.html',['zip.js','udf-reader.js','docx-writer.js','reverse.js'])
+        reverse.locator('#fileInput').set_input_files(str(legal_xml))
+        reverse.wait_for_function("!document.getElementById('downloadWord').disabled",timeout=20000)
+        round_trip=tmp/'roundtrip.docx'
+        with reverse.expect_download(timeout=20000) as info:reverse.locator('#downloadWord').click()
+        info.value.save_as(str(round_trip))
+        back=Document(round_trip)
+        entire='\n'.join(p.text for p in back.paragraphs)
+        assert 'ŞANLIURFA' in entire and 'Yargıtay 3. Hukuk Dairesi' in entire
+        assert 'Av. Fatih NAKIŞLI' in entire
+        print('PASS UDF→DOCX geriye dönüş, temel metin bütünlüğü')
+        # Negative ZIP archive case: traversal entry must be rejected.
+        traversal=tmp/'path-traversal.docx'
+        with zipfile.ZipFile(source) as zin,zipfile.ZipFile(traversal,'w') as zout:
+            for name in zin.namelist():zout.writestr(name,zin.read(name))
+            zout.writestr('../disallowed.xml','malicious')
+        page.locator('#fileInput').set_input_files(str(traversal))
+        page.wait_for_function("document.querySelector('#status').classList.contains('error')",timeout=7000)
+        assert 'geçersiz dosya yolu' in page.locator('#status').text_content()
+        assert page.locator('#download').is_disabled()
+        print('PASS kötü niyetli ZIP ../ yolu reddedildi')
+        # XML entity/doctype must be rejected, including otherwise valid DOCX ZIP.
+        dtd=tmp/'doctype.docx'
+        with zipfile.ZipFile(source) as zin,zipfile.ZipFile(dtd,'w') as zout:
+            for name in zin.namelist():
+                data=zin.read(name)
+                if name=='word/document.xml':
+                    data=data.replace(b'<w:document',b'<!DOCTYPE w:document [<!ENTITY secret "test">]><w:document',1)
+                zout.writestr(name,data)
+        page.locator('#fileInput').set_input_files(str(dtd))
+        page.wait_for_function("document.querySelector('#status').classList.contains('error')",timeout=7000)
+        assert 'DTD' in page.locator('#status').text_content() or 'ENTITY' in page.locator('#status').text_content()
+        assert page.locator('#download').is_disabled()
+        print('PASS DOCX XML DTD/ENTITY reddedildi')
+        # Simulate an untrusted UDF whose compressed payload fails CRC/inflate.
+        corrupt=tmp/'corrupt.udf'
+        blob=bytearray(legal_xml.read_bytes())
+        blob[len(blob)//2]^=0x31
+        corrupt.write_bytes(blob)
+        reverse.locator('#fileInput').set_input_files(str(corrupt))
+        reverse.wait_for_function("document.querySelector('#status').classList.contains('error')",timeout=7000)
+        assert reverse.locator('#downloadWord').is_disabled()
+        print('PASS bozuk UDF ZIP reddedildi')
+        # A larger legal petition should finish synchronously without truncation.
+        large=tmp/'large.docx'
+        big=Document();big.add_paragraph('AÇIKLAMALAR')
+        for i in range(1500):big.add_paragraph(f'Paragraf {i+1}: Deliller usulüne uygun değerlendirilmelidir.')
+        big.add_paragraph('SONUÇ VE İSTEM');big.add_paragraph('1. Kabulüne karar verilmesini talep ederim.')
+        big.save(large)
+        page.locator('#fileInput').set_input_files(str(large))
+        page.wait_for_function("document.getElementById('previewCount').textContent.includes('1503 paragraf')",timeout=25000)
+        if not page.locator('#reviewLabel').is_hidden():page.locator('#review').check()
+        output=tmp/'large.udf';save_download(page,'#download',output)
+        root_large=data_xml(output)
+        data=udf_text(root_large)
+        assert 'Paragraf 1:' in data and 'Paragraf 1500:' in data
+        # v1.4.0: "1. Kabulüne karar verilmesini talep ederim." becomes a list item
+        # plus a separate dated closing paragraph, so 1503 source paragraphs → 1504.
+        assert len(root_large.xpath('./elements/paragraph'))==1504
+        print('PASS 1500 gövde paragrafı: 1504 UDF paragrafı (kapanış ayrıldı), metin kaybı yok')
+        # v1.4.0 dilekçe standardı: ortak sekme, tek DOSYA NO, UETS, satır içi bölümler, gerçek listeler, tarih.
+        petition=tmp/'petition.docx';write_petition(petition)
+        page.locator('#fileInput').set_input_files(str(petition))
+        page.wait_for_function("document.getElementById('status').textContent.includes('petition.docx')",timeout=7000)
+        if not page.locator('#reviewLabel').is_hidden():page.locator('#review').check()
+        assert page.locator('#changeList li').count()>=10
+        xs=page.evaluate("""()=>[...document.querySelectorAll('.paper .paragraph')].map(p=>{const t=p.querySelector('.tab-stop');const c=t&&t.nextElementSibling;return c&&c.textContent===':'?c.getBoundingClientRect().left:null}).filter(x=>x!==null)""")
+        assert len(xs)==13 and max(xs)-min(xs)<0.5,xs
+        if os.environ.get('SHOT'):page.locator('#paper').screenshot(path=os.environ['SHOT'])
+        markers=page.locator('.list-marker').all_text_contents()
+        assert markers==['1.','2.','3.','1.','2.'],markers
+        out=tmp/'petition.udf';save_download(page,'#download',out)
+        save_dir=os.environ.get('SAVE_DIR')
+        if save_dir:
+            import shutil
+            shutil.copy(petition,Path(save_dir)/'ornek-dilekce-kaynak.docx');shutil.copy(out,Path(save_dir)/'ornek-dilekce.udf')
+            save_download(page,'#reportDownload',Path(save_dir)/'ornek-dilekce-donusum-raporu.txt')
+        root_p=data_xml(out);txt=udf_text(root_p)
+        paras=root_p.xpath('./elements/paragraph')
+        def ptext(p):return ''.join(txt[int(r.get('startOffset')):int(r.get('startOffset'))+int(r.get('length'))] for r in p)
+        lines=[ptext(p).rstrip('\n') for p in paras]
+        for expected in ['DOSYA NO\t: 2026/713 E. 2026/708 K.','İTİRAZ EDEN\t: Dumanbey Rezistans Isı Sistemleri ve Sanayi Ticaret Limited Şirketi',
+                         'ADRESİ\t: Başpınar OSB, Şehitkamil/Gaziantep','VEKİLİ\t: Av. Ayşe Nur GEYİK ÖZTÜRKMEN (UETS: 16615-16448-62422)',
+                         'TALEP EDEN\t: Pimar Plastik Kimya Tekstil Makina Sanayi ve Ticaret Limited Şirketi','VEKİLİ\t: Av. Emin KABLAMA (UETS)',
+                         'İCRA DOSYA NO\t: İstanbul Anadolu 10. İcra Dairesi, 2026/18304 E.','KONU\t: İhtiyati haciz kararına itiraz edilmesi istemidir.',
+                         'AÇIKLAMALAR\t:','HUKUKİ SEBEPLER\t: İİK m. 50, 257, 258, 259 ve 265; HMK m. 6.','HUKUKİ DELİLLER\t: Çek, imza sirküleri, ticaret sicili kayıtları.',
+                         'SONUÇ VE İSTEM\t: Yukarıda arz edilen sebeplerle;','EKLER\t:']:
+            assert expected in lines,(expected,lines)
+        assert 'KARAR NO' not in txt and 'ADRES VE UETS' not in txt
+        field=[p for p,l in zip(paras,lines) if '\t:' in l]
+        assert len(field)==13
+        stops={p.get('TabSet') for p in field};assert len(stops)==1,stops
+        assert all(p.get('LeftIndent')=='0' and p.get('FirstLineIndent')=='0' for p in field)
+        for p in field:
+            kids=list(p)
+            assert kids[1].tag=='tab' and kids[1].get('underline')=='false'
+            assert kids[0].get('underline')=='true' and kids[0].get('bold')=='true'
+            assert kids[2].get('underline')=='true' and txt[int(kids[2].get('startOffset'))]==':'
+            for k in kids[3:]:assert k.get('underline')=='false'
+        lists=[(p.get('ListId'),l) for p,l in zip(paras,lines) if p.get('Numbered')=='true']
+        assert lists==[('1','Yetki itirazının kabulüne,'),('1','İhtiyati haciz kararının kaldırılmasına,'),('1','Yargılama giderlerinin karşı tarafa yükletilmesine,'),
+                       ('2','İhtiyati haciz kararı örneği.'),('2','Çek örneği.')],lists
+        import datetime,zoneinfo
+        today=datetime.datetime.now(zoneinfo.ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y')
+        assert f'Karar verilmesini vekâleten talep ederim. {today}' in lines and '14.10.2025' not in txt
+        sig=[p for p,l in zip(paras,lines) if l in ('İtiraz Eden Vekili','Av. Ayşe Nur GEYİK ÖZTÜRKMEN')]
+        assert len(sig)==2 and all(p.get('Alignment')=='2' for p in sig)
+        body=[p for p,l in zip(paras,lines) if l.startswith('Mahkemenizce')][0]
+        assert body.get('LineSpacing')=='0.5' and body.get('Alignment')=='3'
+        print('PASS dilekçe standardı: ortak sekme, tek DOSYA NO, UETS, satır içi bölümler, otomatik listeler, tarih, imza')
+        # Word → UDF → Word: lists stay real Word lists with separate numbering.
+        reverse.locator('#fileInput').set_input_files(str(out))
+        reverse.wait_for_function("!document.getElementById('downloadWord').disabled",timeout=20000)
+        rt=tmp/'petition-roundtrip.docx'
+        with reverse.expect_download(timeout=20000) as info:reverse.locator('#downloadWord').click()
+        info.value.save_as(str(rt))
+        if save_dir:shutil.copy(rt,Path(save_dir)/'ornek-dilekce-udf-den-word.docx')
+        with zipfile.ZipFile(rt) as z:
+            assert 'word/numbering.xml' in z.namelist()
+            docxml=etree.fromstring(z.read('word/document.xml'))
+        W='{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+        numbered=[]
+        for p in docxml.iter(W+'p'):
+            num=p.find(f'./{W}pPr/{W}numPr')
+            if num is not None:numbered.append((num.find(W+'numId').get(W+'val'),num.find(W+'ilvl').get(W+'val'),''.join(t.text or '' for t in p.iter(W+'t'))))
+        assert [n[2] for n in numbered]==[l for _,l in lists],numbered
+        assert len({n[0] for n in numbered[:3]})==1 and len({n[0] for n in numbered[3:]})==1 and numbered[0][0]!=numbered[3][0]
+        assert all(n[1]=='0' for n in numbered)
+        print('PASS Word→UDF→Word: talepler ve ekler iki ayrı gerçek Word listesi, düzey 0')
+        assert not errors,errors
+        print('PASS tarayıcı JS konsolu: hata yok')
+        browser.close()
+
+if __name__=='__main__':main()
