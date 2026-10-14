@@ -120,8 +120,15 @@
     }
     if(toggle(rpr,'vanish')||toggle(rpr,'webHidden'))props.hidden=true;
     if(kid(rpr,'highlight')||kid(rpr,'shd'))warning('highlight','Metin vurgusu/arka plan gölgesi korunmadı.');
-    if(['smallCaps','caps','outline','shadow','emboss','imprint','effect','spacing','w'].some(name=>kid(rpr,name)))
-      warning('effects','Özel Word karakter efektleri (küçük/büyük harf, gölge veya karakter aralığı) birebir aktarılmadı.');
+    // Caps are real capitals in UDF (same look, same text); small caps become
+    // capitals too. Purely visual effects never lose text: they are listed
+    // as information and do not block the download.
+    const caps=toggle(rpr,'caps');if(caps!==undefined)props.caps=caps;
+    const small=toggle(rpr,'smallCaps');if(small!==undefined)props.smallCaps=small;
+    if(['outline','shadow','emboss','imprint','effect'].some(name=>kid(rpr,name)))
+      warning('effects','Gölge, kabartma veya dış çizgi gibi Word karakter efektleri uygulanmadı; metin aynen aktarıldı.',true);
+    if(['spacing','w'].some(name=>kid(rpr,name)))
+      warning('char-spacing','Word karakter aralığı / genişlik ayarı uygulanmadı; metin aynen aktarıldı, görünüm farkı küçüktür.',true);
     if(kid(rpr,'vertAlign'))warning('vertical','Üst simge veya alt simge düz metne aktarıldı.');
     return props;
   }
@@ -168,7 +175,8 @@
   function alpha(n){let s='';while(n>0){n--;s=String.fromCharCode(65+n%26)+s;n=Math.floor(n/26);}return s;}
   async function readDocx(buffer) {
     const zip=globalThis.WordToUDFZip.openZip(buffer),warnings=new Map();
-    const warn=(code,message)=>{const old=warnings.get(code);warnings.set(code,{code,message,count:(old?.count||0)+1});};
+    // minor: listed for information only, does not require "inceledim" before download.
+    const warn=(code,message,minor=false)=>{const old=warnings.get(code);warnings.set(code,{code,message,count:(old?.count||0)+1,...(minor?{minor:true}:{})});};
     for(const required of ['[Content_Types].xml','word/document.xml'])if(!zip.has(required))throw new Error(`DOCX gerekli ${required} dosyasını içermiyor.`);
     const [documentXml,stylesXml,numberXml,settingsXml]=await Promise.all([
       zip.text('word/document.xml'),
@@ -286,10 +294,12 @@
       if(withList){const prefix=listPrefix(inherited.p);if(prefix)append(prefix,inherited.r);}
       function handleRun(r,overrideStyle){
         const charId=attr(kid(kid(r,'rPr'),'rStyle'),'val');
-        const rpr={...inherited.r,...resolveStyle(charId,'r'),...readRPr(kid(r,'rPr'),warn,theme),...overrideStyle};
+        const {caps,smallCaps,...rpr}={...inherited.r,...resolveStyle(charId,'r'),...readRPr(kid(r,'rPr'),warn,theme),...overrideStyle};
         if(rpr.hidden){warn('hidden','Gizli Word metni UDF’ye aktarılmadı.');return;}
+        const shown=t=>caps||smallCaps?t.toLocaleUpperCase('tr-TR'):t;
+        if(smallCaps&&!caps)warn('small-caps','Word küçük büyük harf (small caps) yazısı büyük harfe çevrildi.',true);
         for(const node of r.children){
-          if(has(node,'t')||has(node,'delText')){if(has(node,'t'))append(node.textContent,rpr);}
+          if(has(node,'t')||has(node,'delText')){if(has(node,'t'))append(shown(node.textContent),rpr);}
           else if(has(node,'tab')||has(node,'ptab'))append('\t',rpr);
           else if(has(node,'br')){if(attr(node,'type')==='page'){newLine();paragraphs.push({kind:'page-break'});current={kind:'paragraph',...inherited.p,sourceStyleId:inherited.styleId,sourceStyleName:inherited.styleName,runs:[]};}else newLine();}
           else if(has(node,'cr'))newLine();
@@ -395,7 +405,7 @@
       const size=kid(section,'pgSz');landscape=attr(size,'orient')==='landscape';
       const width=num(attr(size,'w')),height=num(attr(size,'h'));
       if(width&&height&&!((Math.abs(width-11906)<130&&Math.abs(height-16838)<130)||(Math.abs(height-11906)<130&&Math.abs(width-16838)<130)))
-        warn('paper','Word A4 dışında kâğıt ölçüsü kullanıyor; çıktı A4 olarak oluşturuldu.');
+        warn('paper','Word A4 dışında kâğıt ölçüsü kullanıyor; çıktı A4 olarak oluşturuldu.',true);
       if(kids(body,'sectPr').length>1||[...body.querySelectorAll('*')].some(x=>has(x,'sectPr')&&x!==section))warn('sections','Birden fazla bölüm düzeni tek sayfa düzenine indirgenir.');
     }
     let characters=0;for(const p of blocks)if(p.runs)for(const r of p.runs)characters+=r.text.length;

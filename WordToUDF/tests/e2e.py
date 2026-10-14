@@ -294,6 +294,7 @@ def main():
         v15_checks(browser,tmp,petition,source)
         v16_paste(browser,tmp)
         v17_no_jump(browser,petition)
+        v18_marks(browser,tmp,petition)
         csp_check(browser)
         browser.close()
 
@@ -573,6 +574,113 @@ def v17_no_jump(browser,petition):
         assert page.evaluate("document.activeElement.textContent")=='Önüne boş satır'
         ctx.close()
     print('PASS kaydırma sıçraması yok: ayar değişince kontrol yerinde kalır, düzenleme paneli kaydırması ve odak korunur')
+
+SELECT_JS="""([sel,needle])=>{
+  const p=[...document.querySelectorAll(sel)].find(x=>x.textContent.includes(needle));if(!p)return false;
+  const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);const nodes=[];let t,all='';
+  while((t=w.nextNode())){nodes.push([t,all.length]);all+=t.data;}
+  const i=all.indexOf(needle);const at=x=>{for(const [n,o] of nodes)if(x>=o&&x<=o+n.data.length)return [n,x-o];};
+  const a=at(i),z=at(i+needle.length);const r=document.createRange();r.setStart(a[0],a[1]);r.setEnd(z[0],z[1]);
+  const s=getSelection();s.removeAllRanges();s.addRange(r);return true;}"""
+
+def udf_runs(path):
+    """[(text, attributes)] for every content run of the UDF."""
+    root=data_xml(path);txt=udf_text(root);out=[]
+    for c in root.xpath('./elements/paragraph//content'):
+        if c.get('startOffset') is None:continue
+        a=int(c.get('startOffset'));out.append((txt[a:a+int(c.get('length'))].rstrip('\n'),dict(c.attrib)))
+    return out
+
+def v18_marks(browser,tmp,petition):
+    """1.8: word/sentence formatting from a preview selection (format bar,
+    Ctrl+B/I/U, sentence, everywhere), undo/redo, sentence buttons in the
+    panel, new paragraph + move, phone docked bar, Word caps and spacing."""
+    ctx=browser.new_context(accept_downloads=True,viewport={'width':1440,'height':900})
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html');fetch_data(page,petition)
+    styled=lambda prop,val:page.evaluate(f"[...document.querySelectorAll('#paper span')].filter(s=>s.style.{prop}==='{val}').map(s=>s.textContent)")
+    assert page.evaluate(SELECT_JS,['#paper .paragraph','verilen karara']);page.wait_for_timeout(250)
+    assert page.locator('.mark-pop').is_visible(),'seçim çubuğu açılır'
+    page.locator('.mark-pop .mp-bold').click();page.wait_for_timeout(150)
+    assert 'verilen karara' in styled('fontWeight','700'),styled('fontWeight','700')
+    assert page.evaluate('getSelection().toString()')=='verilen karara','seçim korunur'
+    page.keyboard.press('Control+i');page.wait_for_timeout(150)
+    assert 'verilen karara' in styled('fontStyle','italic')
+    page.keyboard.press('Control+z');page.wait_for_timeout(150)
+    assert 'verilen karara' not in styled('fontStyle','italic'),'geri al'
+    page.keyboard.press('Control+y');page.wait_for_timeout(150)
+    assert 'verilen karara' in styled('fontStyle','italic'),'yinele'
+    # Cümleye genişlet + altı çizili.
+    assert page.evaluate(SELECT_JS,['#paper .paragraph','şirketin merkezi']);page.wait_for_timeout(250)
+    page.locator('.mark-pop .mp-sentence').click();page.wait_for_timeout(150)
+    assert page.evaluate('getSelection().toString()')=='Müvekkil şirketin merkezi Gaziantep’tir.',page.evaluate('getSelection().toString()')
+    page.locator('.mark-pop .mp-underline').click();page.wait_for_timeout(150)
+    # Tüm belgede: her "ihtiyati haciz" (büyük/küçük harf duyarsız) kalın.
+    assert page.evaluate(SELECT_JS,['#paper .paragraph[data-role="result-item"]','İhtiyati haciz']);page.wait_for_timeout(250)
+    page.locator('.mark-pop .mp-scope').click();page.locator('.mark-pop .mp-bold').click();page.wait_for_timeout(200)
+    trl=lambda t:t.replace('İ','i').replace('I','ı').lower()
+    hits=[t for t in styled('fontWeight','700') if trl(t).startswith('ihtiyati haciz')]
+    assert len(hits)>=2,hits
+    page.evaluate('getSelection().removeAllRanges()');page.keyboard.press('Escape');page.wait_for_timeout(150)
+    # Panel: cümle düğmesi → üstü çizili; biçim listesinden kaldır.
+    page.locator('#paper .paragraph',has_text='Müvekkil şirketin').click();page.wait_for_timeout(300)
+    assert page.locator('.edit-sheet .mark-list li').count()==1,'önizlemeden yapılan biçim panelde listelenir'
+    page.locator('.edit-sheet .sent-chip').first.click();page.locator('.edit-sheet .mark-btn.mark-strike').click();page.wait_for_timeout(200)
+    assert 'Müvekkil şirketin merkezi Gaziantep’tir.' in page.evaluate("[...document.querySelectorAll('#paper span')].filter(s=>s.style.textDecoration.includes('line-through')).map(s=>s.textContent)")
+    # Aynı cümleye ikinci biçim, mevcut kaydıyla birleşir.
+    assert page.locator('.edit-sheet .mark-list li').count()==1 and 'altı çizili + üstü çizili' in page.locator('.edit-sheet .mark-list li').text_content()
+    page.locator('.edit-sheet .mark-list li').first.locator('button').click();page.wait_for_timeout(200)
+    assert page.locator('.edit-sheet .mark-list li').count()==0
+    assert page.locator('.edit-sheet .sent-chip.on').count()==1,'cümle seçili kalır'
+    page.locator('.edit-sheet .mark-btn.mark-underline').click();page.wait_for_timeout(200)
+    page.keyboard.press('Escape')
+    # Yeni talep ekle (2. talebin altına) ve bir yukarı taşı.
+    page.locator('#paper .paragraph[data-role="result-item"]',has_text='kaldırılmasına').click();page.wait_for_timeout(300)
+    page.locator('.edit-sheet .chip',has_text='Altına yeni paragraf').click()
+    page.locator('.edit-sheet .add-form textarea').fill('Teminatın iadesine,')
+    page.locator('.edit-sheet .add-form button',has_text='Ekle').click();page.wait_for_timeout(300)
+    assert page.locator('.edit-sheet .sheet-head strong').text_content()=='Eklenen paragraf'
+    page.locator('.edit-sheet .chip',has_text='Yukarı taşı').click();page.wait_for_timeout(300)
+    page.keyboard.press('Escape')
+    udf=tmp/'v18.udf';save_download(page,'#download',udf)
+    _,lines=udf_lines(udf)
+    items=[l for l in lines if re.match(r'^\d\.\t',l)]
+    assert items[:4]==['1.\tYetki itirazının kabulüne,','2.\tTeminatın iadesine,','3.\tİhtiyati haciz kararının kaldırılmasına,','4.\tYargılama giderlerinin karşı tarafa yükletilmesine,'],items
+    runs=udf_runs(udf)
+    assert any(t=='verilen karara' and a.get('bold')=='true' and a.get('italic')=='true' for t,a in runs),[r for r in runs if 'karara' in r[0]]
+    assert any(t=='Müvekkil şirketin merkezi Gaziantep’tir.' and a.get('underline')=='true' for t,a in runs),[r for r in runs if 'Müvekkil' in r[0] or 'Gaziantep' in r[0]]
+    assert sum(1 for t,a in runs if trl(t).startswith('ihtiyati haciz') and a.get('bold')=='true')>=2
+    with page.expect_download() as info: page.locator('#reportDownload').click()
+    rep=Path(info.value.path()).read_text(encoding='utf-8')
+    assert '“verilen karara” kalın + italik' in rep and 'her “İhtiyati haciz” kalın' in rep and 'altına 1 yeni paragraf' in rep,rep[-1500:]
+    assert not errors,errors
+    ctx.close()
+    # Telefon: seçim çubuğu altta sabit, ekranın içinde.
+    ctx=browser.new_context(viewport={'width':390,'height':844},has_touch=True,is_mobile=True);page=ctx.new_page()
+    load_page(page,'workspace.html');fetch_data(page,petition)
+    page.locator('#paper .paragraph',has_text='verilen karara').scroll_into_view_if_needed()
+    assert page.evaluate(SELECT_JS,['#paper .paragraph','verilen karara']);page.wait_for_timeout(300)
+    box=page.locator('.mark-pop').bounding_box();bar=page.locator('#mobileBar').bounding_box()
+    assert 'docked' in page.locator('.mark-pop').get_attribute('class') and box['y']+box['height']<=bar['y']+1 and box['x']>=0 and box['x']+box['width']<=390,(box,bar)
+    page.locator('.mark-pop .mp-italic').click();page.wait_for_timeout(200)
+    assert 'verilen karara' in styled('fontStyle','italic')
+    ctx.close()
+    # Word büyük harf / küçük büyük harf / karakter aralığı: metin büyük harfe, uyarı indirmeyi engellemez.
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    d=Document()
+    for t in ['ŞANLIURFA 1. ASLİYE HUKUK MAHKEMESİNE','DAVACI: Ali VELİ','KONU: Deneme.','AÇIKLAMALAR']:d.add_paragraph(t)
+    p=d.add_paragraph();r=p.add_run('ilgili karar');r.font.all_caps=True;p.add_run(' metindedir; ');r=p.add_run('şerh');r.font.small_caps=True
+    sp=OxmlElement('w:spacing');sp.set(qn('w:val'),'20');r2=p.add_run(' aralıklı.');r2._r.get_or_add_rPr().append(sp)
+    capsdoc=tmp/'caps.docx';d.save(capsdoc)
+    ctx=browser.new_context(accept_downloads=True);page=ctx.new_page();load_page(page,'workspace.html')
+    page.locator('#fileInput').set_input_files(str(capsdoc));page.wait_for_timeout(1200)
+    body=page.locator('#paper').text_content()
+    assert 'İLGİLİ KARAR metindedir; ŞERH aralıklı.' in body,body
+    assert page.locator('#reviewLabel').is_hidden() and page.locator('#download').is_enabled(),page.locator('#warningList li').all_text_contents()
+    assert all(t.startswith('Bilgi:') for t in page.locator('#warningList li').all_text_contents() if 'aralığı' in t or 'small caps' in t)
+    ctx.close()
+    print('PASS kelime/cümle biçimi: seçim çubuğu, Ctrl+B/I/U, cümle, tüm belgede, geri al/yinele, panel cümleleri, yeni talep + taşı, telefon, UDF ve rapor; Word büyük harf efektleri')
 
 def csp_check(browser):
     """The other tests strip the pages' CSP; here the real pages are served

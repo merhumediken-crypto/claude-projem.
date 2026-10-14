@@ -398,7 +398,7 @@ test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
 test('WTU-072 manifest izinleri, CSP ve sürüm',()=>{
   const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
   assert.equal(m.manifest_version,3);assert.deepEqual(m.permissions,[]);assert.deepEqual(m.host_permissions,[]);
-  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.7.0');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
+  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.8.0');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
   // sw.js (PWA offline cache) may fetch, but only its own origin.
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(/url\.origin !== location\.origin\) return/u.test(sw));
   for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')&&f!=='sw.js'))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);
@@ -669,6 +669,103 @@ test('v1.6 denetim düzeltmeleri: künye satırları doğru yere, kapanışsız 
   assert.deepEqual(arr(one.blocks.map(text)).slice(0,4),['DAVALI: Ali VELİ','VEKİLİ: Av. Fatih NAKIŞLI','DAVACI: Banka A.Ş.','KONU: Mazeret.'],'karşı taraf KONU\'dan önce');
   assert.equal(paste.detect({text:'DAVALI: Ali\n- birinci madde\n- ikinci madde'}),'plain');
   assert.equal(paste.textToBlocks('Bu  cümlede     fazla boşluk var.','plain').blocks.map(text)[0],'Bu cümlede fazla boşluk var.','gövdede sekme oluşmaz');
+});
+/* ----------------------------- v1.8.0 kelime / cümle biçimi ----------------------------- */
+test('v1.8 cümle bölme: kısaltma, sıra sayısı, tarih, baş harf ve tırnak cümleyi bölmez',()=>{
+  const S=t=>arr(edits.sentences(t).map(x=>x.text));
+  assert.deepEqual(S("Mahkemenizin 2026/1929 E. sayılı dosyasında HMK m. 127 uyarınca süre verilmiştir. Şanlıurfa 8. Asliye Hukuk Mahkemesi'nin 14.10.2026 tarihli kararı Av. Fatih NAKIŞLI'ya tebliğ edilmiştir. Bu nedenle talep ederiz."),
+    ["Mahkemenizin 2026/1929 E. sayılı dosyasında HMK m. 127 uyarınca süre verilmiştir.","Şanlıurfa 8. Asliye Hukuk Mahkemesi'nin 14.10.2026 tarihli kararı Av. Fatih NAKIŞLI'ya tebliğ edilmiştir.","Bu nedenle talep ederiz."]);
+  assert.deepEqual(S("Yargıtay 3. HD'nin kararı. A. KAYA geldi. T.C. Anayasası m. 36 uyarınca “Herkes hak arama özgürlüğüne sahiptir.” Bu ilke açıktır!"),
+    ["Yargıtay 3. HD'nin kararı.","A. KAYA geldi.","T.C. Anayasası m. 36 uyarınca “Herkes hak arama özgürlüğüne sahiptir.”","Bu ilke açıktır!"]);
+  assert.deepEqual(S('Toplam 1.500 TL ödenmiştir... Ancak bakiye vardır? Evet.'),['Toplam 1.500 TL ödenmiştir...','Ancak bakiye vardır?','Evet.']);
+  assert.deepEqual(S('HMK m. 127. Bu madde uygulanır. Verilen karar. Bu karar kesindir.'),['HMK m. 127.','Bu madde uygulanır.','Verilen karar.','Bu karar kesindir.']);
+  const t='  Birinci cümle.  İkinci cümle.';const x=edits.sentences(t);assert.equal(t.slice(x[1].start,x[1].end),'İkinci cümle.','ofsetler metindeki yeri verir');
+});
+test('v1.8 kelime/cümle biçimi: en yakın geçiş, kayıp biçim bildirilir, yanlış yere uygulanmaz',()=>{
+  const keys=edits.blockKeys(IB);const i=IB.findIndex(b=>b.role==='explanation-body');
+  const body=edits.bodyText(IB[i]);const w='duruşmasına';const at=body.indexOf(w);
+  const r=edits.apply(IB,{[keys[i]]:{marks:[{text:w,at,bold:true},{text:'katılamayacağız',at:body.indexOf('katılamayacağız'),italic:true,underline:true}]}});
+  const b=r.blocks.find(x=>x.editKey===keys[i]);
+  assert.equal(text(b),text(IB[i]),'metin değişmez');
+  assert(b.runs.some(x=>x.text===w&&x.bold),'işaretli kelime kalın');assert(b.runs.filter(x=>x.bold).every(x=>x.text===w),'yalnız o kelime');
+  assert(b.runs.some(x=>x.text==='katılamayacağız'&&x.italic&&x.underline));
+  assert.equal(r.lost.length,0);assert(/“duruşmasına” kalın/u.test(r.log[0].summary),r.log[0].summary);
+  // Aynı sözcük iki kez geçiyorsa işaretlendiği yerdeki geçiş biçimlenir.
+  const two=[para('AÇIKLAMALAR'),para('Karar verildi ve karar tebliğ edildi.')];const tr=runText(two).blocks;const tk=edits.blockKeys(tr);const ti=tr.findIndex(x=>/tebliğ/u.test(text(x)));
+  const second=edits.bodyText(tr[ti]).lastIndexOf('karar');
+  const m=edits.apply(tr,{[tk[ti]]:{marks:[{text:'karar',at:second,italic:true}]}}).blocks.find(x=>x.editKey===tk[ti]);
+  const it=m.runs.filter(x=>x.italic).map(x=>x.text);assert.deepEqual(arr(it),['karar']);
+  assert.equal(text(m).indexOf('karar'),second-0,'ikinci "karar" (küçük harfli) italik; büyük harfli "Karar" değil');
+  // Metin değişip işaretli sözcük kalmazsa biçim uygulanmaz ve kayıp olarak döner.
+  const gone=edits.apply(IB,{[keys[i]]:{text:'Tamamen başka bir metin.',marks:[{text:w,at,bold:true}]}});
+  assert.equal(gone.lost.length,1);assert(!gone.blocks.find(x=>x.editKey===keys[i]).runs.some(x=>x.bold));
+  // false değerli biçim, otomatik italiği kaldırır (kanun atfı).
+  const law=runText([para('AÇIKLAMALAR'),para('Talebimiz HMK m. 127 uyarınca yapılmıştır.')]).blocks;const lk=edits.blockKeys(law);const li=law.findIndex(x=>/HMK/u.test(text(x)));
+  assert(law[li].runs.some(x=>x.italic),'atıf otomatik italik');
+  const plain=edits.apply(law,{[lk[li]]:{marks:[{text:'HMK m. 127',at:10,italic:false}]}}).blocks.find(x=>x.editKey===lk[li]);
+  assert(!plain.runs.some(x=>x.italic),'elle italik kaldırıldı');
+  assert.equal(edits.sanitize({marks:[{text:'',bold:true},{text:'x'},{text:'y',bold:'evet'},{text:'z',strike:true,at:-1,evil:1}]}).marks.length,1,'geçersiz biçimler atılır');
+  const w8=writer.write(edits.apply(IB,{[keys[i]]:{marks:[{text:w,at,strike:true}]}}).blocks,{});assert(/strikeThrough="true"/u.test(w8.xml));
+});
+test('v1.8 metin düzeltme: değiştirilmeyen kısımların kalın/italik biçimi korunur',()=>{
+  const src=runText([para('AÇIKLAMALAR'),{kind:'paragraph',runs:[{text:'Davacı '},{text:'kesinlikle',bold:true},{text:' HMK m. 127 uyarınca süreyi kaçırmıştır.'}]}]).blocks;
+  const k=edits.blockKeys(src);const i=src.findIndex(x=>/kesinlikle/u.test(text(x)));
+  const b=edits.apply(src,{[k[i]]:{text:'Davalı kesinlikle HMK m. 127 uyarınca süreyi kaçırmıştır.'}}).blocks.find(x=>x.editKey===k[i]);
+  assert.equal(text(b),'Davalı kesinlikle HMK m. 127 uyarınca süreyi kaçırmıştır.');
+  assert(b.runs.some(x=>x.text==='kesinlikle'&&x.bold),'kalın sözcük korunur');assert(b.runs.some(x=>x.text==='HMK m. 127'&&x.italic),'atıf italik kalır');
+  assert(!b.runs.some(x=>/Davalı/u.test(x.text)&&x.bold),'değişen sözcük kalın olmaz');
+  // Araya eklenen sözcük solundaki karakterin biçimini sürdürür (Word gibi): kalın sözcükten sonraki boşluk düz.
+  const ins=edits.apply(src,{[k[i]]:{text:'Davacı kesinlikle ve açıkça HMK m. 127 uyarınca süreyi kaçırmıştır.'}}).blocks.find(x=>x.editKey===k[i]);
+  assert.deepEqual(arr(ins.runs.filter(x=>x.bold).map(x=>x.text)),['kesinlikle']);
+  const glued=edits.apply(src,{[k[i]]:{text:'Davacı kesinlikleçok HMK m. 127 uyarınca süreyi kaçırmıştır.'}}).blocks.find(x=>x.editKey===k[i]);
+  assert.deepEqual(arr(glued.runs.filter(x=>x.bold).map(x=>x.text)),['kesinlikleçok'],'kalın sözcüğe bitişik yazılan kalın sürer');
+});
+test('v1.8 belge geneli: Türkçe büyük/küçük harf duyarsız bul, her geçişi biçimle, bul-değiştir biçimi korur',()=>{
+  assert.deepEqual(arr(edits.findMatches('İsa ile isa ve ISA',"İSA").map(m=>m.start)),[0,8]);
+  assert.deepEqual(arr(edits.findMatches('IŞIK ışık Işık','ışık').map(m=>m.start)),[0,5,10]);
+  assert.deepEqual(arr(edits.findMatches('tedbir ihtiyatitedbir tedbirin','tedbir',{wholeWord:true}).map(m=>m.start)),[0]);
+  assert.deepEqual(arr(edits.findMatches('Karar karar','karar',{caseSensitive:true}).map(m=>m.start)),[6]);
+  const r=edits.apply(IB,{[edits.DOC_KEY]:{marks:[{text:'mesleki mazeretimizin',bold:true}]}});
+  const hits=r.blocks.filter(b=>b.runs.some(x=>x.bold&&/^mesleki mazeretimizin$/iu.test(x.text)));
+  assert(hits.length>=2,'KONU ve talepte kalın');assert(/her “mesleki mazeretimizin” kalın \(\d+ yerde\)/u.test(r.log.at(-1).summary),r.log.at(-1).summary);
+  // Paragrafa özgü biçim belge geneli biçimden üstündür.
+  const keys=edits.blockKeys(IB);const i=IB.findIndex(b=>b.role==='result-item');const at=edits.bodyText(IB[i]).indexOf('mesleki mazeretimizin');
+  const both=edits.apply(IB,{[edits.DOC_KEY]:{marks:[{text:'mesleki mazeretimizin',bold:true}]},[keys[i]]:{marks:[{text:'mesleki mazeretimizin',at,bold:false}]}}).blocks.find(b=>b.editKey===keys[i]);
+  assert(!both.runs.some(x=>x.bold&&/mesleki/u.test(x.text)));
+  // Bul-değiştir: biçim korunur, anahtar değişmez, kullanıcı metnine dokunmaz.
+  const rep=edits.apply(IB,{[edits.DOC_KEY]:{replace:[{from:'İsa Çiftçi',to:'İsa ÇİFTÇİ'},{from:'mazeretimizin',to:'mazeretimizin (ekte)',wholeWord:true}]}});
+  assert(rep.blocks.some(b=>/Davalı İsa ÇİFTÇİ Vekili/u.test(text(b))));
+  assert(rep.blocks.every(b=>!b.editKey||keys.includes(b.editKey)),'anahtarlar korunur');
+  assert(/“İsa Çiftçi” → “İsa ÇİFTÇİ” \(2 yerde\)/u.test(rep.log.at(-1).summary),'büyük/küçük harf duyarsız: künye ve imza '+rep.log.at(-1).summary);
+  const sig=rep.blocks.find(b=>/Davalı İsa ÇİFTÇİ Vekili/u.test(text(b)));assert(sig.runs.every(x=>x.bold),'imza kalın kalır');
+  assert.deepEqual(JSON.parse(JSON.stringify(edits.sanitizeDoc({marks:[{text:'a',bold:true,caseSensitive:true,x:1},{text:'b'}],replace:[{from:'',to:'x'},{from:'a',to:'b\nc'}],evil:1}))),
+    {marks:[{text:'a',caseSensitive:true,bold:true}],replace:[{from:'a',to:'b c'}]});
+});
+test('v1.8 yeni paragraf ekle, taşı: talep altına talep, numaralar ve sıra güncellenir',()=>{
+  const r0=runText(ISA,{splitRequests:true,now:new Date('2026-10-14T09:00:00Z')}).blocks;
+  const keys=edits.blockKeys(r0);const items=r0.map((b,i)=>b.role==='result-item'?i:-1).filter(i=>i>=0);
+  const add=edits.apply(r0,{[keys[items[0]]]:{addAfter:[{id:'a1',text:'Yargılama giderlerinin karşı tarafa yükletilmesine,'}]}});
+  const list=add.blocks.filter(b=>b.listId==='1');
+  assert.equal(list.length,6);assert.equal(text(list[1]),'2.\tYargılama giderlerinin karşı tarafa yükletilmesine,','yeni talep 2. madde');
+  assert.equal(list[1].editKey,edits.childKey(keys[items[0]],'a1'));assert(list[1].added);assert.equal(edits.parentOf(list[1].editKey),keys[items[0]]);
+  // Eklenen paragraf da düzenlenir / silinir.
+  const ck=edits.childKey(keys[items[0]],'a1');
+  const ed=edits.apply(r0,{[keys[items[0]]]:{addAfter:[{id:'a1',text:'Ek talep,'}]},[ck]:{bold:true}}).blocks.find(b=>b.editKey===ck);assert(ed.runs.slice(1).every(x=>x.bold));
+  const gone=edits.apply(r0,{[keys[items[0]]]:{addAfter:[{id:'a1',text:'Ek talep,'}]},[ck]:{remove:true}}).blocks;assert(!gone.some(b=>b.editKey===ck));
+  // Üst paragraf silinse de eklenen kalır.
+  const keep=edits.apply(r0,{[keys[items[0]]]:{remove:true,addAfter:[{id:'a1',text:'Yerine geçen talep,'}]}}).blocks.filter(b=>b.listId==='1');
+  assert.equal(text(keep[0]),'1.\tYerine geçen talep,');
+  // Gövde paragrafının altına eklenen gövde paragrafı olur.
+  const bi=r0.findIndex(b=>b.role==='explanation-body');
+  const nb=edits.apply(r0,{[keys[bi]]:{addAfter:[{id:'b1',text:'Ayrıca belirtmek gerekir ki süre dolmamıştır.'}]}}).blocks.find(b=>b.editKey===edits.childKey(keys[bi],'b1'));
+  assert.equal(nb.role,'edit-body');assert.equal(nb.alignment,'justify');assert(nb.first>30);
+  // 3. talebi bir yukarı taşı → 2. olur, numaralar sıralı.
+  const mv=edits.apply(r0,{[keys[items[2]]]:{move:-1}}).blocks.filter(b=>b.listId==='1');
+  assert(/^2\.\t06\.10\.2026/u.test(text(mv[1])),text(mv[1]));assert.deepEqual(arr(mv.map(b=>b.runs[0].text)),['1.\t','2.\t','3.\t','4.\t','5.\t']);
+  const down=edits.apply(r0,{[keys[items[0]]]:{move:2}}).blocks.filter(b=>b.listId==='1');assert(/^3\.\t14\.10\.2026/u.test(text(down[2])));
+  const top=edits.apply(r0,{[keys[items[1]]]:{move:-500}}).blocks;assert.equal(top[0].editKey,keys[items[1]],'en başa kadar taşınır, taşmaz');
+  assert(/1 sıra yukarı taşındı/u.test(edits.apply(r0,{[keys[items[2]]]:{move:-1}}).log[0].summary));
+  const w=writer.write(add.blocks,{});assert(w.xml.includes('Yargılama giderlerinin karşı tarafa yükletilmesine,'));
 });
 console.log(failed?`SONUÇ ${count} başarılı, ${failed} BAŞARISIZ`:`SONUÇ ${count} mantık testi başarılı`);
 if(failed)process.exitCode=1;

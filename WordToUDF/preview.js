@@ -30,11 +30,15 @@
       const m = document.createElement('span'); m.className = 'list-marker'; m.textContent = marker; m.setAttribute('aria-hidden', 'true');
       m.style.width = `${Math.max(0, -(block.first || 0)) / .75}px`; p.append(m); p.dataset.list = `${block.list.id}`;
     }
+    // data-o: offset of each piece in the paragraph's flattened text, so a
+    // selection in the preview maps back to exact characters (editor-ui.js).
+    let off = 0;
     for(const run of block.runs){
       const parts = run.text.split('\t');
       for(let i = 0; i < parts.length; i++){
         const span = document.createElement('span');
         span.textContent = parts[i];
+        span.dataset.o = String(off); off += parts[i].length;
         if(run.font) span.style.fontFamily = run.font;
         if(Number.isFinite(run.size)) span.style.fontSize = `${run.size}pt`;
         if(run.color) span.style.color = `#${run.color}`;
@@ -47,6 +51,7 @@
           const tab = document.createElement('span');
           tab.className = 'tab-stop' + (run.underline ? ' underlined' : '');
           tab.textContent = '\t';
+          tab.dataset.o = String(off); off += 1;
           if(run.color) tab.style.color = `#${run.color}`;
           p.append(tab);
         }
@@ -85,6 +90,7 @@
         const p = makeParagraph(block, listState); p.dataset.index = String(i);
         if(block.editKey) p.dataset.key = block.editKey;
         if(block.edited) p.classList.add('edited');
+        if(block.added) p.classList.add('added');
         if(block.inserted) p.classList.add('inserted');
         frag.append(p);
       }

@@ -1,4 +1,4 @@
-# WordToUDF 1.7.0 – Mimari
+# WordToUDF 1.8.0 – Mimari
 
 ## Dönüşüm hattı
 
@@ -93,3 +93,12 @@ tools/pages.py ─► workspace.html · templates.html · reverse.html · index.
 - **workspace.css** — tasarım sistemi: renk/boşluk/gölge belirteçleri (açık ve koyu), bileşenler (kart, düğme, form, sekme, rozet, önizleme, düzenleme paneli), telefon düzeni, erişilebilirlik. Adım numaraları CSS sayacıyla görünen kartlardan üretilir. Dilekçe kâğıdı (`.paper`) her temada beyazdır.
 - **theme.js** — `<head>` içinde, ilk boyamadan önce `data-theme` uygular (yanıp sönme olmaz); üst çubuktaki düğme Otomatik → Açık → Koyu döngüsünü yapar.
 - **Konum koruma** — `workspace.js` `holdPosition()`: yeniden çizimden önce değiştirilen kontrolün (yoksa kartının) ekrandaki yerini ölçer, sonra farkı kaydırarak geri verir; üstteki rapor/denetim listeleri yeniden kurulsa da kontrol yerinde kalır. `editor-ui.js` düzenleme panelini yeniden kurarken panelin kaydırma konumunu ve odaktaki düğmeyi (`data-ctl` anahtarıyla) korur.
+
+## 1.8.0 — kelime/cümle biçimi, ekleme, taşıma
+
+- **edits.js** düzenleme nesnesine üç alan ekler: `marks` (`[{text, at, bold|italic|underline|strike}]`: işaretlenen metin ve paragraftaki yaklaşık yeri), `addAfter` (`[{id, text, role}]`: kullanıcının eklediği paragraflar; anahtarları `<üst anahtar>#+<id>`, kendi düzenlemeleri olabilir) ve `move` (görünen paragraflar arasında kaç sıra). Belge geneli kurallar `'*doc'` anahtarındadır: `{marks: [{text, caseSensitive, wholeWord, …}], replace: [{from, to, …}]}`.
+- Uygulama sırası: anahtarlar dizgi sonrası metinden hesaplanır → belge geneli değiştirme (yalnız dizgi metnine, kullanıcının yazdığına değil) → tür → metin → paragraf biçimi → belge geneli biçim → paragrafa özgü biçim (en son, en özel olan kazanır) → eklenen paragraflar → taşıma → yeniden numaralandırma.
+- Biçim metinle bulunur: `findMatches()` (Türkçe katlama: `toLocaleLowerCase('tr-TR')`, uzunluk değişirse büyük/küçük harf duyarlı aramaya düşer), paragrafta en yakın geçiş seçilir. Bulunamayan biçim `lost` listesine girer; `pipeline.js` bunu denetime uyarı olarak ekler.
+- `sentences()` Türkçe hukuk metni için cümle sınırlarını verir (kısaltma listesi, iki basamaklı sıra sayısı, baş harf, tırnak).
+- **preview.js** her metin parçasına `data-o` (paragraf metnindeki ofset) yazar; **editor-ui.js** tarayıcı seçimini bu ofsetlerle paragraf metnine çevirir ve biçimden sonra aynı metni yeniden seçer.
+- **docx.js** uyarılarına `minor` alanı eklendi: yalnız görünümü etkileyenler (karakter aralığı, efektler, A4 dışı kâğıt, küçük büyük harf) indirme onayı istemez.

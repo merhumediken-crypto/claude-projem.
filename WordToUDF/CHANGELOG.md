@@ -2,6 +2,30 @@
 
 WordToUDF'nin bütün sürümleri, yeniden eskiye. Kullanım kılavuzu: [README.md](README.md).
 
+## 1.8.0 — Kelime ve cümle biçimi, yeni paragraf, taşıma
+
+### Kelime / cümle biçimlendirme
+- **Önizlemede seçin, biçimleyin:** bir sözcüğü ya da cümleyi fareyle (telefonda parmakla) seçince küçük bir çubuk açılır: **K** (kalın), *İ* (italik), A (altı çizili), S (üstü çizili), **Düz** (biçimi kaldırır), **Cümle** (seçimi cümlenin tamamına genişletir), **Tüm belgede** (aynı metnin belgedeki her geçişine uygular). Masaüstünde çubuk seçimin üstünde, telefonda ekranın altında sabittir.
+- **Klavye:** Ctrl+B / Ctrl+I / Ctrl+U önizlemedeki seçime ya da düzenleme panelinin metin kutusundaki seçime uygulanır.
+- **Panelde cümleler:** paragrafın cümleleri düğme olarak listelenir; bir veya birkaç cümleye dokunup K / İ / A / S. Bu paragraftaki elle biçimler listelenir, her biri × ile kaldırılır.
+- **Türkçe cümle bölme:** “HMK m. 127”, “2026/1929 E.”, “Av.”, “8. Asliye”, “3. HD”, “14.10.2026”, “T.C.”, “A. KAYA” cümleyi bölmez.
+- **Güvenli saklama:** biçim, işaretlenen metnin kendisiyle saklanır ve her yeniden çizimde yeniden bulunur. Metin değişip işaretli sözcük kalmazsa biçim başka sözcüğe kaydırılmaz; denetimde “uygulanamadı” uyarısı çıkar.
+- **Tüm belgede** aramada Türkçe büyük/küçük harf eşleşmesi (İ/i, I/ı) doğru yapılır. Paragrafa özgü biçim, belge geneli biçimden üstündür.
+- **Metin düzeltme biçimi bozmuyor:** “Metni uygula” ile paragraf metnini değiştirince değiştirmediğiniz kısımların kalın/italik biçimi korunur (önceden hepsi sıfırlanıyordu). Yazılan yeni kısım, yerine geçtiği metnin biçimini alır.
+
+### Paragraf ekleme ve taşıma
+- **Altına yeni paragraf:** düzenleme panelinde “+ Altına yeni paragraf”. Tür varsayılan olarak üstteki gibidir (talep maddesinin altına yeni talep maddesi); gövde, düz paragraf, ara başlık, ek maddesi… seçilebilir. Eklenen paragraf yeşil çerçeveyle işaretlenir, diğerleri gibi düzenlenir, taşınır, silinir.
+- **Yukarı / aşağı taşı:** paragraf (boş satırı ve sayfa sonuyla birlikte) bir sıra yukarı/aşağı taşınır; talep ve ek numaraları kendiliğinden yeniden verilir.
+- **Yinele:** geri alınan düzenleme yeniden uygulanır (düğme ve Ctrl+Y / Ctrl+Shift+Z).
+
+### Word karakter efektleri
+- Word'deki **BÜYÜK HARF** (caps) biçimi gerçek büyük harfe çevrilir; **küçük büyük harf** (small caps) büyük harfe çevrilir.
+- Karakter aralığı / genişlik, gölge, kabartma ve A4 dışı kâğıt bildirimleri artık “Bilgi” olarak listelenir ve indirmeden önce “inceledim” onayı istemez (metin kaybı yoktur). Örnek dilekçedeki “Özel Word karakter efektleri (7 bölüm)” uyarısı bu türdendi.
+
+### Düzeltmeler
+- Kısayollar (Ctrl+Z vb.) odak bir onay kutusundayken de çalışır; yalnız yazı alanlarında tarayıcının kendi geri alması kullanılır.
+- Testler: 96 mantık testi (cümle bölme, biçim konumu ve kaybı, metin düzeltmede biçim koruma, Türkçe arama, yeni paragraf ve taşıma), yeni tarayıcı testi (`v18_marks`), zorlama testine rastgele biçim / ekleme / taşıma / belge geneli kurallar.
+
 ## 1.7.0 — Tasarım yenilemesi ve sürüm incelemesi
 
 ### Tasarım — profesyonel arayüz

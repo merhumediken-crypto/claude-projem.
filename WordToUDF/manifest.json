@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Word ↔ UDF | UDF → PDF",
   "short_name": "Word ↔ UDF",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "DOCX veya yapıştırılan metinden UYAP UDF; UDF→Word/PDF, dilekçe şablonları, paragraf düzenleyici ve denetim. Çevrimdışı.",
   "action": {
     "default_title": "Word ↔ UDF / PDF",

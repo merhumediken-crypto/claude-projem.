@@ -6,8 +6,10 @@
   const fileInput=$('fileInput'),drop=$('dropZone'),status=$('status');
   const download=$('download'),downloadDocx=$('downloadDocx'),reportDownload=$('reportDownload'),review=$('review'),profileSelect=$('typographyProfile');
   function message(text,kind='') {status.textContent=text;status.className=`status ${kind}`;}
+  // Warnings that can lose content need "inceledim"; minor ones are information.
+  const blocking=source=>(source?.warnings||[]).filter(w=>!w.minor);
   function setReady(){
-    const blocked=!state.source||!state.result||(state.source.warnings.length>0&&!review.checked);
+    const blocked=!state.source||!state.result||(blocking(state.source).length>0&&!review.checked);
     download.disabled=blocked;downloadDocx.disabled=blocked;
     reportDownload.disabled=!state.source||!state.result;
     // Phone: quick actions at the bottom once a document is loaded.
@@ -66,10 +68,14 @@
   }
   function showWarnings(source){
     const list=$('warningList');list.replaceChildren();
-    const warningCount=source.warnings.length;
+    const warningCount=blocking(source).length;
     $('colorNote').textContent='Doğrudan RGB ve çözümlenebilen Word tema renkleri aktarılır. Hukuk dilekçesi profilinde yazı tipi Times New Roman 12 pt\'dir.';
     if(!warningCount){const item=document.createElement('li');item.className='ok';item.textContent='Temel biçimlendirmeler için tespit edilen ek kayıp yok.';list.append(item);}
-    for(const warning of source.warnings){const item=document.createElement('li');item.textContent=`${warning.message}${warning.count>1?` (${warning.count} bölüm)`:''}`;list.append(item);}
+    // Content-affecting warnings first, then the informational ones.
+    for(const warning of [...blocking(source),...source.warnings.filter(w=>w.minor)]){
+      const item=document.createElement('li');if(warning.minor)item.className='minor';
+      item.textContent=`${warning.minor?'Bilgi: ':''}${warning.message}${warning.count>1?` (${warning.count} bölüm)`:''}`;list.append(item);
+    }
     $('reviewLabel').hidden=!warningCount;
     review.checked=false;
     setReady();
@@ -355,7 +361,7 @@
     const manual=norm?.typography?.edits||[];
     parts.push('','Elle yapılan paragraf düzenlemeleri:',...(manual.length?manual.map(e=>`- “${e.excerpt}” → ${e.summary}`):['- Yok']));
     parts.push('','Dönüşüm uyarıları:');
-    parts.push(...(source.warnings.length?source.warnings.map(w=>`- ${w.message} (${w.count})`):['- Tespit edilen ek biçim kaybı yok.']));
+    parts.push(...(source.warnings.length?source.warnings.map(w=>`- ${w.minor?'(bilgi) ':''}${w.message} (${w.count})`):['- Tespit edilen ek biçim kaybı yok.']));
     parts.push('','UDF üzerinde UYAP Doküman Editörü ile son kontrol yapılmalıdır; UYAP kabulü bu eklenti tarafından test edilmemiştir.','Belge imzasızdır: görünen imza metni kriptografik e-imza değildir, UYAP\'ta yeniden imzalanmalıdır.');
     return parts.join('\n');
   }

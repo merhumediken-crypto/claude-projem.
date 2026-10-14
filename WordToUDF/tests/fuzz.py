@@ -49,7 +49,13 @@ async ([iterations, seed]) => {
       const edits = new Map();
       for(const k of keys) if(rnd() < .25) edits.set(k, E.sanitize({role: pick([...Object.keys(E.ROLES), undefined]), align: pick(['left', 'center', 'right', 'justify', undefined]),
         bold: pick([true, false, undefined]), size: pick([...E.SIZES, undefined]), left: pick([...E.INDENTS, undefined]), above: pick([...E.SPACES, undefined]),
-        text: rnd() < .15 ? pick(LINES) : undefined, remove: rnd() < .1, mergeNext: rnd() < .1, blankBefore: rnd() < .1, breakBefore: rnd() < .05}));
+        text: rnd() < .15 ? pick(LINES) : undefined, remove: rnd() < .1, mergeNext: rnd() < .1, blankBefore: rnd() < .1, breakBefore: rnd() < .05,
+        // v1.8: word/sentence marks (also at impossible offsets / missing text), new paragraphs, moves.
+        marks: rnd() < .4 ? Array.from({length: 1 + Math.floor(rnd() * 4)}, () => { const src = pick(LINES); const a = Math.floor(rnd() * src.length); return {text: rnd() < .8 ? src.slice(a, a + 1 + Math.floor(rnd() * 25)) : 'yok-böyle-metin', at: Math.floor(rnd() * 400), [pick(E.MARK_STYLES)]: rnd() < .8}; }) : undefined,
+        addAfter: rnd() < .15 ? [{id: 'f' + it, text: pick(LINES) || 'Yeni paragraf.', role: pick([...Object.keys(E.ROLES), undefined])}] : undefined,
+        move: rnd() < .15 ? pick([-3, -1, 1, 2, 999, -999]) : undefined}));
+      if(rnd() < .3) edits.set(E.DOC_KEY, E.sanitizeDoc({marks: [{text: pick(['ve', 'karar', 'İ', 'ı', 'Talep', ' ']), bold: true, caseSensitive: rnd() < .5, wholeWord: rnd() < .5}],
+        replace: rnd() < .5 ? [{from: pick(['a', 've', 'İ', '.', 'karar']), to: pick(['', 'x', 'VE', 'çok uzun bir değiştirme metni']), wholeWord: rnd() < .5}] : []}));
       // Edits are keyed on the typeset text, so apply them through a second typeset.
       t = P.typeset(blocks, {profile, settings: opt, now: new Date('2026-10-14T09:00:00Z'), edits});
       const udf = await P.toUdf(t.blocks, {margins: t.norm.margins});

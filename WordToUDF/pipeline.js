@@ -32,11 +32,13 @@
     const typo = WordToUDFLegalTypography.apply(norm.blocks, {enabled: legal, selection: norm.selection, now, ...opts});
     // Manual paragraph edits (edits.js) run in both profiles, after the
     // automatic rules; every paragraph is tagged with its edit key.
-    let blocks = typo.blocks, applied = 0, editLog = [];
-    if(globalThis.WordToUDFEdits){ const r = WordToUDFEdits.apply(blocks, edits || overrides, opts); blocks = r.blocks; applied = r.applied; editLog = r.log; }
+    let blocks = typo.blocks, applied = 0, editLog = [], lost = [];
+    if(globalThis.WordToUDFEdits){ const r = WordToUDFEdits.apply(blocks, edits || overrides, opts); blocks = r.blocks; applied = r.applied; editLog = r.log; lost = r.lost || []; }
     const checks = globalThis.WordToUDFChecks ? WordToUDFChecks.run(blocks, typo.statistics, {now}) : [];
     if(applied && legal) checks.push({level: 'info', code: 'manual-edits', message: `${applied} paragraf elle düzenlendi; ayrıntılar dönüşüm raporunda.`});
-    return {norm, blocks, typography: {...typo.statistics, overrides: applied, edits: editLog}, checks, legal};
+    // A word/sentence format whose text is gone is reported, never moved elsewhere.
+    if(lost.length) checks.push({level: 'warn', code: 'marks-lost', message: `${lost.length} elle biçimlendirme uygulanamadı; işaretlenen metin paragrafta artık yok: ${lost.slice(0, 3).map(m => `“${String(m.text).slice(0, 40)}”`).join(', ')}${lost.length > 3 ? '…' : ''}.`});
+    return {norm, blocks, typography: {...typo.statistics, overrides: applied, edits: editLog, lostMarks: lost}, checks, legal};
   }
 
   const EMPTY_DOC = 'Belgede yazdırılacak paragraf kalmadı (hepsi silinmiş olabilir); silinenleri "Geri al" ile geri getirin.';
