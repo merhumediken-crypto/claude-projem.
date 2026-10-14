@@ -3,7 +3,7 @@
   "name": "Word ↔ UDF | UDF → PDF",
   "short_name": "Word ↔ UDF",
   "version": "1.5.0",
-  "description": "DOCX↔UYAP UDF ve UDF→PDF. Ortak iki nokta hizası, tek DOSYA NO, UETS’li vekil satırı, otomatik numaralı talep ve ek listeleri, çevrimdışı.",
+  "description": "DOCX↔UYAP UDF, UDF→PDF, dilekçe şablonları ve gönderim öncesi denetim. UETS'li vekil satırı, numaralı talepler, çevrimdışı.",
   "action": {
     "default_title": "Word ↔ UDF / PDF",
     "default_popup": "popup.html",

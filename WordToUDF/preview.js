@@ -90,6 +90,8 @@
   // scaled height so the page scrolls normally.
   function fit(viewport, wrapper, paper, enabled = true){
     paper.style.transform = ''; wrapper.style.height = ''; wrapper.style.width = '';
+    // "Gerçek boyut" must scroll sideways on a phone; "Sığdır" never needs to.
+    viewport.classList.toggle('fit', !!enabled);
     if(!enabled) return 1;
     const style = getComputedStyle(viewport);
     const avail = viewport.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);

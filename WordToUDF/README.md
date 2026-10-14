@@ -1,6 +1,56 @@
-# Word ↔ UDF / PDF — WordToUDF 1.4.1
+# Word ↔ UDF / PDF — WordToUDF 1.5.0
 
-**Sürüm:** 1.4.1 | **Çalışma biçimi:** Manifest V3 / çevrimdışı / sunucusuz / Chrome izni yok
+**Sürüm:** 1.5.0 | **Çalışma biçimi:** Manifest V3 / çevrimdışı / sunucusuz / Chrome izni yok · ayrıca çevrimdışı web uygulaması (PWA)
+
+## 1.5.0 — Geliştirme planının tamamı
+
+**Telefon ve görünüm**
+- Önizleme ekran genişliğine **sığdırılır** (“Sığdır / Gerçek boyut” düğmesi); telefonda sayfa artık sağdan kesilmez.
+- Kâğıt telefon/tarayıcı **karanlık modda da beyaz** kalır (`color-scheme: only light`).
+- Masaüstünde önizleme sayfa kaydırılırken yerinde kalır.
+
+**Ayarlar (koddan çıkarıldı)**
+- Vekil adı/UETS, başka vekiller, liste biçimi, satır aralığı, tarih ve talep ayırma seçenekleri tek bir ayar modelinde (`settings.js`) tutulur; yalnız bu tarayıcıda saklanır.
+- **Ayarları dışa / içe aktar:** JSON dosyasıyla telefon ↔ bilgisayar arasında taşınır.
+
+**Dilekçe denetimi (gönderim öncesi, belgeyi değiştirmez)**
+- Mahkeme başlığı yok / yönelme eki eksik, DOSYA NO yok veya `yıl/sıra` biçiminde değil.
+- UETS numarası hatalı biçimde ya da VEKİLİ satırında yok.
+- İmzadaki avukat künyede yok; imzadaki taraf adı (“Davalı İsa Çiftçi Vekili”) künyedeki değerle uyuşmuyor; imza bloğu yok.
+- KONU / SONUÇ VE İSTEM / talep maddesi yok; kapanış cümlesi eklendi bilgisi.
+- Geçersiz tarih (31.02.2026), **geçmiş duruşma tarihi**, iki yıldan uzak tarih.
+- UYAP'ta kayma riski olan “iki yana yaslı + sekme” paragrafı; açıklanmayan sözcük kaybı.
+- Hatalar önce, sonra uyarılar ve bilgiler listelenir; rapora da yazılır.
+
+**Talepleri maddelere ayırma (onaylı)**
+- Tek maddeye yazılmış birden çok talep (`…kabulüne, …bırakılmasına, …kaldırılmasına, …`) algılanır ve **önerilir**; “Maddelere ayır” ile numaralı maddelere bölünür. Kendiliğinden bölünmez. Her yeni madde büyük harfle başlar.
+
+**Önizlemede elle düzeltme**
+- Paragrafa dokunun → *İmza, Gövde, Düz paragraf, Ara başlık, Ortalı başlık* veya *Otomatik*. Yalnız düzen değişir, metin değişmez; UDF ve Word çıktısına uygulanır.
+
+**Dilekçe şablonları (`templates.html`)**
+- Duruşma mazeret dilekçesi, cevap süresi için ek süre (HMK m. 127), ihtiyati tedbire itiraz (HMK m. 394), genel beyan dilekçesi.
+- Mahkeme, esas no, taraflar ve tarihler formdan; açıklama, talepler, kapanış ve ekler sayfada düzenlenebilir. Çıktı, Word'den dönüştürülen belgelerle **aynı kurallardan** geçer ve UDF veya Word olarak indirilir. Boş alanlar `…` olarak görünür, bilgi uydurulmaz.
+
+**Toplu dönüşüm ve Word çıktısı**
+- Birden çok DOCX seçilir (veya sürüklenir) → hepsi tek **ZIP** içinde UDF + toplu rapor. Hatalı dosya diğerlerini durdurmaz, raporda yazılır.
+- “Düzenlenmiş Word (DOCX) indir”: UDF ile aynı düzende Word belgesi.
+
+**Düzeltilen algılama hataları**
+- `ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ'NE` gibi **kesme işaretli** başlıklar mahkeme başlığı olarak tanınmıyordu; artık ortalı, kalın, 14 pt.
+- `KARŞI TARAF DAVALI:` etiketi tanınmıyor ve bir önceki VEKİLİ satırının içine yutuluyordu. Bilinmeyen BÜYÜK HARFLİ `ETİKET:` satırları artık hiçbir değerin devamı sayılmaz.
+
+**Yapı**
+- `legal-rules.js`: etiket/bölüm sözlüğü, algılama kalıpları ve ad listesi (yalnız veri). `legal-typography.js` yalnız mantık.
+- `pipeline.js`: tek sayfa, toplu dönüşüm ve şablonların ortak dönüşüm hattı. `preview.js`: ortak önizleme. `checks.js`: denetim.
+- Testler: 84 mantık testi, 5 isimleri değiştirilmiş örnek dilekçeyle **altın çıktı** testi (`tests/golden.test.js`), genişletilmiş Chromium testleri.
+- `npm test`, `npm run build` (yeniden üretilebilir sürüm ZIP'i + SHA-256), GitHub Actions iş akışı (`.github/workflows/wordtoudf.yml`).
+
+**Çevrimdışı web uygulaması (PWA)**
+- Klasör bir web sunucusunda (ör. GitHub Pages) yayınlanırsa `index.html` başlangıç sayfasıdır; telefonda “Ana ekrana ekle” ile uygulama gibi açılır ve `sw.js` sayesinde çevrimdışı çalışır. Dosyalar yine cihazdan çıkmaz. Chrome uzantısı bu dosyaları kullanmaz.
+
+**Hâlâ doğrulanmayan:** UYAP Doküman Editörü'nde açılış ve görünüm bu ortamda test edilemez. İlk belgeleri UYAP'ta açarak kontrol edin.
+
 
 ## 1.4.1 — Kullanıcı geri bildirimi düzeltmeleri
 
@@ -37,7 +87,7 @@ Hukuk dilekçesi profili artık son kararlaştırılan dilekçe standardını uy
 1. ZIP paketini bilgisayarınızda **klasörün tamamını koruyarak** çıkarın.
 2. Masaüstü Chrome adres çubuğuna `chrome://extensions` yazın.
 3. **Geliştirici modu**nu açın → **Paketlenmemiş öğe yükle**yi seçin.
-4. ZIP'ten çıkan `WordToUDF-1.4.1` klasörünü seçin (içinde `manifest.json` bulunan klasör).
+4. ZIP'ten çıkan `WordToUDF-1.5.0` klasörünü seçin (içinde `manifest.json` bulunan klasör).
 5. Araç çubuğundaki **Word ↔ UDF** simgesine tıklayın → dönüştürme yönünü seçin.
 6. Word → UDF için DOCX dosyasını seçin; önizlemeyi, “Hukuk profilinin metin değişiklikleri” listesini ve varsa dönüşüm uyarılarını denetleyin. Gerekirse AÇIKLAMALAR bölümünün başlangıç/bitiş başlığını elle seçin.
 7. **UDF oluştur ve indir** ile `.udf` dosyasını kaydedin. UDF → Word / PDF için UDF seçin; Word düğmesi `.docx` indirir, PDF düğmesi Chrome yazdır penceresini açar. PDF hedefini **PDF olarak kaydet** seçin.

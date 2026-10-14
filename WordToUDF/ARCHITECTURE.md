@@ -48,3 +48,28 @@
 3. **Rol aşaması:** mahkeme başlığı, dilekçe türü, ara başlık, açıklama gövdesi ve imza rolleri atanır; atıf biçimleri (kanun italik, karar künyesi kalın-italik) etiket run'larına dokunmadan uygulanır.
 
 Her metin değişikliği `statistics.changes` içine `{type, before, after}` olarak yazılır; `statistics.integrity` kaynak ve çıktı sözcüklerini karşılaştırır. `udf.js` liste modelini `Numbered/NumberType/ListLevel/ListId` paragraf özniteliklerine çevirir (ListLevel 1 tabanlı); `udf-reader.js` + `docx-writer.js` her listenin en düşük düzeyini Word düzey 0 kabul ederek geri dönüştürür.
+
+## 1.5.0 modül düzeni
+
+```
+zip.js ─ docx.js ─┐
+                  ▼
+settings.js ─► pipeline.js: normalize.js → legal-typography.js (+ legal-rules.js) → elle düzeltmeler → checks.js → udf.js → zip.js
+                  ▲                                     │
+templates.js ─────┘                                     └► docx-writer.js (düzenlenmiş Word)
+preview.js: ortak A4 önizleme (workspace.html, templates.html)
+```
+
+- **settings.js** — vekil profili, başka vekiller, liste/satır/tarih/talep-ayırma seçenekleri. Varsayılan vekil yalnız burada yazılıdır. `sanitize()` her girdiyi (eski kayıt, içe aktarılan JSON) bilinen alanlara indirger.
+- **legal-rules.js** — yalnız veri: `FIELD_RULES`, `SECTION_RULES`, algılama düzenli ifadeleri, `REQUEST_END_RE`, ad listesi, kalın harf genişlikleri. Yeni etiket veya eş anlamlı bölüm adı tek satırla buraya eklenir.
+- **legal-typography.js** — kural motoru. 1.5.0'da eklenenler: `requestCuts()` / talep ayırma (yalnız `splitRequests` açıkken uygular, kapalıyken `statistics.splittableRequests` ile önerir), `blockKeys()` / `applyOverrides()` (metne bağlı anahtarla elle düzen düzeltmesi; metin değişmez).
+- **checks.js** — son blok modelini okur, hiçbir şeyi değiştirmez; `{level, code, message}` listesi döndürür.
+- **pipeline.js** — `typeset()`, `toUdf()` (yaz → doğrula → zip → aç → yeniden doğrula), `batch()` (hatalı dosya diğerlerini durdurmaz).
+- **templates.js** — form alanlarından *kaynak paragraflar* üretir; bunlar Word'den gelen paragraflarla aynı hattan geçer. Boş alan `…` olarak kalır.
+- **sw.js / app.webmanifest / index.html** — yalnız web uygulaması (PWA) kipinde; yalnız kendi kaynağındaki dosyaları önbelleğe alır.
+
+### Test katmanları
+
+1. `tests/logic.test.js` — kural birimleri (Node, bağımlılıksız).
+2. `tests/golden.test.js` + `tests/fixtures/*.json` — isimleri değiştirilmiş gerçek dilekçe yapıları; çıktı satır satır (rol + metin) ve denetim hataları beklenen değerle karşılaştırılır. Bilinçli kural değişikliğinden sonra `--update` ile yenilenir ve fark gözden geçirilir.
+3. `tests/e2e.py` — Chromium'da gerçek sayfa: DOCX→UDF, telefon görünümü, elle düzeltme, DOCX çıktısı, ayar aktarımı, toplu dönüşüm, şablonlar, PWA dosya listesi, güvenlik reddi testleri.

@@ -26,13 +26,13 @@
 .paper-scale{margin:0 auto;width:max-content}
 :root{color-scheme:only light}
 .paper{color-scheme:only light;forced-color-adjust:none;background:#fff!important;color:#000!important}
-.paper .paragraph{cursor:pointer;border-radius:2px}.paper .paragraph:hover{outline:1px dashed #9db3dd;outline-offset:1px}
+.paper.editable .paragraph{cursor:pointer;border-radius:2px}.paper.editable .paragraph:hover{outline:1px dashed #9db3dd;outline-offset:1px}
 .paper [data-role^="override-"]{outline:1px solid #e0b25c;outline-offset:1px}
 .override-menu{position:absolute;z-index:50;background:#fff;color:var(--ink);border:1px solid #cad4e4;border-radius:10px;box-shadow:0 8px 28px #14294c33;padding:8px;display:grid;gap:4px;min-width:240px;max-width:min(320px,calc(100vw - 16px))}
 .override-menu p{margin:2px 4px 6px;font-size:11px;color:var(--muted)}.override-menu button{text-align:left;border:0;background:#f3f6fb;border-radius:7px;padding:8px 10px;font-size:12.5px;color:var(--ink)}.override-menu button[aria-checked="true"]{background:#e2eafa;font-weight:700}.override-menu button:hover{background:#e8eef9}
-@media(max-width:650px){.preview-viewport{max-height:none;min-height:0;overflow:hidden}.preview-head{flex-wrap:wrap;gap:8px}.layout{gap:18px}.settings-io{grid-template-columns:1fr}}
-@media print{body *{visibility:hidden}.paper,.paper *{visibility:visible}.paper{position:absolute;left:0;top:0;box-shadow:none;transform:none!important}}
+@media(max-width:650px){.preview-viewport.fit{max-height:none;min-height:0;overflow:hidden}.preview-head{flex-wrap:wrap;gap:8px}.layout{gap:18px}.settings-io{grid-template-columns:1fr}}
 .form-panel input[type=text],.form-panel input[type=date],.form-panel textarea{width:100%;border:1px solid #cad4e4;border-radius:7px;padding:9px;font:13px/1.45 system-ui,sans-serif;color:var(--ink);background:#fff}
 .form-panel textarea{resize:vertical}.form-panel .setting-label{display:block;margin:12px 0 5px}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .top-tags a.pill{text-decoration:none}
 .home-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}.home-card{display:grid;gap:6px;text-decoration:none;color:var(--ink)}.home-card strong{font-size:17px}.home-card span{color:var(--muted);font-size:13px}.home-card:hover{border-color:#9db3dd}
+@media(min-width:1101px){.right{position:sticky;top:16px}}

@@ -311,6 +311,10 @@ def v15_checks(browser,tmp,petition,sample):
     bg=page.evaluate("()=>getComputedStyle(document.getElementById('paper')).backgroundColor")
     assert bg in ('rgb(255, 255, 255)','rgba(255, 255, 255, 1)'),bg
     assert 'Sığdır' in page.locator('#zoomToggle').text_content()
+    page.locator('#zoomToggle').click()
+    ov=page.evaluate("()=>{const v=document.getElementById('previewViewport');return [getComputedStyle(v).overflowX,v.scrollWidth>v.clientWidth]}")
+    assert ov[0]=='auto' and ov[1],ov  # gerçek boyutta yana kaydırılabilir
+    page.locator('#zoomToggle').click()
     print('PASS telefon görünümü: önizleme ekrana sığıyor, kağıt karanlık modda da beyaz')
     # --- Denetim paneli görünür ve hata sayısı yazılı.
     assert page.locator('#checksPanel').is_visible() and page.locator('#checkList li').count()>=1

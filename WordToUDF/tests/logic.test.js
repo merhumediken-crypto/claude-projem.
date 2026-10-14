@@ -398,7 +398,7 @@ test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
 test('WTU-072 manifest izinleri, CSP ve sürüm',()=>{
   const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
   assert.equal(m.manifest_version,3);assert.deepEqual(m.permissions,[]);assert.deepEqual(m.host_permissions,[]);
-  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.5.0');
+  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.5.0');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
   // sw.js (PWA offline cache) may fetch, but only its own origin.
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(/url\.origin !== location\.origin\) return/u.test(sw));
   for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')&&f!=='sw.js'))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);
