@@ -10,7 +10,13 @@
     const blocked=!state.source||!state.result||(state.source.warnings.length>0&&!review.checked);
     download.disabled=blocked;downloadDocx.disabled=blocked;
     reportDownload.disabled=!state.source||!state.result;
+    // Phone: quick actions at the bottom once a document is loaded.
+    $('mobileBar').hidden=!state.source;$('mbDownload').disabled=blocked;
+    $('overrideHint').hidden=!state.result;
   }
+  // The empty-state card shipped in the HTML comes back whenever no document is loaded.
+  const emptyPaper=$('paper').firstElementChild?.cloneNode(true);
+  function clearPaper(){$('paper').replaceChildren(...(emptyPaper?[emptyPaper.cloneNode(true)]:[]));}
   const safeName=s=>P.safeName(s);
   function downloadBlob(bytes,name,mime){
     const blob=new Blob([bytes],{type:mime});const url=URL.createObjectURL(blob);
@@ -34,7 +40,7 @@
     syncSpec();
   }
   // Vekil/imza settings feed the pasted-petition skeleton too.
-  function settingsChanged(){state.settings=readForm();S.save(state.settings);syncSpec();if(state.paste)buildFromPaste(false);else render();}
+  function settingsChanged(){state.settings=readForm();S.save(state.settings);syncSpec();if(state.paste)holdPosition(()=>buildFromPaste(false));else render();}
   function addOtherRow(data={}){
     const row=document.createElement('div');row.className='other-row';
     const name=document.createElement('input');name.type='text';name.className='o-name';name.placeholder='Av. Ad SOYAD';name.value=data.name||'';name.spellcheck=false;name.setAttribute('aria-label','Başka vekil adı');
@@ -107,7 +113,25 @@
     $('zoomToggle').setAttribute('aria-pressed',String(state.fit));
     $('zoomToggle').textContent=state.fit?`Sığdır · %${Math.round(scale*100)}`:'Gerçek boyut';
   }
-  function render(){
+  // A re-render rebuilds the report and check lists, which sit above most
+  // settings; without this the control the user just changed slides away
+  // (the browser loses its scroll anchor when those lists are replaced).
+  // The control is the one that fired the change (focus can lag behind on
+  // some mobile pickers), otherwise the focused one.
+  let lastControl=null;
+  for(const type of ['change','click'])document.addEventListener(type,e=>{lastControl={n:e.target,t:performance.now()};},true);
+  function holdPosition(fn){
+    const pick=n=>n&&n.nodeType===1&&n!==document.body&&n.closest('.layout')&&!n.closest('#paper')?n:null;
+    const own=(lastControl&&performance.now()-lastControl.t<1500?pick(lastControl.n):null)||pick(document.activeElement);
+    const anchors=own?[own,own.closest('.panel')].filter(Boolean).map(n=>({n,y:n.getBoundingClientRect().top})):[];
+    try{return fn();}
+    finally{
+      const hit=anchors.find(x=>x.n.isConnected&&x.n.getClientRects().length);
+      if(hit){const dy=hit.n.getBoundingClientRect().top-hit.y;if(Math.abs(dy)>1)window.scrollBy(0,dy);}
+    }
+  }
+  function render(){holdPosition(renderNow);}
+  function renderNow(){
     if(!state.source)return;
     const source=state.source;
     state.result=null;
@@ -143,12 +167,12 @@
     const serial=++state.loadSerial;
     state.file=null;state.source=null;state.result=null;state.selection={start:'auto',end:'auto'};editor.reset();
     state.paste=null;state.pasteInfo=null;$('completePanel').hidden=true;
-    $('sectionPanel').hidden=true;$('reportPanel').hidden=true;$('checksPanel').hidden=true;$('paper').replaceChildren();
+    $('sectionPanel').hidden=true;$('reportPanel').hidden=true;$('checksPanel').hidden=true;clearPaper();
     review.checked=false;setReady();message('Belge yerel olarak okunuyor…');
     try{
       const source=await WordToUDFDocx.readDocx(await file.arrayBuffer());
       if(serial!==state.loadSerial)return;
-      state.file=file;state.source=source;
+      state.file=file;state.source=source;setTab('word');
       fillSelect('startSection',source.blocks,'auto');fillSelect('endSection',source.blocks,'auto');
       $('sectionPanel').hidden=false;$('reportPanel').hidden=false;
       $('fileStats').textContent=`${source.statistics.paragraphs} paragraf · ${source.statistics.tables} tablo`;
@@ -156,7 +180,7 @@
       message(`${file.name} okundu. Önizlemeyi, dilekçe denetimini ve varsa dönüşüm uyarılarını kontrol edin.`,'success');
     }catch(err){
       if(serial!==state.loadSerial)return;
-      $('paper').replaceChildren();state.source=null;setReady();
+      clearPaper();state.source=null;setReady();
       message(`DOCX açılamadı: ${err.message}`,'error');
     }
   }
@@ -210,14 +234,37 @@
     showWarnings(state.source);render();
     if(fresh)message(`Metin ${parsed.sourceLabel} kaynağından okundu ve dilekçe kuruldu. Eksik parçaları soldaki listeden tamamlayabilir, önizlemede paragrafa dokunarak düzeltebilirsiniz.`,'success');
   }
-  $('pasteBox').addEventListener('paste',e=>{
+  /* Source tabs: "Word dosyası" | "Metni yapıştır" (WAI-ARIA tabs). */
+  const TABS={word:['tabWord','wordPanel'],paste:['tabPaste','pastePanel']};
+  function setTab(name,focus=false){
+    for(const [key,[tab,panel]] of Object.entries(TABS)){
+      const on=key===name;
+      $(tab).setAttribute('aria-selected',String(on));$(tab).tabIndex=on?0:-1;$(panel).hidden=!on;
+      if(on&&focus)$(tab).focus();
+    }
+  }
+  $('tabWord').addEventListener('click',()=>setTab('word'));
+  $('tabPaste').addEventListener('click',()=>{setTab('paste');$('pasteBox').focus({preventScroll:true});});
+  for(const id of ['tabWord','tabPaste'])$(id).addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();setTab(id==='tabWord'?'paste':'word',true);}
+  });
+  function handlePaste(e){
     const html=e.clipboardData?.getData('text/html')||'',text=e.clipboardData?.getData('text/plain')||'';
-    if(!html&&!text)return;
+    if(!html&&!text)return false;
     e.preventDefault();
+    setTab('paste');
     state.paste={html,text,typed:false};
     buildFromPaste(true);
     // Show the readable text in the box (formatted-only clipboards included).
     $('pasteBox').value=text||state.paste?.parsed?.blocks.map(b=>WordToUDFNormalize.flatten(b)).join('\n')||'';
+    return true;
+  }
+  $('pasteBox').addEventListener('paste',handlePaste);
+  // Ctrl+V anywhere on the page (outside form fields) pastes a petition too.
+  document.addEventListener('paste',e=>{
+    const t=e.target;
+    if(t===$('pasteBox')||t?.closest?.('input,textarea,select,[contenteditable="true"],.edit-sheet'))return;
+    handlePaste(e);
   });
   $('pasteBox').addEventListener('input',()=>{$('pasteBuild').classList.add('pending');});
   $('pasteBuild').addEventListener('click',()=>{
@@ -229,13 +276,13 @@
   });
   $('pasteClear').addEventListener('click',()=>{
     $('pasteBox').value='';state.paste=null;state.pasteInfo=null;$('pasteNotes').replaceChildren();$('pasteSource').hidden=true;$('completePanel').hidden=true;
-    if(state.file&&!(state.file instanceof Blob)){state.file=null;state.source=null;state.result=null;editor.reset();$('paper').replaceChildren();$('checksPanel').hidden=true;$('reportPanel').hidden=true;$('sectionPanel').hidden=true;setReady();}
+    if(state.file&&!(state.file instanceof Blob)){state.file=null;state.source=null;state.result=null;editor.reset();clearPaper();$('checksPanel').hidden=true;$('reportPanel').hidden=true;$('sectionPanel').hidden=true;setReady();}
     message('Yapıştırma alanı temizlendi.');
   });
-  for(const id of ['pc_court','pc_caseNo','pc_client','pc_otherRole','pc_other','pc_topic'])$(id).addEventListener('change',()=>buildFromPaste(false));
+  for(const id of ['pc_court','pc_caseNo','pc_client','pc_otherRole','pc_other','pc_topic'])$(id).addEventListener('change',()=>holdPosition(()=>buildFromPaste(false)));
   for(const id of ['pc_role','pc_headings','pc_signature'])$(id).addEventListener('change',()=>{
     if(id==='pc_role'){const o=WordToUDFTemplates.OPPOSITE[$('pc_role').value];if(o)$('pc_otherRole').value=o;}
-    buildFromPaste(false);
+    holdPosition(()=>buildFromPaste(false));
   });
   for(const name of ['dragover','dragenter'])drop.addEventListener(name,e=>{e.preventDefault();drop.classList.add('drag');});
   for(const name of ['dragleave','drop'])drop.addEventListener(name,e=>{e.preventDefault();drop.classList.remove('drag');});
@@ -349,6 +396,9 @@
     }catch(err){message(`Word oluşturulamadı: ${err.message}`,'error');}
     finally{setReady();}
   });
+
+  $('mbDownload').addEventListener('click',()=>download.click());
+  $('mbPreview').addEventListener('click',()=>$('previewSection').scrollIntoView({behavior:'smooth',block:'start'}));
 
   // Offline web-app mode (outside the Chrome extension): cache the app files.
   if('serviceWorker' in navigator&&/^https?:$/u.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});

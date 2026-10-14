@@ -1,3 +1,3 @@
 # claude-projem.
 
-- [`WordToUDF/`](WordToUDF/) — Word ↔ UYAP UDF / PDF Chrome uzantısı (v1.4.1). Kurulum ve değişiklik notları için `WordToUDF/README.md`.
+- [`WordToUDF/`](WordToUDF/) — Word ↔ UYAP UDF / PDF Chrome uzantısı ve çevrimdışı web uygulaması (v1.7.0). Kurulum ve kullanım: [`WordToUDF/README.md`](WordToUDF/README.md) · sürüm geçmişi: [`WordToUDF/CHANGELOG.md`](WordToUDF/CHANGELOG.md).

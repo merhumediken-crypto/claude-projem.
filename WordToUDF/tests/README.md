@@ -26,3 +26,5 @@ python tests/fuzz.py 600 [tohum]   # rastgele girdilerle zorlama testi
 `e2e.py` (1.6.1 ek): sayfalar gerçek HTTP sunucusundan **CSP açık** yüklenir; yapıştırma, düzenleyici, indirme ve şablon akışında güvenlik kuralı ihlali veya konsol hatası testi başarısız sayar (diğer e2e adımları CSP'yi kaldırarak çalışır).
 
 `fuzz.py`: tohumlu (tekrarlanabilir) zorlama testi. Rastgele dilekçeler (tuhaf karakterler, dev paragraflar, `]]>`, kontrol karakterleri), rastgele elle düzenlemeler, bozuk/iç içe yapıştırılmış HTML ve bütün şablonlar boş/tuhaf alanlarla tam hattan (UDF yazma + XML doğrulama + ZIP) geçirilir; liste numaralarının ardışıklığı da denetlenir.
+
+`e2e.py` (1.7.0 ek): kaydırma sıçraması testi — telefon ve masaüstünde tipografi profili, talepleri ayırma, liste ve satır aralığı değişince kontrolün ekrandaki yeri ±4 px içinde kalır; düzenleme panelinde bir seçenek seçilince panelin kaydırma konumu ve odak korunur.

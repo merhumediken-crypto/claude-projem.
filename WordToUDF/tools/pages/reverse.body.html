@@ -1,0 +1,49 @@
+<main id="main">
+<div class="page-head">
+  <div><span class="eyebrow">UDF → Word / PDF</span><h1>UDF'yi Word'e veya PDF'ye dönüştürün</h1>
+  <p>Öncelik kaynak metindir: UDF'de okunabilen metin dışa aktarılır; birebir karşılığı olmayan biçimler uyarı olarak gösterilir ve dönüşümü durdurmaz. Kaynak dosya değiştirilmez.</p></div>
+  <div class="feature-chips" aria-label="Özellikler">
+    <span><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>Dosyalar cihazda kalır</span>
+    <span><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>Word ve PDF</span>
+  </div>
+</div>
+<div class="layout">
+<section class="left" aria-label="Dönüştürme adımları">
+  <div class="panel">
+    <h2><span class="step" aria-hidden="true"></span>UDF dosyası</h2>
+    <div class="upload" id="dropZone">
+      <div class="upload-icon" aria-hidden="true"><svg class="icon"><use href="#i-upload"/></svg></div>
+      <h3>UDF dosyasını buraya bırakın</h3>
+      <p>ya da UYAP .udf dosyasını seçin. İnternet kullanılmaz.</p>
+      <label for="fileInput" class="select-file"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>UDF seç</label>
+      <input type="file" id="fileInput" accept=".udf,application/octet-stream">
+      <p class="footnote">UDF 1.8 · en fazla 24 MB</p>
+    </div>
+  </div>
+  <div class="panel report" id="reportPanel" hidden><div class="panel-heading"><h2>Dosya denetimi</h2><span class="pill" id="fileStats"></span></div><ul id="warningList"></ul><p class="note" id="sourceNote"></p></div>
+  <div class="panel actions-card">
+    <div class="panel-heading"><h2><span class="step" aria-hidden="true"></span>İndir</h2></div>
+    <div class="controls">
+      <button type="button" id="downloadWord" disabled><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Word (.docx) olarak indir</button>
+      <button type="button" class="secondary" id="printPdf" disabled><svg class="icon" aria-hidden="true"><use href="#i-report"/></svg>PDF olarak yazdır / kaydet</button>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </div>
+    <p class="note small">PDF düğmesi yazdırma penceresini açar; hedef olarak <strong>PDF olarak kaydet</strong> seçin. Yazı tipi bilgisayarda yoksa sayfa kırılımları değişebilir.</p>
+  </div>
+  <details class="panel">
+    <summary><span class="summary-text">Biçimlendirme ilkesi<small>Bu yönde yeni biçim kuralı uygulanmaz</small></span></summary>
+    <p class="note">UDF içindeki numaralı/madde işaretli listeler, yazı tipi ve punto bilgileri Word/PDF karşılıklarına çevrilir. Desteklenmeyen biçimler kaybolabilse de okunabilen metin aktarılır.</p>
+    <dl class="spec"><div><dt>Metin, renk ve yazı karakteri</dt><dd>UDF kaynağından</dd></div><div><dt>Paragraf, sekme ve listeler</dt><dd>UDF kaynağından</dd></div><div><dt>Sayfa boşlukları</dt><dd>UDF kaynağından</dd></div><div><dt>Üstbilgi ve altbilgi</dt><dd>Varsa korunur</dd></div><div><dt>İmzalar</dt><dd>Geçerli e-imza aktarılmaz</dd></div></dl>
+  </details>
+</section>
+<section class="right" aria-label="Önizleme">
+  <div class="preview-card">
+    <div class="preview-head"><div><span class="eyebrow">Salt okunur</span><h2>UDF önizleme</h2></div><span class="pill" id="previewCount">A4</span></div>
+    <div class="preview-viewport"><article class="paper" id="paper"><div class="empty-state"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg><strong>Önizleme burada görünecek</strong><span>Soldan bir UDF dosyası seçin.</span></div></article></div>
+    <p class="preview-foot">Önizleme yaklaşık yerleşimdir; UYAP ekranıyla birebir sayfa kırılımı garantisi yoktur.</p>
+  </div>
+</section>
+</div>
+</main>
+<div id="printSurface" aria-hidden="true"><div id="printHeader"></div><div id="printBody"></div><div id="printFooter"></div></div>
+<script src="zip.js"></script><script src="udf-reader.js"></script><script src="docx-writer.js"></script><script src="reverse.js"></script>

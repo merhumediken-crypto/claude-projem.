@@ -68,11 +68,14 @@
       if(msg) onMessage(msg);
     }
     function decorate(){
+      // Nothing to edit yet: keep the toolbar out of the way.
+      const on = enabled();
+      for(const b of [multiBtn, undoBtn, resetBtn]) b.hidden = !on;
       undoBtn.disabled = !history.length;
       resetBtn.disabled = !edits.size;
       resetBtn.textContent = edits.size ? `Düzenlemeleri sıfırla (${edits.size})` : 'Düzenlemeleri sıfırla';
       for(const p of paper.querySelectorAll('.paragraph[data-key]')) p.classList.toggle('selected', selected.has(p.dataset.key));
-      bar.hidden = !(multi || selected.size > 1);
+      bar.hidden = !on || !(multi || selected.size > 1);
       bar.querySelector('.select-count').textContent = selected.size ? `${selected.size} paragraf seçili` : 'Paragraf seçin';
       bar.querySelector('.primary-btn').disabled = !selected.size;
     }
@@ -97,9 +100,10 @@
 
     /* ---------- sheet ---------- */
     function closeSheet(){ sheet?.remove(); sheet = null; document.body.classList.remove('sheet-open'); if(!multi) { selected.clear(); decorate(); } }
-    function chip(label, active, onclick, extra = {}){ return el('button', {type: 'button', class: 'chip' + (active ? ' on' : ''), 'aria-pressed': String(!!active), text: label, onclick, ...extra}); }
+    // Every control carries a stable data-ctl so focus survives a rebuild.
+    function chip(label, active, onclick, extra = {}){ return el('button', {type: 'button', class: 'chip' + (active ? ' on' : ''), 'aria-pressed': String(!!active), text: label, onclick, 'data-ctl': label, ...extra}); }
     function select(label, values, current, unit, onchange){
-      const s = el('select', {class: 'mini-select', 'aria-label': label});
+      const s = el('select', {class: 'mini-select', 'aria-label': label, 'data-ctl': `sel-${label}`});
       s.add(new Option('Otomatik', ''));
       for(const v of values) s.add(new Option(`${fmt(v)}${unit}`, String(v)));
       s.value = current === undefined ? '' : String(current);
@@ -132,20 +136,26 @@
       if(!sheet) return;
       const ks = keys().filter(k => blockFor(k));
       if(!ks.length){ closeSheet(); return; }
+      // The panel is rebuilt after every change: keep its own scroll position
+      // and the focused control, otherwise it jumps back to "Paragraf türü".
+      const keepScroll = sheet.querySelector('.sheet-body')?.scrollTop || 0;
+      const active = document.activeElement;
+      const ctlKey = n => n.getAttribute('data-ctl') || `txt:${n.textContent}`;
+      const keepCtl = sheet.contains(active) && active !== sheet ? ctlKey(active) : null;
       const one = ks.length === 1, first = blockFor(ks[0]);
       const st = E().state(first), ed = edits.get(ks[0]) || {};
       const common = f => ks.every(k => (edits.get(k) || {})[f] === ed[f]) ? ed[f] : undefined;
       const allState = f => ks.every(k => E().state(blockFor(k))[f]);
       sheet.replaceChildren();
       const title = one ? `“${st.text.replace(/\s+/gu, ' ').trim().slice(0, 60)}${st.text.length > 60 ? '…' : ''}”` : `${ks.length} paragraf seçili`;
-      sheet.append(el('header', {class: 'sheet-head'}, el('div', {}, el('strong', {text: 'Paragrafı düzenle'}), el('small', {text: title})),
+      sheet.append(el('header', {class: 'sheet-head'}, el('span', {class: 'sheet-handle', 'aria-hidden': 'true'}), el('div', {}, el('strong', {text: 'Paragrafı düzenle'}), el('small', {text: title})),
         el('button', {type: 'button', class: 'icon-btn', 'aria-label': 'Kapat', text: '×', onclick: closeSheet})));
       const body = el('div', {class: 'sheet-body'});
       // Type
       const role = common('role');
       body.append(section('Paragraf türü',
-        el('div', {class: 'chips'}, chip(!role && one && DETECTED[first.role] ? `Otomatik · ${DETECTED[first.role]}` : 'Otomatik', !role, () => update({role: null}, 'Paragraf türü otomatik algılamaya bırakıldı.')),
-          ...Object.entries(E().ROLES).map(([v, l]) => chip(l, role === v, () => update({role: v}, `Paragraf türü: ${l}.`))))));
+        el('div', {class: 'chips'}, chip(!role && one && DETECTED[first.role] ? `Otomatik · ${DETECTED[first.role]}` : 'Otomatik', !role, () => update({role: null}, 'Paragraf türü otomatik algılamaya bırakıldı.'), {'data-ctl': 'role-auto'}),
+          ...Object.entries(E().ROLES).map(([v, l]) => chip(l, role === v, () => update({role: v}, `Paragraf türü: ${l}.`), {'data-ctl': `role-${v}`})))));
       // Alignment
       const align = common('align') ?? (one ? st.align : undefined);
       body.append(section('Hizalama', el('div', {class: 'segmented'}, ...Object.entries(E().ALIGN).map(([v, l]) => chip(l, align === v, () => update({align: v}))))));
@@ -163,7 +173,7 @@
         select('Satır aralığı', E().LINES, common('line'), '', v => update({line: v})))));
       // Text (single paragraph only)
       if(one){
-        const ta = el('textarea', {class: 'sheet-text', rows: '4', 'aria-label': 'Paragraf metni'}); ta.value = ed.text ?? st.text;
+        const ta = el('textarea', {class: 'sheet-text', rows: '4', 'aria-label': 'Paragraf metni', 'data-ctl': 'text'}); ta.value = ed.text ?? st.text;
         body.append(section('Metin',
           ta,
           el('p', {class: 'note small', text: 'Metni değiştirirseniz paragrafın içindeki tek tek kalın/italik kısımlar sıfırlanır; kanun ve karar atıfları yeniden biçimlenir.'}),
@@ -184,6 +194,12 @@
           onclick: () => { snapshot(); for(const k of ks) edits.delete(k); changed('Seçili paragrafların düzenlemeleri kaldırıldı.'); refreshSheet(); }}),
         el('button', {type: 'button', class: 'secondary tool-btn', text: 'Geri al', disabled: !history.length, onclick: undo}),
         el('button', {type: 'button', class: 'tool-btn primary-btn', text: 'Tamam', onclick: closeSheet})));
+      // Restore only after the footer is in: before that the body is taller and the old position would be clamped.
+      body.scrollTop = keepScroll;
+      if(keepCtl){
+        const again = [...sheet.querySelectorAll('button, select, textarea')].find(n => ctlKey(n) === keepCtl);
+        again?.focus({preventScroll: true});
+      }
       decorate();
     }
 
@@ -208,6 +224,7 @@
     });
     decorate();
 
+    decorate();
     return {
       edits,
       get count(){ return edits.size; },

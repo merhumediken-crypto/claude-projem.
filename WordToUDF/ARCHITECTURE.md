@@ -1,4 +1,4 @@
-# WordToUDF 1.4.0 – Mimari
+# WordToUDF 1.7.0 – Mimari
 
 ## Dönüşüm hattı
 
@@ -79,3 +79,17 @@ preview.js: ortak A4 önizleme (workspace.html, templates.html)
 ## 1.6.0 — yapıştırma girişi
 
 `paste.js` ikinci bir kaynak okuyucudur (DOCX için `docx.js`): pano `text/html` + `text/plain` → kaynak tanıma (`detect`) → kaynağa özgü onarım (`textToBlocks` / `htmlToBlocks`) → `analyze` (hangi dilekçe parçaları var) → `assemble` (eksikleri yalnız form/ayar değerleriyle ekler) → normal hat (`pipeline.typeset`). HTML, `DOMParser` ile etkisiz bir belgeye ayrıştırılır; yalnız okunur, sayfaya eklenmez. Metin işleyiciler DOM gerektirmez ve Node testlerinde doğrudan sınanır.
+
+## 1.7.0 — arayüz katmanı
+
+```
+tools/pages.py ─► workspace.html · templates.html · reverse.html · index.html
+   ├ tools/pages/sprite.svg          (ortak SVG simge seti)
+   ├ tools/pages/<sayfa>.body.html   (sayfaya özgü gövde)
+   └ ortak <head> (CSP, workspace.css, theme.js) + üst çubuk + sürüm (manifest.json)
+```
+
+- **tools/pages.py** — dört sayfanın başlığını, üst çubuğunu ve simge setini tek kaynaktan üretir; satır içi stil/betik bulursa durur. Üretilen HTML elle düzenlenmez.
+- **workspace.css** — tasarım sistemi: renk/boşluk/gölge belirteçleri (açık ve koyu), bileşenler (kart, düğme, form, sekme, rozet, önizleme, düzenleme paneli), telefon düzeni, erişilebilirlik. Adım numaraları CSS sayacıyla görünen kartlardan üretilir. Dilekçe kâğıdı (`.paper`) her temada beyazdır.
+- **theme.js** — `<head>` içinde, ilk boyamadan önce `data-theme` uygular (yanıp sönme olmaz); üst çubuktaki düğme Otomatik → Açık → Koyu döngüsünü yapar.
+- **Konum koruma** — `workspace.js` `holdPosition()`: yeniden çizimden önce değiştirilen kontrolün (yoksa kartının) ekrandaki yerini ölçer, sonra farkı kaydırarak geri verir; üstteki rapor/denetim listeleri yeniden kurulsa da kontrol yerinde kalır. `editor-ui.js` düzenleme panelini yeniden kurarken panelin kaydırma konumunu ve odaktaki düğmeyi (`data-ctl` anahtarıyla) korur.

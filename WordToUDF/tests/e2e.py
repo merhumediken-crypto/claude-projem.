@@ -293,6 +293,7 @@ def main():
         print('PASS tarayıcı JS konsolu: hata yok')
         v15_checks(browser,tmp,petition,source)
         v16_paste(browser,tmp)
+        v17_no_jump(browser,petition)
         csp_check(browser)
         browser.close()
 
@@ -325,6 +326,7 @@ def v15_checks(browser,tmp,petition,sample):
     page.locator('#paper .paragraph[data-role="signature"]').last.click()
     sheet=page.locator('.edit-sheet')
     assert sheet.is_visible()
+    page.wait_for_timeout(350)  # açılış animasyonu (0,2 sn) bitsin
     box=sheet.bounding_box();assert box['y']+box['height']<=844+1 and box['width']>=380,box  # telefonda alttan açılan panel
     sheet.locator('.chip',has_text='Düz paragraf').click()
     assert page.locator('#paper .paragraph.edited').count()==1
@@ -543,6 +545,34 @@ def v16_paste(browser,tmp):
     assert not errors,errors
     print('PASS yapıştır (dağınık metin): eksikler formdan tamamlandı, dilekçe baştan kuruldu, düzenleyici ve rapor çalışıyor')
     ctx.close()
+
+def v17_no_jump(browser,petition):
+    """1.7: changing a setting or a control in the edit sheet must not move
+    the control the user is working with (the reported 'jumps to the top')."""
+    top=lambda page,sel: page.evaluate(f'Math.round(document.querySelector({sel!r}).getBoundingClientRect().top)')
+    for w,h in [(390,844),(1440,900)]:
+        ctx=browser.new_context(viewport={'width':w,'height':h});page=ctx.new_page()
+        load_page(page,'workspace.html');fetch_data(page,petition)
+        # Back to the legal profile: its long change list appears above the select.
+        page.locator('#typographyProfile').select_option('faithful');page.wait_for_timeout(100)
+        for sel,act in [('#typographyProfile',lambda: page.locator('#typographyProfile').select_option('legal')),
+                        ('#splitRequests',lambda: page.locator('#splitRequests').click()),
+                        ('#listMode',lambda: page.locator('#listMode').select_option('auto')),
+                        ('#lineSpacing',lambda: page.locator('#lineSpacing').select_option('1'))]:
+            page.locator(sel).evaluate("el=>el.scrollIntoView({block:'center'})");page.wait_for_timeout(80)
+            before=top(page,sel);act();page.wait_for_timeout(200);after=top(page,sel)
+            assert abs(after-before)<=4,(w,sel,before,after)
+        # Edit sheet: its own scroll position and the focused control survive a change.
+        page.locator('#paper .paragraph[data-role="explanation-body"]').first.click();page.wait_for_timeout(350)
+        body='.edit-sheet .sheet-body'
+        page.locator(body).evaluate('el=>el.scrollTop=el.scrollHeight');page.wait_for_timeout(80)
+        before=page.locator(body).evaluate('el=>el.scrollTop')
+        page.locator('.edit-sheet .chip',has_text='Önüne boş satır').click();page.wait_for_timeout(200)
+        after=page.locator(body).evaluate('el=>el.scrollTop')
+        assert before>50 and abs(after-before)<=2,(w,before,after)
+        assert page.evaluate("document.activeElement.textContent")=='Önüne boş satır'
+        ctx.close()
+    print('PASS kaydırma sıçraması yok: ayar değişince kontrol yerinde kalır, düzenleme paneli kaydırması ve odak korunur')
 
 def csp_check(browser):
     """The other tests strip the pages' CSP; here the real pages are served

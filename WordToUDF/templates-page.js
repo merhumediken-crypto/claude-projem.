@@ -152,5 +152,8 @@
       message('Word belgesi indirildi.', 'success');
     }catch(err){ message(`Word oluşturulamadı: ${err.message}`, 'error'); }
   });
+  // Phone: quick actions at the bottom (the form is long, the preview below it).
+  $('mbDownload').addEventListener('click', () => $('download').click());
+  $('mbPreview').addEventListener('click', () => $('previewSection').scrollIntoView({behavior: 'smooth', block: 'start'}));
   if('serviceWorker' in navigator && /^https?:$/u.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
