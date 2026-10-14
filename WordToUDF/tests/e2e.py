@@ -809,7 +809,7 @@ def v110_tools(browser,tmp,petition):
       page:[...s.cssRules].map(r=>r.cssText).join(' ')};window.dispatchEvent(new Event('afterprint'));};}""")
     page.locator('#printPdf').click();page.wait_for_timeout(200)
     pr=page.evaluate('window.__p')
-    assert 'İSTANBUL 22. ASLİYE TİCARET MAHKEMESİNE' in pr['text'] and pr['cls']=='print-doc' and 'a4 portrait' in pr['page'].lower() and '42.5' in pr['page'] and pr['title']==petition.stem,pr
+    assert 'İSTANBUL 22. ASLİYE TİCARET MAHKEMESİNE' in pr['text'] and pr['cls']=='print-doc' and 'size: a4' in pr['page'].lower() and 'landscape' not in pr['page'].lower() and '42.5' in pr['page'] and pr['title']==petition.stem,pr
     assert 'Önizleme' not in pr['text'] and 'Çoklu seçim' not in pr['text'],'yalnız dilekçe yazdırılır'
     after=page.evaluate("[document.body.className,document.adoptedStyleSheets.length,document.getElementById('docPrint').children.length,document.title]")
     assert after==['',0,0,'Word → UDF Dönüştürücü'],after
