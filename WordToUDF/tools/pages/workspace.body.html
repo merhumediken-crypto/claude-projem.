@@ -1,0 +1,188 @@
+<main id="main">
+<div class="page-head">
+  <div><span class="eyebrow">Dönüştür</span><h1>Dilekçeyi UYAP UDF'ye dönüştürün</h1>
+  <p>Word dosyası seçin ya da metni yapıştırın. Hukuk dilekçesi standardı uygulanır, gönderimden önce denetlenir ve önizlemede paragraf paragraf düzenlenebilir.</p></div>
+  <div class="feature-chips" aria-label="Özellikler">
+    <span><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>Dosyalar cihazda kalır</span>
+    <span><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>Dilekçe denetimi</span>
+    <span><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg>Paragraf düzenleyici</span>
+  </div>
+</div>
+<div class="layout">
+<section class="left" aria-label="Dönüştürme adımları">
+
+  <div class="panel source-card" id="sourceCard">
+    <div class="panel-heading"><h2><span class="step" aria-hidden="true"></span>Kaynak</h2><span class="pill" id="pasteSource" hidden></span></div>
+    <div class="tabs" role="tablist" aria-label="Kaynak türü">
+      <button type="button" class="tab" role="tab" id="tabWord" aria-controls="wordPanel" aria-selected="true"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>Word dosyası</button>
+      <button type="button" class="tab" role="tab" id="tabPaste" aria-controls="pastePanel" aria-selected="false" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-paste"/></svg>Metni yapıştır</button>
+    </div>
+    <div class="tabpanel" id="wordPanel" role="tabpanel" aria-labelledby="tabWord">
+      <div class="upload" id="dropZone">
+        <div class="upload-icon" aria-hidden="true"><svg class="icon"><use href="#i-upload"/></svg></div>
+        <h3>DOCX dosyasını buraya bırakın</h3>
+        <p>ya da bilgisayarınızdan / telefonunuzdan seçin. İçerik hiçbir sunucuya gönderilmez.</p>
+        <label for="fileInput" class="select-file"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>DOCX seç</label>
+        <input type="file" id="fileInput" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        <p class="footnote">DOCX · en fazla 24 MB · parola korumalı belgeler desteklenmez</p>
+      </div>
+      <div class="upload-extra">
+        <label for="batchInput" class="secondary small-btn file-btn"><svg class="icon" aria-hidden="true"><use href="#i-stack"/></svg>Toplu dönüştür</label>
+        <input type="file" id="batchInput" multiple accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="visually-hidden">
+        <a class="secondary small-btn file-btn" href="templates.html"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>Şablondan oluştur</a>
+      </div>
+    </div>
+    <div class="tabpanel paste-panel" id="pastePanel" role="tabpanel" aria-labelledby="tabPaste" hidden>
+      <p class="note">Word, PDF, Google Dokümanlar, UYAP editörü, web sayfası, WhatsApp, e-posta veya yapay zekâ yanıtından kopyaladığınız dilekçeyi yapıştırın. Kaynak tanınır, biçim korunur, dilekçe standarda göre baştan kurulur. İpucu: sayfada herhangi bir yerde Ctrl+V da çalışır.</p>
+      <textarea id="pasteBox" rows="6" aria-label="Dilekçe metnini yapıştırma alanı" spellcheck="false" placeholder="Ctrl+V ile yapıştırın (telefonda: uzun basın → Yapıştır)"></textarea>
+      <ul id="pasteNotes" class="paste-notes"></ul>
+      <div class="settings-io"><button type="button" id="pasteBuild" class="secondary small-btn">Kutudaki metinden oluştur</button><button type="button" id="pasteClear" class="secondary small-btn">Temizle</button></div>
+    </div>
+  </div>
+
+  <div class="panel complete-panel" id="completePanel" hidden>
+    <h2>Dilekçenin parçaları</h2>
+    <p class="note">Yapıştırılan metinde bulunanlar ✓, eklenenler +, eksikler ✗. Eksik bilgileri yazarsanız dilekçeye eklenir; boş bırakılanlar uydurulmaz.</p>
+    <ul id="partList" class="part-list"></ul>
+    <div class="case-picker" id="pasteCasePicker"></div>
+    <div id="completeFields">
+      <div class="cf" data-part="court"><label for="pc_court" class="setting-label">Mahkeme</label><input type="text" id="pc_court" placeholder="ör. Şanlıurfa 8. Asliye Hukuk Mahkemesi" autocomplete="off"></div>
+      <div class="cf" data-part="caseNo"><label for="pc_caseNo" class="setting-label">Esas no</label><input type="text" id="pc_caseNo" placeholder="ör. 2026/1929" autocomplete="off" inputmode="numeric"></div>
+      <div class="cf two" data-part="client"><div><label for="pc_role" class="setting-label">Müvekkilin sıfatı</label><select id="pc_role" class="profile-select"><option>DAVALI</option><option>DAVACI</option><option>BORÇLU</option><option>ALACAKLI</option><option>İTİRAZ EDEN</option><option>TALEP EDEN</option><option>BAŞVURUCU</option></select></div><div><label for="pc_client" class="setting-label">Müvekkil</label><input type="text" id="pc_client" placeholder="ör. İsa ÇİFTÇİ" autocomplete="off"></div></div>
+      <div class="cf two" data-part="other"><div><label for="pc_otherRole" class="setting-label">Karşı taraf sıfatı</label><input type="text" id="pc_otherRole" value="DAVACI" autocomplete="off"></div><div><label for="pc_other" class="setting-label">Karşı taraf</label><input type="text" id="pc_other" placeholder="ör. Yapı ve Kredi Bankası A.Ş." autocomplete="off"></div></div>
+      <div class="cf" data-part="topic"><label for="pc_topic" class="setting-label">Konu</label><input type="text" id="pc_topic" placeholder="ör. Duruşmaya ilişkin mazeretimizin sunulmasıdır." autocomplete="off"></div>
+    </div>
+    <label class="check"><input type="checkbox" id="pc_headings" checked><span>Eksik AÇIKLAMALAR ve SONUÇ VE İSTEM başlıklarını yerine ekle</span></label>
+    <label class="check"><input type="checkbox" id="pc_signature" checked><span>İmza bloğu yoksa ayarlardaki vekil adıyla ekle</span></label>
+  </div>
+
+  <div class="panel checks" id="checksPanel" hidden>
+    <div class="panel-heading"><h2><span class="step" aria-hidden="true"></span>Denetim</h2><span class="pill" id="checkStats"></span></div>
+    <p class="note">Gönderimden önce kontrol edilmesi gerekenler. Belge değiştirilmez.</p>
+    <ul id="checkList" class="checks-list"></ul>
+  </div>
+
+  <div class="panel actions-card" id="actionsCard">
+    <div class="panel-heading"><h2><span class="step" aria-hidden="true"></span>İndir</h2></div>
+    <label id="reviewLabel" class="review" hidden><input id="review" type="checkbox"><span>Dönüşüm raporundaki aktarılmayan veya sadeleştirilen öğeleri inceledim.</span></label>
+    <div class="controls">
+      <button type="button" id="download" class="btn-lg" disabled><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>UDF oluştur ve indir</button>
+      <div class="row3">
+        <button type="button" id="downloadDocx" class="secondary" disabled><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>Word (DOCX)</button>
+        <button type="button" id="printPdf" class="secondary" disabled title="Yazdırma penceresi açılır; hedef olarak “PDF olarak kaydet”i seçin"><svg class="icon" aria-hidden="true"><use href="#i-report"/></svg>PDF</button>
+        <button type="button" id="reportDownload" class="secondary" disabled><svg class="icon" aria-hidden="true"><use href="#i-report"/></svg>Rapor</button>
+      </div>
+      <details class="file-name">
+        <summary>İndirilen dosya adı</summary>
+        <label for="fileNamePattern" class="setting-label">Dosya adı kalıbı</label>
+        <input type="text" id="fileNamePattern" placeholder="{KAYNAK}" autocomplete="off" spellcheck="false" maxlength="120">
+        <p class="note small">Kullanılabilir alanlar: {TARİH} {MÜVEKKİL} {ESAS} {TÜR} {KAYNAK}. Örnek: {TARİH}_{MÜVEKKİL}_{TÜR}. Boş bırakılırsa {KAYNAK} (kaynak dosyanın / şablonun adı) kullanılır. Bu tarayıcıda saklanır.</p>
+        <p class="note small file-name-preview" id="fileNamePreview"></p>
+      </details>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="panel report" id="reportPanel" hidden>
+    <div class="panel-heading"><h2>Dönüşüm raporu</h2><span class="pill" id="fileStats"></span></div>
+    <p id="colorNote" class="note"></p>
+    <ul id="warningList"></ul>
+    <div id="changesBlock" hidden><h3 class="subhead">Hukuk profilinin metin değişiklikleri</h3><ul id="changeList" class="changes"></ul></div>
+  </div>
+
+  <div class="panel settings" id="profileCard">
+    <h2><svg class="icon" aria-hidden="true"><use href="#i-gear"/></svg>Dilekçe ayarları</h2>
+    <label for="typographyProfile" class="setting-label">Tipografi profili</label>
+    <select id="typographyProfile" class="profile-select"><option value="legal" selected>Hukuk dilekçesi · önerilen</option><option value="faithful">Word biçimini koru · paragraf düzenini de koru</option></select>
+    <label class="check"><input type="checkbox" id="experimental"><span>Deneysel UDF özellikleri: metin vurgusu (sarı). UYAP'ta henüz doğrulanmadı.</span></label>
+    <div id="experimentBox" class="experiment-box" hidden>
+      <p class="note small">Açıkken biçim çubuğunda ve düzenleme panelinde <strong>V</strong> (vurgu) düğmesi görünür. Kullanmadan önce deneme dosyasını UYAP Doküman Editörü'nde açın: sarı vurgu görünmüyorsa bu seçeneği kapatın.</p>
+      <button type="button" id="experimentSample" class="secondary tool-btn">Deneme UDF'si indir</button>
+    </div>
+    <p class="profile-help">Hukuk dilekçesi profili; mahkeme başlığını, künyeyi (iki noktalar tek sütunda, etiketler kalın ve kesintisiz altı çizili), bölümleri, numaralı talepleri, tarihli kapanışı ve imzayı standarda göre dizer. Word biçimini koru profili kaynaktaki paragraf düzenine dokunmaz.</p>
+  </div>
+
+  <div class="panel legal-options" id="legalOptions">
+    <h2><svg class="icon" aria-hidden="true"><use href="#i-ruler"/></svg>Dilekçe standardı</h2>
+    <label for="lineSpacing" class="setting-label">Gövde satır aralığı</label>
+    <select id="lineSpacing" class="profile-select"><option value="1.5" selected>1,5 satır · standart</option><option value="1">1,0 satır</option></select>
+    <label for="listMode" class="setting-label">Liste numarası</label>
+    <select id="listMode" class="profile-select"><option value="text" selected>Metin numarası (1. + sekme) · önerilen</option><option value="auto">UDF otomatik liste</option></select>
+    <label class="check"><input type="checkbox" id="dateToday" checked><span>Kapanış cümlesinin sonuna bugünün tarihini yaz (Türkiye saati, GG.AA.YYYY)</span></label>
+    <label class="check"><input type="checkbox" id="splitRequests"><span>Tek maddeye yazılmış birden çok talebi numaralı maddelere ayır <em id="splitHint" class="hint"></em></span></label>
+
+    <h3 class="subhead"><span class="summary-text">Vekil ve UETS</span></h3>
+    <label class="check"><input type="checkbox" id="markUets" checked><span>VEKİLİ satırına UETS numarasını ekle (numara yalnız aşağıda kayıtlıysa; yoksa boş bırakılır)</span></label>
+    <fieldset class="attorney"><legend>Vekil (dilekçeyi yazan)</legend>
+      <label for="ownName" class="setting-label">Ad SOYAD</label><input type="text" id="ownName" spellcheck="false" autocomplete="off">
+      <label for="ownUets" class="setting-label">UETS</label><input type="text" id="ownUets" spellcheck="false" autocomplete="off" inputmode="numeric" placeholder="12345-12345-12345">
+    </fieldset>
+    <label class="check"><input type="checkbox" id="otherAttorney"><span>Başka vekil var (benim dilekçem değil / ek vekil)</span></label>
+    <div id="otherBox" hidden><div id="otherList"></div>
+      <button type="button" id="addAttorney" class="secondary small-btn">+ Başka vekil / UETS hesabı ekle</button>
+      <p class="note small">UETS alanı boş bırakılırsa VEKİLİ satırına numara yazılmaz. Ad, Word'deki VEKİLİ satırıyla tam eşleşmelidir; tahmin yapılmaz.</p>
+    </div>
+    <p class="note small warn" id="uetsInfo" role="status"></p>
+
+    <h3 class="subhead">Ayarları taşı</h3>
+    <div class="settings-io"><button type="button" id="exportSettings" class="secondary small-btn">Dışa aktar</button><label for="importSettings" class="secondary small-btn file-btn">İçe aktar</label><input type="file" id="importSettings" accept=".json,application/json" class="visually-hidden"></div>
+    <p class="note small">Ayarlar yalnız bu tarayıcıda saklanır; JSON dosyasıyla başka cihaza taşıyabilirsiniz (dosya kartları ve kendi şablonlarınız da dahil).</p>
+  </div>
+
+  <details class="panel library-panel" id="libraryPanel">
+    <summary><span class="summary-text">Dosya kartları ve şablonlar<small>Bu dilekçeyi kaydedin, sonra tek dokunuşla kullanın</small></span></summary>
+    <p class="note small" id="libraryStats"></p>
+    <button type="button" id="saveCaseFromDoc" class="secondary tool-btn" disabled>Bu dilekçeden dosya kartı kaydet</button>
+    <label for="docTplName" class="setting-label">Bu dilekçeyi kendi şablonum olarak kaydet</label>
+    <div class="inline-form"><input type="text" id="docTplName" placeholder="Şablon adı, ör. Mazeret – şehir dışı" maxlength="120" autocomplete="off"><button type="button" id="saveTplFromDoc" class="secondary tool-btn" disabled>Kaydet</button></div>
+    <p class="note small">Dosya kartı; mahkemeyi, esas noyu ve tarafları saklar: Şablonlar sayfasında ve “Metni yapıştır”daki eksik bilgi formunda tek seçimle doldurur. Şablon; KONU, açıklamalar, talepler, kapanış ve ekleri saklar ve <a href="templates.html">Şablonlar</a> sayfasında “Kendi şablonlarım” altında görünür.</p>
+    <p class="note small">Kartlar, şablonlar ve Şablonlar sayfasındaki son taslak yalnız bu tarayıcıda durur (müvekkil adları dahil); hiçbir yere gönderilmez. Ortak bir bilgisayarda işiniz bitince silebilirsiniz.</p>
+    <button type="button" id="clearLibrary" class="secondary tool-btn danger-text">Bu tarayıcıdaki kartları, şablonları ve taslağı sil</button>
+  </details>
+
+  <details class="panel">
+    <summary><span class="summary-text">Belge düzeni ölçüleri<small>Kenar boşlukları, girinti, sekme ve yazı tipi</small></span></summary>
+    <dl class="spec">
+      <div><dt>Kenar boşlukları</dt><dd>1,5 cm · dört kenar</dd></div>
+      <div><dt>AÇIKLAMALAR paragraf önce/sonra</dt><dd>0,15 cm / 0,15 cm</dd></div>
+      <div><dt>AÇIKLAMALAR ilk satır</dt><dd>1,25 cm</dd></div>
+      <div><dt>AÇIKLAMALAR satır ve hiza</dt><dd id="specLine">1,5 · iki yana yaslı</dd></div>
+      <div><dt>İki nokta hizası</dt><dd>6,0 cm ortak sekme</dd></div>
+      <div><dt>Etiket / değer</dt><dd>kalın-altı çizili / normal</dd></div>
+      <div><dt>SONUÇ ve EKLER</dt><dd>numaralı liste · 1. + sekme</dd></div>
+      <div><dt>Kapanış tarihi</dt><dd>oluşturma günü · GG.AA.YYYY</dd></div>
+      <div><dt>Yazı karakteri</dt><dd>Times New Roman · 12 pt</dd></div>
+      <div><dt>Üstbilgi / altbilgi</dt><dd>Dahil edilmez</dd></div>
+    </dl>
+  </details>
+
+  <details class="panel section-panel" id="sectionPanel" hidden>
+    <summary><span class="summary-text">Gelişmiş: AÇIKLAMALAR sınırları<small>Algılama yanlışsa başlangıç ve bitişi seçin</small></span></summary>
+    <label for="startSection">AÇIKLAMALAR başlığı</label><select id="startSection"></select>
+    <label for="endSection">Bitiş başlığı (hariç)</label><select id="endSection"></select>
+    <div class="section-info" id="sectionInfo" role="status"></div>
+  </details>
+</section>
+
+<section class="right" id="previewSection" aria-label="Önizleme">
+  <div class="preview-card">
+    <div class="preview-head">
+      <div><span class="eyebrow">Önizleme</span><h2>Belge görünümü</h2></div>
+      <div class="preview-tools" id="previewTools"><span class="pill" id="previewCount">A4</span><button type="button" id="changesToggle" class="secondary tool-btn" aria-pressed="false" hidden title="Hukuk profilinin eklediği ve değiştirdiği sözcükleri sarıyla göster">Değişiklikleri göster</button><button type="button" id="zoomToggle" class="secondary tool-btn zoom-btn" aria-pressed="true">Sığdır</button></div>
+    </div>
+    <p class="preview-hint" id="overrideHint" hidden>Bir paragrafa dokunun: türünü, hizasını, yazısını, metnini değiştirin; altına yeni paragraf ekleyin, taşıyın, silin. Bir sözcüğü ya da cümleyi seçince kalın / italik / altı çizili çubuğu açılır. Birden çok paragraf için “Çoklu seçim”.</p>
+    <div class="preview-viewport fit" id="previewViewport"><div class="paper-scale" id="paperScale"><article class="paper editable" id="paper">
+      <div class="empty-state" id="emptyState"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg><strong>Önizleme burada görünecek</strong><span>Soldan bir Word dosyası seçin ya da dilekçe metnini yapıştırın.</span></div>
+    </article></div></div>
+    <p class="chg-legend" id="chgLegend" hidden><span class="sw word" aria-hidden="true"></span>araç tarafından eklenen / değiştirilen sözcük (fareyle paragrafın üzerine gelince ne değiştiği görünür)<span class="sw edit" aria-hidden="true"></span>elle düzenlenen<span class="sw add" aria-hidden="true"></span>eklenen paragraf</p>
+    <p class="page-note" id="pageNote" role="status" hidden></p>
+    <p class="preview-foot">Önizleme yaklaşık yerleşimi gösterir. UYAP Doküman Editörü'nde açarak son kontrolleri yapın.</p>
+  </div>
+</section>
+</div>
+</main>
+<div class="mobile-bar" id="mobileBar" hidden>
+  <button type="button" class="btn btn-secondary" id="mbPreview"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg>Önizleme</button>
+  <button type="button" class="btn btn-primary" id="mbDownload" disabled><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>UDF indir</button>
+</div>
+<script src="zip.js"></script><script src="docx.js"></script><script src="normalize.js"></script><script src="settings.js"></script><script src="legal-rules.js"></script><script src="legal-typography.js"></script><script src="edits.js"></script><script src="checks.js"></script><script src="udf.js"></script><script src="docx-writer.js"></script><script src="templates.js"></script><script src="library.js"></script><script src="paste.js"></script><script src="pipeline.js"></script><script src="preview.js"></script><script src="print.js"></script><script src="editor-ui.js"></script><script src="workspace.js"></script>

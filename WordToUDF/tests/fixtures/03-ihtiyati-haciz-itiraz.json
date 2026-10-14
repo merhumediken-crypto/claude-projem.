@@ -1,0 +1,159 @@
+{
+  "name": "İhtiyati hacze itiraz (ayrı satırlı künye, KARAR NO, vekil UETS satırı, Word listesi, EKLER)",
+  "source": [
+    "T.C.",
+    "İSTANBUL 22. ASLİYE TİCARET MAHKEMESİNE",
+    "İHTİYATİ HACİZ KARARINA İTİRAZ VE İVEDİ İNCELEME TALEPLİDİR.",
+    "DOSYA NO: 2026/713 E.",
+    "KARAR NO: 2026/708",
+    "İHTİYATİ HACZE İTİRAZ EDEN:",
+    "Örnek Rezistans Isı Sistemleri Sanayi ve Ticaret Limited Şirketi",
+    "TEBLİGAT ADRESİ: Başpınar OSB,",
+    "Şehitkamil/Gaziantep",
+    "VEKİLİ: Av. Ayşe Nur Demir Kaya",
+    "ADRES VE UETS: 11111-22222-33333",
+    "İHTİYATİ HACİZ TALEP EDEN: Örnek Plastik Kimya Sanayi ve Ticaret Limited Şirketi",
+    "ADRES: Çalı Mahallesi, Gri Caddesi No:13, Nilüfer/Bursa",
+    "VEKİLİ: Av. Emin Kara",
+    "İLGİLİ İCRA DOSYASI: İstanbul Anadolu 10. İcra Dairesi, 2026/18304 E.",
+    "KONU: İhtiyati haciz kararına itiraz edilmesi istemidir.",
+    "AÇIKLAMALAR: Mahkemenizce verilen karara itiraz ediyoruz.",
+    "I. MAHKEMENİN YETKİSİNE İTİRAZ EDİLMEKTEDİR.",
+    "Müvekkil şirketin merkezi Gaziantep'tir. HMK m. 6 uygulanır.",
+    "HUKUKİ SEBEPLER:",
+    "İİK m. 50, 257, 258; HMK m. 6, 7 ve ilgili mevzuat.",
+    "HUKUKİ DELİLLER: Çek, imza sirküleri, ticaret sicili kayıtları.",
+    "SONUÇ VE İSTEM:",
+    "Yukarıda arz edilen (Yetki kamu düzeninden olduğundan) sebeplerle;",
+    "1. Yetki itirazının kabulüne,",
+    "2. İhtiyati haciz kararının KALDIRILMASINA,",
+    "3. Yargılama giderlerinin karşı tarafa yükletilmesine karar verilmesini vekâleten talep ederim.",
+    "10.10.2026",
+    "İtiraz Eden Vekili",
+    "Av. Ayşe Nur Demir Kaya",
+    "EKLER:",
+    "1- İhtiyati haciz kararı örneği.",
+    "2- Çekin ön ve arka yüzü.",
+    "3- İmza sirküleri."
+  ],
+  "options": {},
+  "expected": [
+    {
+      "role": "body",
+      "text": "T.C."
+    },
+    {
+      "role": "court-heading",
+      "text": "İSTANBUL 22. ASLİYE TİCARET MAHKEMESİNE"
+    },
+    {
+      "role": "petition-title",
+      "text": "İHTİYATİ HACİZ KARARINA İTİRAZ VE İVEDİ İNCELEME TALEPLİDİR."
+    },
+    {
+      "role": "case-number",
+      "text": "DOSYA NO\t: 2026/713 E. 2026/708 K."
+    },
+    {
+      "role": "metadata",
+      "text": "İTİRAZ EDEN\t: Örnek Rezistans Isı Sistemleri Sanayi ve Ticaret Limited Şirketi"
+    },
+    {
+      "role": "metadata",
+      "text": "ADRESİ\t: Başpınar OSB, Şehitkamil/Gaziantep"
+    },
+    {
+      "role": "metadata",
+      "text": "VEKİLİ\t: Av. Ayşe Nur DEMİR KAYA (UETS: 11111-22222-33333)"
+    },
+    {
+      "role": "metadata",
+      "text": "TALEP EDEN\t: Örnek Plastik Kimya Sanayi ve Ticaret Limited Şirketi"
+    },
+    {
+      "role": "metadata",
+      "text": "ADRESİ\t: Çalı Mahallesi, Gri Caddesi No:13, Nilüfer/Bursa"
+    },
+    {
+      "role": "metadata",
+      "text": "VEKİLİ\t: Av. Emin KARA"
+    },
+    {
+      "role": "metadata",
+      "text": "İCRA DOSYA NO\t: İstanbul Anadolu 10. İcra Dairesi, 2026/18304 E."
+    },
+    {
+      "role": "topic",
+      "text": "KONU\t: İhtiyati haciz kararına itiraz edilmesi istemidir."
+    },
+    {
+      "role": "major-heading",
+      "text": "AÇIKLAMALAR\t:"
+    },
+    {
+      "role": "explanation-body",
+      "text": "Mahkemenizce verilen karara itiraz ediyoruz."
+    },
+    {
+      "role": "section-heading",
+      "text": "I. MAHKEMENİN YETKİSİNE İTİRAZ EDİLMEKTEDİR."
+    },
+    {
+      "role": "explanation-body",
+      "text": "Müvekkil şirketin merkezi Gaziantep'tir. HMK m. 6 uygulanır."
+    },
+    {
+      "role": "section-field",
+      "text": "HUKUKİ SEBEPLER\t: İİK m. 50, 257, 258; HMK m. 6, 7 ve ilgili mevzuat."
+    },
+    {
+      "role": "section-field",
+      "text": "HUKUKİ DELİLLER\t: Çek, imza sirküleri, ticaret sicili kayıtları."
+    },
+    {
+      "role": "result-heading",
+      "text": "SONUÇ VE İSTEM\t: Yukarıda arz edilen sebeplerle;"
+    },
+    {
+      "role": "result-item",
+      "text": "1.\tYetki itirazının kabulüne,"
+    },
+    {
+      "role": "result-item",
+      "text": "2.\tİhtiyati haciz kararının KALDIRILMASINA,"
+    },
+    {
+      "role": "result-item",
+      "text": "3.\tYargılama giderlerinin karşı tarafa yükletilmesine,"
+    },
+    {
+      "role": "result-closing",
+      "text": "Karar verilmesini vekâleten talep ederim. 14.10.2026"
+    },
+    {
+      "role": "signature",
+      "text": "İtiraz Eden Vekili"
+    },
+    {
+      "role": "signature",
+      "text": "Av. Ayşe Nur DEMİR KAYA"
+    },
+    {
+      "role": "major-heading",
+      "text": "EKLER\t:"
+    },
+    {
+      "role": "attachment-item",
+      "text": "1.\tİhtiyati haciz kararı örneği."
+    },
+    {
+      "role": "attachment-item",
+      "text": "2.\tÇekin ön ve arka yüzü."
+    },
+    {
+      "role": "attachment-item",
+      "text": "3.\tİmza sirküleri."
+    }
+  ],
+  "expectedErrors": []
+}

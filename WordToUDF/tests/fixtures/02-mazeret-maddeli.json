@@ -1,0 +1,87 @@
+{
+  "name": "Aynı mazeret dilekçesi, talepler maddelere ayrılmış",
+  "source": [
+    "ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ'NE",
+    "DOSYA NO\t:\t2026/1111 Esas",
+    "DAVALI\t:\tAhmet YILMAZ",
+    "VEKİLİ\t:\tAv. Fatih NAKIŞLI",
+    "DAVACI\t:\tÖrnek Bankası Anonim Şirketi",
+    "KONU\t:\t14.10.2026 tarihli duruşmaya ilişkin mesleki mazeretimizin sunulması, mazeretimizin kabulü ile ihtiyati tedbir kararına yönelik itirazlarımızın değerlendirilmesi talebidir.",
+    "AÇIKLAMALAR\t:",
+    "Mahkemenizin yukarıda esas numarası belirtilen dosyasının 14.10.2026 tarihli duruşmasına, şehir dışında bulunmamız nedeniyle katılım sağlayamayacağımızdan mesleki mazeretimizin kabulünü talep etmekteyiz.",
+    "Mahkemenizin 08.10.2026 tarihli ara kararıyla müvekkil yönünden iki haftalık ek cevap süresi verilmiş olup cevap süremiz henüz sona ermemiştir.",
+    "SONUÇ VE İSTEM: Yukarıda açıklanan nedenlerle; 14.10.2026 tarihli duruşmaya ilişkin mesleki mazeretimizin kabulüne, müvekkil yönünden cevap süresi henüz sona ermediğinden ön inceleme duruşmasının dilekçeler aşamasının tamamlanmasından sonraki bir tarihe bırakılmasına, yeni duruşma gününün UYAP üzerinden öğrenilmesine karar verilmesini saygıyla talep ederiz. 14.10.2026",
+    "Davalı Ahmet Yılmaz Vekili",
+    "Av. Fatih NAKIŞLI"
+  ],
+  "options": {
+    "splitRequests": true
+  },
+  "expected": [
+    {
+      "role": "court-heading",
+      "text": "ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ'NE"
+    },
+    {
+      "role": "case-number",
+      "text": "DOSYA NO\t: 2026/1111 Esas"
+    },
+    {
+      "role": "metadata",
+      "text": "DAVALI\t: Ahmet YILMAZ"
+    },
+    {
+      "role": "metadata",
+      "text": "VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)"
+    },
+    {
+      "role": "metadata",
+      "text": "DAVACI\t: Örnek Bankası Anonim Şirketi"
+    },
+    {
+      "role": "topic",
+      "text": "KONU\t: 14.10.2026 tarihli duruşmaya ilişkin mesleki mazeretimizin sunulması, mazeretimizin kabulü ile ihtiyati tedbir kararına yönelik itirazlarımızın değerlendirilmesi talebidir."
+    },
+    {
+      "role": "major-heading",
+      "text": "AÇIKLAMALAR\t:"
+    },
+    {
+      "role": "explanation-body",
+      "text": "Mahkemenizin yukarıda esas numarası belirtilen dosyasının 14.10.2026 tarihli duruşmasına, şehir dışında bulunmamız nedeniyle katılım sağlayamayacağımızdan mesleki mazeretimizin kabulünü talep etmekteyiz."
+    },
+    {
+      "role": "explanation-body",
+      "text": "Mahkemenizin 08.10.2026 tarihli ara kararıyla müvekkil yönünden iki haftalık ek cevap süresi verilmiş olup cevap süremiz henüz sona ermemiştir."
+    },
+    {
+      "role": "result-heading",
+      "text": "SONUÇ VE İSTEM\t: Yukarıda arz edilen sebeplerle;"
+    },
+    {
+      "role": "result-item",
+      "text": "1.\t14.10.2026 tarihli duruşmaya ilişkin mesleki mazeretimizin kabulüne,"
+    },
+    {
+      "role": "result-item",
+      "text": "2.\tMüvekkil yönünden cevap süresi henüz sona ermediğinden ön inceleme duruşmasının dilekçeler aşamasının tamamlanmasından sonraki bir tarihe bırakılmasına,"
+    },
+    {
+      "role": "result-item",
+      "text": "3.\tYeni duruşma gününün UYAP üzerinden öğrenilmesine,"
+    },
+    {
+      "role": "result-closing",
+      "text": "Karar verilmesini saygıyla talep ederiz. 14.10.2026"
+    },
+    {
+      "role": "signature",
+      "text": "Davalı Ahmet Yılmaz Vekili"
+    },
+    {
+      "role": "signature",
+      "text": "Av. Fatih NAKIŞLI"
+    }
+  ],
+  "expectedErrors": []
+}

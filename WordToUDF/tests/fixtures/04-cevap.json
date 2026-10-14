@@ -1,0 +1,98 @@
+{
+  "name": "Cevap dilekçesi (çok vekil, alt maddeler, Arz ve talep ederim, tarih ayrı satırda)",
+  "source": [
+    "GAZİANTEP 3. İŞ MAHKEMESİ'NE",
+    "ESAS NO: 2026/455",
+    "KARAR NO: 2026/12",
+    "DAVACI: Mehmet Ali Öztürk",
+    "VEKİLİ: Av. Fatih Nakışlı, Av. Zeynep Ak",
+    "DAVALI: Örnek İnşaat Anonim Şirketi",
+    "KONU: Davaya karşı cevaplarımızın sunulmasıdır.",
+    "AÇIKLAMALAR",
+    "1. Davacının iddiaları yerinde değildir.",
+    "2. Müvekkil şirket ücret alacaklarını eksiksiz ödemiştir. İş Kanunu m. 32 uyarınca ödeme yapılmıştır.",
+    "HUKUKİ NEDENLER: İş Kanunu m. 32, HMK m. 127.",
+    "DELİLLER",
+    "Banka kayıtları, bordrolar, tanık beyanları.",
+    "NETİCE VE TALEP",
+    "Arz ve izah edilen nedenlerle;",
+    "a) Davanın reddine,",
+    "b) Yargılama giderlerinin davacıya yükletilmesine,",
+    "Arz ve talep ederim.",
+    "14.10.2025",
+    "Davalı Vekili",
+    "Av. Fatih Nakışlı"
+  ],
+  "options": {},
+  "expected": [
+    {
+      "role": "court-heading",
+      "text": "GAZİANTEP 3. İŞ MAHKEMESİ'NE"
+    },
+    {
+      "role": "case-number",
+      "text": "DOSYA NO\t: 2026/455 E. 2026/12 K."
+    },
+    {
+      "role": "metadata",
+      "text": "DAVACI\t: Mehmet Ali ÖZTÜRK"
+    },
+    {
+      "role": "metadata",
+      "text": "VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422), Av. Zeynep AK"
+    },
+    {
+      "role": "metadata",
+      "text": "DAVALI\t: Örnek İnşaat Anonim Şirketi"
+    },
+    {
+      "role": "topic",
+      "text": "KONU\t: Davaya karşı cevaplarımızın sunulmasıdır."
+    },
+    {
+      "role": "major-heading",
+      "text": "AÇIKLAMALAR\t:"
+    },
+    {
+      "role": "explanation-body",
+      "text": "1. Davacının iddiaları yerinde değildir."
+    },
+    {
+      "role": "explanation-body",
+      "text": "2. Müvekkil şirket ücret alacaklarını eksiksiz ödemiştir. İş Kanunu m. 32 uyarınca ödeme yapılmıştır."
+    },
+    {
+      "role": "section-field",
+      "text": "HUKUKİ NEDENLER\t: İş Kanunu m. 32, HMK m. 127."
+    },
+    {
+      "role": "section-field",
+      "text": "DELİLLER\t: Banka kayıtları, bordrolar, tanık beyanları."
+    },
+    {
+      "role": "result-heading",
+      "text": "NETİCE VE TALEP\t: Yukarıda arz edilen sebeplerle;"
+    },
+    {
+      "role": "result-item",
+      "text": "a)\tDavanın reddine,"
+    },
+    {
+      "role": "result-item",
+      "text": "b)\tYargılama giderlerinin davacıya yükletilmesine,"
+    },
+    {
+      "role": "result-closing",
+      "text": "Arz ve talep ederim. 14.10.2026"
+    },
+    {
+      "role": "signature",
+      "text": "Davalı Vekili"
+    },
+    {
+      "role": "signature",
+      "text": "Av. Fatih NAKIŞLI"
+    }
+  ],
+  "expectedErrors": []
+}

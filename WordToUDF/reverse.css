@@ -1,0 +1,26 @@
+#downloadWord{background:var(--accent);color:#fff;border:0;border-radius:8px;font-size:13px;font-weight:750;padding:13px 10px}#downloadWord:disabled{opacity:.45;cursor:not-allowed}
+#paper .preview-footer{border-top:1px dashed #e1e7ef;margin-top:auto;padding-top:10px}
+#paper .preview-header{border-bottom:1px dashed #e1e7ef;margin-bottom:14px}
+.paper .paragraph{white-space:pre-wrap}
+.udf-table{border-collapse:collapse;border-spacing:0;table-layout:auto;width:100%}
+.udf-table td{padding:0;vertical-align:top;border:0}
+.udf-table .paragraph{white-space:pre-wrap}
+#printSurface{display:none}
+@media print{
+  html,body{background:#fff!important;margin:0!important;padding:0!important;color:#000!important}
+  body>header,body>main{display:none!important}
+  #printSurface{display:block!important;position:static!important;margin:0!important;padding:0!important;width:auto!important}
+  #printBody{display:block!important;position:static!important;padding:0!important;margin:0!important}
+  #printBody .paragraph,#printHeader .paragraph,#printFooter .paragraph{white-space:pre-wrap;overflow-wrap:break-word;min-height:0}
+  #printBody .page-break{height:0;margin:0;border:0;background:none;break-before:page;page-break-before:always;break-after:auto}
+  #printBody .udf-table{width:100%;border-collapse:collapse;border-spacing:0;table-layout:auto}
+  #printBody .udf-table td{border:0;padding:0;vertical-align:top}
+  #printHeader:empty,#printFooter:empty{display:none!important}
+  #printHeader,#printFooter{position:fixed;left:0;right:0;width:auto;break-inside:avoid}
+  #printBody,#printHeader,#printFooter{font-family:'Times New Roman',serif;font-size:12pt;line-height:1}
+  #printBody .tab-stop,#printHeader .tab-stop,#printFooter .tab-stop{display:inline-block;white-space:nowrap}
+  #printSurface .tab-stop.underlined{border-bottom:1px solid currentColor;vertical-align:-.11em}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@page{size:A4 portrait;margin:42.52pt}
+.paper .list-marker,#printSurface .list-marker{display:inline-block;min-width:1.6em;margin-right:.35em;text-align:right;white-space:nowrap}
