@@ -19,7 +19,7 @@
   #printHeader,#printFooter{position:fixed;left:0;right:0;width:auto;break-inside:avoid}
   #printBody,#printHeader,#printFooter{font-family:'Times New Roman',serif;font-size:12pt;line-height:1}
   #printBody .tab-stop,#printHeader .tab-stop,#printFooter .tab-stop{display:inline-block;white-space:nowrap}
-  #printSurface .tab-stop.underlined{border-bottom:1px solid currentColor}
+  #printSurface .tab-stop.underlined{border-bottom:1px solid currentColor;vertical-align:-.11em}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 @page{size:A4 portrait;margin:42.52pt}

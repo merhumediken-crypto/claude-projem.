@@ -185,11 +185,11 @@ test('WTU-024/025 bütün iki noktalar tek ortak sekme durağında, tek gerçek 
     assert(!/ {2,}/u.test(text(b)),'boşlukla hizalama yok');
   }
 });
-test('WTU-026 etiket ve iki nokta kalın-altı çizili, tab ve değer altı çizgisiz/normal',()=>{
+test('WTU-026 etiket, sekme ve iki nokta kesintisiz altı çizili (REVİZE v1.4.1); değer altı çizgisiz/normal',()=>{
   for(const b of fields){
     const [label,tab,colon,...value]=b.runs;
     assert(label.bold&&label.underline,b.fieldLabel);assert(colon.bold&&colon.underline);
-    assert.equal(tab.underline,false);assert.equal(tab.bold,false);
+    assert.equal(tab.text,'\t');assert.equal(tab.underline,true);assert.equal(tab.bold,false);
     for(const v of value){assert.equal(v.underline,false);if(!v.italic)assert.equal(v.bold,false,text(b));}
   }
 });

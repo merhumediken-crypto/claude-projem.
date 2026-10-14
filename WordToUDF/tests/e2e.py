@@ -237,7 +237,7 @@ def main():
         assert all(p.get('LeftIndent')=='0' and p.get('FirstLineIndent')=='0' for p in field)
         for p in field:
             kids=list(p)
-            assert kids[1].tag=='tab' and kids[1].get('underline')=='false'
+            assert kids[1].tag=='tab' and kids[1].get('underline')=='true'
             assert kids[0].get('underline')=='true' and kids[0].get('bold')=='true'
             assert kids[2].get('underline')=='true' and txt[int(kids[2].get('startOffset'))]==':'
             for k in kids[3:]:assert k.get('underline')=='false'

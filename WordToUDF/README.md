@@ -9,6 +9,7 @@
 - **Yazı tipi Times New Roman:** hukuk dilekçesi profilinde bütün metin ve UDF varsayılan stili Times New Roman 12 pt'dir; Word tema yazı tipleri (Cambria, Calibri vb.) taşınmaz.
 - **Kendi vekil profili:** varsayılan vekil `Av. Fatih NAKIŞLI`, UETS `16615-16448-62422`. VEKİLİ satırı: `VEKİLİ : Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)`. Ad ve UETS arayüzden değiştirilebilir.
 - **Başka vekil butonu:** “Başka vekil var” kutucuğu işaretlenince ad + UETS satırları ve “+ Başka vekil / UETS hesabı ekle” butonu açılır. UETS girilirse eklenir; **boş bırakılırsa VEKİLİ satırına numara yazılmaz** (artık numarasız `(UETS)` ibaresi de yazılmaz).
+- **Kesintisiz alt çizgi:** etiketteki alt çizgi sekme boşluğunda kesilmez; `DOSYA NO`'dan iki noktaya kadar tek çizgi olarak devam eder (UDF `<tab underline="true">`). Değer altı çizgisiz kalır.
 - **KONU iki nokta hizası:** iki yana yaslı KONU / HUKUKİ SEBEPLER satırlarında UDF sekmesi kayıyor, iki nokta ortak sütunun sağına düşüyordu. Etiketli satırlar artık sola yaslı; bütün iki noktalar aynı sütunda.
 
 ## 1.4.0 — Nihai hukuk dilekçesi standardı
