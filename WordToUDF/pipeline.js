@@ -25,15 +25,18 @@
     };
   }
 
-  function typeset(sourceBlocks, {profile = 'legal', selection = {start: 'auto', end: 'auto'}, settings, now = new Date(), overrides, sourceMargins} = {}){
+  function typeset(sourceBlocks, {profile = 'legal', selection = {start: 'auto', end: 'auto'}, settings, now = new Date(), edits, overrides, sourceMargins} = {}){
     const legal = profile !== 'faithful';
     const opts = legalOptions(settings);
     const norm = WordToUDFNormalize.apply(sourceBlocks, selection, {preserveFormatting: !legal, sourceMargins, lineSpacing: opts.lineSpacing});
     const typo = WordToUDFLegalTypography.apply(norm.blocks, {enabled: legal, selection: norm.selection, now, ...opts});
-    let blocks = typo.blocks, applied = 0;
-    if(legal && overrides){ const r = WordToUDFLegalTypography.applyOverrides(blocks, overrides, opts); blocks = r.blocks; applied = r.applied; }
+    // Manual paragraph edits (edits.js) run in both profiles, after the
+    // automatic rules; every paragraph is tagged with its edit key.
+    let blocks = typo.blocks, applied = 0, editLog = [];
+    if(globalThis.WordToUDFEdits){ const r = WordToUDFEdits.apply(blocks, edits || overrides, opts); blocks = r.blocks; applied = r.applied; editLog = r.log; }
     const checks = globalThis.WordToUDFChecks ? WordToUDFChecks.run(blocks, typo.statistics, {now}) : [];
-    return {norm, blocks, typography: {...typo.statistics, overrides: applied}, checks, legal};
+    if(applied && legal) checks.push({level: 'info', code: 'manual-edits', message: `${applied} paragraf elle düzenlendi; ayrıntılar dönüşüm raporunda.`});
+    return {norm, blocks, typography: {...typo.statistics, overrides: applied, edits: editLog}, checks, legal};
   }
 
   // Serialise, verify, zip, re-open and verify again. Throws on any mismatch.

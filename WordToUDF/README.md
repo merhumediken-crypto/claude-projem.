@@ -25,11 +25,20 @@
 **Talepleri maddelere ayırma (onaylı)**
 - Tek maddeye yazılmış birden çok talep (`…kabulüne, …bırakılmasına, …kaldırılmasına, …`) algılanır ve **önerilir**; “Maddelere ayır” ile numaralı maddelere bölünür. Kendiliğinden bölünmez. Her yeni madde büyük harfle başlar.
 
-**Önizlemede elle düzeltme**
-- Paragrafa dokunun → *İmza, Gövde, Düz paragraf, Ara başlık, Ortalı başlık* veya *Otomatik*. Yalnız düzen değişir, metin değişmez; UDF ve Word çıktısına uygulanır.
+**Paragraf düzenleyici (önizlemede)**
+- Önizlemedeki paragrafa dokunun → düzenleme paneli açılır (telefonda alttan, masaüstünde solda; düzenlenen paragraf görünür kalır).
+- **Paragraf türü:** Otomatik (algılanan tür yazılı, ör. “Otomatik · imza satırı”), Gövde, Düz, Ara başlık, Ortalı başlık, **Talep maddesi**, **Ek maddesi**, Kapanış cümlesi, **Alıntı (karar / metin)**, İmza satırı.
+- **Hizalama:** sola, ortala, sağa, iki yana. **Yazı:** kalın, italik, altı çizili, punto (10–16).
+- **Girinti ve aralık:** ilk satır, sol ve sağ girinti (0–3 cm), önce/sonra boşluk (0–18 pt), satır aralığı (1 / 1,15 / 1,5 / 2).
+- **Metin:** paragraf metnini düzeltin (“Metni uygula”, “Özgün metne dön”); kanun/karar atıfları yeniden biçimlenir, liste numarası korunur.
+- **İşlemler:** önüne/arkasına boş satır, önüne sayfa sonu, sonraki paragrafla birleştir (Word'ün böldüğü satırlar için), paragrafı sil.
+- **Numaralar kendiliğinden düzelir:** bir talep silinir, eklenir veya bir paragraf talep/ek maddesine çevrilirse 1., 2., 3. sırası yeniden verilir.
+- **Çoklu seçim:** “Çoklu seçim” düğmesi (masaüstünde Ctrl/Shift + tıklama) → birden çok paragrafa aynı düzen tek seferde.
+- **Geri al** (Ctrl+Z dahil, 100 adım), paragraf başına **Sıfırla**, **Düzenlemeleri sıfırla**. Düzenlenen paragraflar önizlemede işaretlidir; her düzenleme dönüşüm raporunda “Elle yapılan paragraf düzenlemeleri” başlığı altında yazılır.
+- Düzenleyici hem Word → UDF sayfasında (iki profilde de) hem şablon sayfasında çalışır.
 
 **Dilekçe şablonları (`templates.html`)**
-- Duruşma mazeret dilekçesi, cevap süresi için ek süre (HMK m. 127), ihtiyati tedbire itiraz (HMK m. 394), genel beyan dilekçesi.
+- 8 şablon: duruşma mazeret dilekçesi; cevap süresi için ek süre (HMK m. 127); ihtiyati tedbire itiraz (HMK m. 394); bilirkişi raporuna itiraz (HMK m. 281); e-Duruşma / SEGBİS ile katılım (HMK m. 149); tanık listesi (HMK m. 240); vekaletname sunulması ve dosyaya erişim; genel beyan dilekçesi.
 - Mahkeme, esas no, taraflar ve tarihler formdan; açıklama, talepler, kapanış ve ekler sayfada düzenlenebilir. Çıktı, Word'den dönüştürülen belgelerle **aynı kurallardan** geçer ve UDF veya Word olarak indirilir. Boş alanlar `…` olarak görünür, bilgi uydurulmaz.
 
 **Toplu dönüşüm ve Word çıktısı**

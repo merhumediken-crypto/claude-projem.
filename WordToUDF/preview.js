@@ -80,8 +80,14 @@
     paper.style.fontFamily = font; paper.style.fontSize = `${size}pt`;
     const frag = document.createDocumentFragment(), listState = new Map();
     blocks.forEach((block, i) => {
-      if(block.kind === 'page-break'){ const line = document.createElement('div'); line.className = 'page-break'; line.setAttribute('aria-label', 'Sayfa sonu'); frag.append(line); }
-      else { const p = makeParagraph(block, listState); p.dataset.index = String(i); frag.append(p); }
+      if(block.kind === 'page-break'){ const line = document.createElement('div'); line.className = 'page-break' + (block.inserted ? ' inserted' : ''); line.setAttribute('aria-label', 'Sayfa sonu'); frag.append(line); }
+      else {
+        const p = makeParagraph(block, listState); p.dataset.index = String(i);
+        if(block.editKey) p.dataset.key = block.editKey;
+        if(block.edited) p.classList.add('edited');
+        if(block.inserted) p.classList.add('inserted');
+        frag.append(p);
+      }
     });
     paper.append(frag);
     positionTabs(paper);

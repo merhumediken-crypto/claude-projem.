@@ -100,6 +100,75 @@
       attachments: () => []
     },
     {
+      id: 'bilirkisi', title: 'Bilirkişi raporuna itiraz (HMK m. 281)',
+      fields: [
+        {id: 'reportDate', label: 'Raporun tebliğ tarihi', type: 'date'},
+        {id: 'objections', label: 'İtirazlar (her paragraf ayrı satırda)', type: 'textarea', placeholder: 'ör. Bilirkişi, müvekkilin ödeme belgelerini hesaba katmamıştır.'},
+        {id: 'supplement', label: 'Aynı bilirkişiden ek rapor istensin', type: 'checkbox', value: true},
+        {id: 'newExpert', label: 'Aksi hâlde yeni bilirkişi (heyeti) istensin', type: 'checkbox', value: true}
+      ],
+      topic: () => 'Bilirkişi raporuna karşı itirazlarımızın sunulmasıdır.',
+      body: f => {
+        const out = [`Mahkemenizin yukarıda esas numarası belirtilen dosyasına sunulan bilirkişi raporu tarafımıza ${or(f.reportDate, D)} tarihinde tebliğ edilmiş olup HMK m. 281 uyarınca iki haftalık süre içinde itirazlarımızı sunmaktayız.`];
+        const lines = String(f.objections || '').split(/\r?\n/u).map(clean).filter(Boolean);
+        out.push(...(lines.length ? lines : [`${D} (itirazlarınızı yazın)`]));
+        return out;
+      },
+      requests: f => ['Bilirkişi raporuna yönelik itirazlarımızın kabulüne,',
+        ...(f.supplement ? ['Raporda belirtilen eksikliklerin giderilmesi için aynı bilirkişiden ek rapor alınmasına,'] : []),
+        ...(f.newExpert ? [f.supplement ? 'Aksi hâlde yeni bir bilirkişi (heyeti) atanarak yeniden inceleme yapılmasına,' : 'Yeni bir bilirkişi (heyeti) atanarak yeniden inceleme yapılmasına,'] : [])],
+      closing: 'Karar verilmesini saygıyla talep ederiz.',
+      attachments: () => []
+    },
+    {
+      id: 'segbis', title: 'e-Duruşma / SEGBİS ile katılım talebi (HMK m. 149)',
+      fields: [
+        {id: 'hearingDate', label: 'Duruşma tarihi', type: 'date'},
+        {id: 'method', label: 'Katılım yolu', type: 'select', options: [['edurusma', 'UYAP Avukat Portal üzerinden e-Duruşma'], ['segbis', 'Başka bir adliyedeki SEGBİS']]},
+        {id: 'place', label: 'SEGBİS bulunan adliye', type: 'text', showIf: f => f.method === 'segbis', placeholder: 'ör. Gaziantep Adliyesi'}
+      ],
+      topic: f => `${or(f.hearingDate, D)} tarihli duruşmaya ses ve görüntü nakli yoluyla (HMK m. 149) katılım talebimizdir.`,
+      body: f => {
+        const how = f.method === 'segbis' ? `${or(f.place, D)} SEGBİS sistemi üzerinden` : 'UYAP Avukat Portal üzerinden e-Duruşma yoluyla';
+        return [`Mahkemenizin yukarıda esas numarası belirtilen dosyasının ${or(f.hearingDate, D)} tarihli duruşmasına, büromuzun mahkemenizden farklı bir yerde bulunması nedeniyle fiziken katılım sağlanması güçtür. HMK m. 149 uyarınca duruşmaya ${how} katılmamıza izin verilmesini talep etmekteyiz.`];
+      },
+      requests: f => {
+        const how = f.method === 'segbis' ? `${or(f.place, D)} SEGBİS sistemi üzerinden` : 'e-Duruşma yoluyla';
+        return [`${or(f.hearingDate, D)} tarihli duruşmaya ${how} katılmamıza izin verilmesine,`, 'Bağlantı / randevu bilgisinin UYAP üzerinden tarafımıza bildirilmesine,'];
+      },
+      closing: 'Karar verilmesini saygıyla talep ederiz.',
+      attachments: () => []
+    },
+    {
+      id: 'tanik', title: 'Tanık listesinin sunulması (HMK m. 240)',
+      fields: [
+        {id: 'orderDate', label: 'Ara kararın tarihi', type: 'date'},
+        {id: 'witnesses', label: 'Tanıklar (her satıra: Ad SOYAD – adres – dinletileceği husus)', type: 'textarea', placeholder: 'Ali VELİ – Atatürk Mah. 1. Sok. No:1 Şahinbey/Gaziantep – ödemenin yapıldığı hususu'},
+        {id: 'advancePaid', label: 'Tanık gider avansı yatırıldı', type: 'checkbox', value: false}
+      ],
+      topic: () => 'Tanık listemizin sunulmasıdır.',
+      body: f => {
+        const out = [`Mahkemenizin ${or(f.orderDate, D)} tarihli ara kararı uyarınca HMK m. 240 gereğince tanık listemizi sunmaktayız. Tanıkların dinlenmesi için gerekli gider avansı ${f.advancePaid ? 'dosyaya yatırılmıştır' : 'süresi içinde dosyaya yatırılacaktır'}.`];
+        const w = String(f.witnesses || '').split(/\r?\n/u).map(clean).filter(Boolean);
+        (w.length ? w : [`${D} (tanık adı, adresi ve dinletileceği husus)`]).forEach((x, i) => out.push(`Tanık ${i + 1}: ${x}`));
+        return out;
+      },
+      requests: () => ['Bildirilen tanıklarımızın davetiye ile çağrılarak gösterilen hususlarda dinlenmesine,'],
+      closing: 'Karar verilmesini saygıyla talep ederiz.',
+      attachments: f => f.advancePaid ? ['Gider avansı makbuzu'] : []
+    },
+    {
+      id: 'vekalet', title: 'Vekaletname sunulması ve dosyaya erişim talebi',
+      fields: [
+        {id: 'access', label: 'UYAP üzerinden dosyaya erişim yetkisi istensin', type: 'checkbox', value: true}
+      ],
+      topic: () => 'Vekaletnamemizin sunulması ve tebligatların tarafımıza yapılması talebimizdir.',
+      body: f => [`Müvekkil ${or(f.client, D)} tarafından adımıza düzenlenen vekaletname dilekçemiz ekinde sunulmuştur. Bundan sonra yapılacak tebligatların vekil sıfatıyla tarafımıza yapılmasını${f.access ? ' ve UYAP üzerinden dosyaya erişim yetkisi tanınmasını' : ''} talep etmekteyiz.`],
+      requests: f => ['Vekaletnamemizin dosyaya kabulüne,', 'Tebligatların vekil sıfatıyla tarafımıza yapılmasına,', ...(f.access ? ['UYAP üzerinden dosyaya erişim yetkisi tanınmasına,'] : [])],
+      closing: 'Karar verilmesini saygıyla talep ederiz.',
+      attachments: () => ['Vekaletname örneği']
+    },
+    {
       id: 'beyan', title: 'Genel beyan / talep dilekçesi',
       fields: [
         {id: 'subject', label: 'Konu', type: 'text', placeholder: 'ör. bilirkişi raporuna karşı beyanlarımızın sunulmasıdır.'}

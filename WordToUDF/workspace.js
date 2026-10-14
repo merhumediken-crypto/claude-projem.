@@ -2,7 +2,7 @@
   'use strict';
   const $=id=>document.getElementById(id);
   const P=WordToUDFPipeline, S=WordToUDFSettings, L=WordToUDFLegalTypography;
-  const state={file:null,source:null,result:null,selection:{start:'auto',end:'auto'},profile:'legal',loadSerial:0,overrides:new Map(),settings:S.load(),fit:true};
+  const state={file:null,source:null,result:null,selection:{start:'auto',end:'auto'},profile:'legal',loadSerial:0,settings:S.load(),fit:true};
   const fileInput=$('fileInput'),drop=$('dropZone'),status=$('status');
   const download=$('download'),downloadDocx=$('downloadDocx'),reportDownload=$('reportDownload'),review=$('review'),profileSelect=$('typographyProfile');
   function message(text,kind='') {status.textContent=text;status.className=`status ${kind}`;}
@@ -71,13 +71,13 @@
   function changeText(c){return `${CHANGE_LABELS[c.type]||c.type}: ${c.before} → ${c.after}`;}
   function showChanges(stats){
     const list=$('changeList');list.replaceChildren();
-    $('changesBlock').hidden=!stats?.enabled;
-    if(!stats?.enabled)return;
+    $('changesBlock').hidden=!stats?.enabled&&!(stats?.edits||[]).length;
+    if(!stats?.enabled){for(const e of stats?.edits||[]){const li=document.createElement('li');li.className='manual';li.textContent=`Elle düzenleme: “${e.excerpt}” → ${e.summary}`;list.append(li);}return;}
     const changes=stats.changes||[];
     if(!changes.length){const li=document.createElement('li');li.className='ok';li.textContent='Metinde hukuk profiline bağlı değişiklik yapılmadı.';list.append(li);}
     for(const c of changes.slice(0,80)){const li=document.createElement('li');li.textContent=changeText(c);list.append(li);}
     if(changes.length>80){const li=document.createElement('li');li.textContent=`… ve ${changes.length-80} değişiklik daha (raporda tamamı).`;list.append(li);}
-    if(stats.overrides){const li=document.createElement('li');li.textContent=`Elle düzeltme: ${stats.overrides} paragraf`;list.append(li);}
+    for(const e of stats.edits||[]){const li=document.createElement('li');li.className='manual';li.textContent=`Elle düzenleme: “${e.excerpt}” → ${e.summary}`;list.append(li);}
     const bad=S.invalidUets(state.settings);
     $('uetsInfo').textContent=bad.length?`Geçersiz UETS (${bad.join(', ')}) yok sayıldı. Biçim: 12345-12345-12345`:'';
   }
@@ -111,51 +111,28 @@
     const source=state.source;
     state.result=null;
     let t;
-    try{t=P.typeset(source.blocks,{profile:state.profile,selection:state.selection,settings:state.settings,now:new Date(),overrides:state.overrides,sourceMargins:source.options.margins});}
+    try{t=P.typeset(source.blocks,{profile:state.profile,selection:state.selection,settings:state.settings,now:new Date(),edits:editor.edits,sourceMargins:source.options.margins});}
     catch(err){message(`Dönüştürme hazırlanamadı: ${err.message}`,'error');setReady();return;}
     const norm=t.norm;
     state.result={...norm,blocks:t.blocks,typography:t.typography,checks:t.checks};
     $('sectionPanel').hidden=state.profile==='faithful';
     $('legalOptions').hidden=state.profile==='faithful';
-    $('overrideHint').hidden=state.profile==='faithful';
     showChanges(t.typography);showChecks(t.checks);
     const n=t.typography.splittableRequests||0;
     $('splitHint').textContent=n>1&&!$('splitRequests').checked?`(bu belgede ${n} talep tek maddede)`:'';
     const legal=state.profile==='legal';
     WordToUDFPreview.render($('paper'),t.blocks,{margins:norm.margins,landscape:source.options.landscape,font:legal?P.LEGAL_FONT:source.options.font,size:legal?P.LEGAL_SIZE:source.options.size});
     fitPaper();
+    editor.decorate();
     const ty=t.typography;
     const typeInfo=ty?.enabled?` · ${ty.metadataMerged||0} künye satırı birleştirildi · ${ty.resultItems||0} talep ve ${ty.attachments||0} ek numaralı listede · hukuk tipografisi etkin`:' · Word biçimi profili';
     $('sectionInfo').textContent=norm.selection.start<0?'AÇIKLAMALAR başlığı bulunamadı; gerekirse başlangıç başlığını seçin.':`${norm.bodyCount} gövde paragrafı ve ${norm.headingCount||0} ara başlık açıklamalar düzeninde işlendi${typeInfo}.`;
     $('previewCount').textContent=`${source.statistics.paragraphs} paragraf · A4 ${source.options.landscape?'yatay':'dikey'}`;
     setReady();
   }
-  // Tap a paragraph → choose a manual role. Only in the legal profile.
-  function closeMenu(){document.querySelector('.override-menu')?.remove();}
-  function openMenu(p,ev){
-    closeMenu();
-    if(state.profile!=='legal'||!state.result)return;
-    const index=Number(p.dataset.index);const block=state.result.blocks[index];
-    if(!block||block.kind!=='paragraph')return;
-    const key=L.blockKeys(state.result.blocks)[index];
-    // The key of an already-overridden block is the same (text unchanged).
-    const menu=document.createElement('div');menu.className='override-menu';menu.setAttribute('role','menu');
-    const title=document.createElement('p');title.textContent=`“${WordToUDFNormalize.flatten(block).replace(/\s+/g,' ').trim().slice(0,48)}…”`;menu.append(title);
-    const current=state.overrides.get(key)||'';
-    const add=(value,label)=>{const b=document.createElement('button');b.type='button';b.setAttribute('role','menuitemradio');b.setAttribute('aria-checked',String(current===value));b.textContent=(current===value?'✓ ':'')+label;
-      b.addEventListener('click',()=>{if(value)state.overrides.set(key,value);else state.overrides.delete(key);closeMenu();render();message(value?'Paragraf elle düzeltildi; UDF bu düzenle oluşturulacak.':'Elle düzeltme kaldırıldı.','success');});menu.append(b);};
-    add('','Otomatik (algılanan düzen)');
-    for(const [value,label] of Object.entries(L.OVERRIDES))add(value,label);
-    document.body.append(menu);
-    const r=p.getBoundingClientRect();
-    const x=Math.min(window.innerWidth-menu.offsetWidth-8,Math.max(8,(ev?.clientX??r.left)-20));
-    const y=Math.min(window.scrollY+window.innerHeight-menu.offsetHeight-8,window.scrollY+r.bottom+4);
-    menu.style.left=`${x+window.scrollX}px`;menu.style.top=`${Math.max(window.scrollY+8,y)}px`;
-    menu.querySelector('button')?.focus();
-  }
-  $('paper').addEventListener('click',e=>{const p=e.target.closest('.paragraph');if(p)openMenu(p,e);});
-  document.addEventListener('click',e=>{if(!e.target.closest('.override-menu')&&!e.target.closest('#paper .paragraph'))closeMenu();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+  // Paragraph editor (editor-ui.js): tap a paragraph in the preview.
+  const editor=WordToUDFEditorUI.attach({paper:$('paper'),toolbar:$('previewTools'),getBlocks:()=>state.result?.blocks,
+    onChange:render,onMessage:m=>message(m,'success'),enabled:()=>!!state.result});
 
   /* ------------------------------ files ------------------------------ */
   async function handleFile(file){
@@ -163,7 +140,7 @@
     if(!/\.docx$/iu.test(file.name)){message('Yalnız .docx uzantılı Word belgeleri desteklenmektedir.','error');return;}
     if(file.size<100||file.size>24*1024*1024){message('Dosya boş, hasarlı veya 24 MB sınırını aşıyor.','error');return;}
     const serial=++state.loadSerial;
-    state.file=null;state.source=null;state.result=null;state.selection={start:'auto',end:'auto'};state.overrides=new Map();
+    state.file=null;state.source=null;state.result=null;state.selection={start:'auto',end:'auto'};editor.reset();
     $('sectionPanel').hidden=true;$('reportPanel').hidden=true;$('checksPanel').hidden=true;$('paper').replaceChildren();
     review.checked=false;setReady();message('Belge yerel olarak okunuyor…');
     try{
@@ -225,7 +202,7 @@
     }catch(err){message(err.message,'error');}
     finally{e.target.value='';}
   });
-  profileSelect.addEventListener('change',e=>{state.profile=e.target.value==='faithful'?'faithful':'legal';closeMenu();render();});
+  profileSelect.addEventListener('change',e=>{state.profile=e.target.value==='faithful'?'faithful':'legal';editor.close();render();});
   $('startSection').addEventListener('change',e=>{state.selection.start=e.target.value;render();});
   $('endSection').addEventListener('change',e=>{state.selection.end=e.target.value;render();});
   $('zoomToggle').addEventListener('click',()=>{state.fit=!state.fit;fitPaper();});
@@ -241,7 +218,7 @@
       parts.push('Sayfa kenar boşlukları: 1,5 cm',`Açıklamalar gövdesi: ${norm.bodyCount} paragraf`,`Açıklamalar ara başlığı: ${norm.headingCount||0}`,'AÇIKLAMALAR gövdesi paragraf önce/sonra: 0,15 cm / 0,15 cm',`AÇIKLAMALAR: 1,25 cm ilk satır, ${ls} satır aralığı, iki yana yaslama`,
         `Ortak iki nokta sekme durağı: ${(t.colonTabPt||0).toFixed(2)} pt (${((t.colonTabPt||0)*2.54/72).toFixed(2)} cm); etiket, sekme ve iki nokta kesintisiz altı çizili, değer normal`,
         `SONUÇ talepleri: ${t.resultItems||0} madde, ${auto?'gerçek otomatik liste (ListId 1)':'metin numarası + sekme'}`,`EKLER: ${t.attachments||0} madde, ${auto?'ayrı otomatik liste (ListId 2)':'ayrı numaralı liste'}`,`Yazı karakteri: ${P.LEGAL_FONT} ${P.LEGAL_SIZE} pt`,
-        `Kapanış: ${t.closing||'—'}`,`Kapanış tarihi: ${t.date||'kaynaktaki gibi bırakıldı'}`,`Elle düzeltilen paragraf: ${t.overrides||0}`);
+        `Kapanış: ${t.closing||'—'}`,`Kapanış tarihi: ${t.date||'kaynaktaki gibi bırakıldı'}`,`Elle düzenlenen paragraf: ${t.overrides||0}`);
       parts.push('','Dilekçe denetimi:');
       parts.push(...(norm.checks||[]).map(c=>`- ${LEVEL_TEXT[c.level]}: ${c.message}`));
       parts.push('','Hukuk profilinin yaptığı metin değişiklikleri:');
@@ -250,6 +227,8 @@
       parts.push('','Metin bütünlüğü denetimi (sözcük karşılaştırması; yukarıdaki değişikliklerle açıklanmalıdır):',`- Kaynakta olup çıktıda azalan sözcükler: ${integ.removed.join(', ')||'yok'}`,`- Çıktıya eklenen sözcükler: ${integ.added.join(', ')||'yok'}`);
     }
     else parts.push('Sayfa kenar boşlukları: Word kaynağı (varsa)','Paragraf hizalama, girinti, satır aralığı ve önce/sonra boşlukları: Word kaynağından korunur.');
+    const manual=norm?.typography?.edits||[];
+    parts.push('','Elle yapılan paragraf düzenlemeleri:',...(manual.length?manual.map(e=>`- “${e.excerpt}” → ${e.summary}`):['- Yok']));
     parts.push('','Dönüşüm uyarıları:');
     parts.push(...(source.warnings.length?source.warnings.map(w=>`- ${w.message} (${w.count})`):['- Tespit edilen ek biçim kaybı yok.']));
     parts.push('','UDF üzerinde UYAP Doküman Editörü ile son kontrol yapılmalıdır; UYAP kabulü bu eklenti tarafından test edilmemiştir.','Belge imzasızdır: görünen imza metni kriptografik e-imza değildir, UYAP\'ta yeniden imzalanmalıdır.');

@@ -13,8 +13,8 @@ const vm=require('node:vm');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const ctx=vm.createContext({Intl,Date});
-for(const name of ['normalize.js','settings.js','legal-rules.js','legal-typography.js','checks.js','udf.js','templates.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
-const normal=ctx.WordToUDFNormalize, legal=ctx.WordToUDFLegalTypography, writer=ctx.WordToUDFWriter, checks=ctx.WordToUDFChecks, settingsApi=ctx.WordToUDFSettings, tpl=ctx.WordToUDFTemplates;
+for(const name of ['normalize.js','settings.js','legal-rules.js','legal-typography.js','edits.js','checks.js','udf.js','templates.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
+const normal=ctx.WordToUDFNormalize, legal=ctx.WordToUDFLegalTypography, writer=ctx.WordToUDFWriter, checks=ctx.WordToUDFChecks, settingsApi=ctx.WordToUDFSettings, tpl=ctx.WordToUDFTemplates, edits=ctx.WordToUDFEdits;
 const para=(text,attributes={})=>({kind:'paragraph',runs:[{text}],...attributes});
 const text=b=>b.runs.map(r=>r.text).join('');
 const arr=x=>[...x];
@@ -498,14 +498,58 @@ test('v1.5 talepleri maddelere ayırma: öneri sayısı ve onaylı bölme',()=>{
   const one=runText(['SONUÇ VE İSTEM','1. Davanın kabulüne,','2. Yargılama giderlerinin davalıya yükletilmesine,','Karar verilmesini talep ederim.'],{splitRequests:true});
   assert.equal(one.blocks.filter(b=>b.role==='result-item').length,2);
 });
-test('v1.5 elle düzeltme: yalnız düzen değişir, metin değişmez; anahtar metne bağlı',()=>{
-  const keys=legal.blockKeys(IB);const i=IB.findIndex(b=>b.role==='signature');
-  const r=legal.applyOverrides(IB,new Map([[keys[i],'plain']]));
-  assert.equal(r.applied,1);assert.equal(r.blocks[i].alignment,'left');assert(r.blocks[i].runs.every(x=>!x.bold));assert.equal(text(r.blocks[i]),text(IB[i]));
+test('v1.5 elle düzenleme: tür, hizalama, yazı; metin aynı kalır; anahtar metne bağlı',()=>{
+  const keys=edits.blockKeys(IB);const i=IB.findIndex(b=>b.role==='signature');
+  const r=edits.apply(IB,new Map([[keys[i],{role:'plain'}]]));
+  assert.equal(r.applied,1);const b=r.blocks.find(x=>x.editKey===keys[i]);
+  assert.equal(b.alignment,'left');assert(b.runs.every(x=>!x.bold));assert.equal(text(b),text(IB[i]));assert(b.edited);
+  assert.equal(r.log[0].summary,'tür: Düz paragraf');
+  const all=edits.apply(IB,{});assert(all.blocks.filter(x=>x.kind==='paragraph').every(x=>x.editKey),'her paragrafın anahtarı var');
   const item=IB.findIndex(b=>b.role==='result-item');
-  const h=legal.applyOverrides(IB,{[keys[item]]:'heading'}).blocks[item];
+  const h=edits.apply(IB,{[keys[item]]:{role:'heading'}}).blocks.find(x=>x.editKey===keys[item]);
   assert(!/^1\.\t/u.test(text(h)),'liste numarası kaldırılır');assert(h.runs.every(x=>x.bold&&x.underline));
-  assert.equal(legal.applyOverrides(IB,{[keys[i]]:'yok'}).applied,0,'bilinmeyen rol yok sayılır');
+  const f=edits.apply(IB,{[keys[i]]:{align:'center',bold:false,italic:true,underline:true,size:14,line:2,above:12,below:6,right:1}}).blocks.find(x=>x.editKey===keys[i]);
+  assert.equal(f.alignment,'center');assert(f.runs.every(x=>!x.bold&&x.italic&&x.underline&&x.size===14));assert.equal(f.line,2);assert.equal(f.above,12);assert.equal(f.below,6);assert(Math.abs(f.right-28.346)<.01);
+  assert.equal(edits.apply(IB,{[keys[i]]:{role:'yok',size:99,align:'x',evil:1}}).applied,0,'geçersiz alanlar yok sayılır');
+  assert.deepEqual(JSON.parse(JSON.stringify(edits.sanitize({bold:false,remove:false,above:0,first:1.25,text:'a\r\nb'}))),{bold:false,above:0,first:1.25,text:'a\nb'});
+});
+test('v1.5 elle düzenleme: talep maddesi ekle/sil → numaralar yeniden sıralanır',()=>{
+  const r0=runText(ISA,{splitRequests:true,now:new Date('2026-10-14T09:00:00Z')}).blocks;
+  const keys=edits.blockKeys(r0);const items=r0.map((b,i)=>b.role==='result-item'?i:-1).filter(i=>i>=0);
+  // 2. maddeyi sil → 5 madde 4'e iner ve 1..4 sıralı
+  const del=edits.apply(r0,{[keys[items[1]]]:{remove:true}}).blocks.filter(b=>b.role==='result-item');
+  assert.deepEqual(arr(del.map(b=>b.runs[0].text)),['1.\t','2.\t','3.\t','4.\t']);
+  assert(/^2\.\t06\.10\.2026/u.test(text(del[1])));
+  // Bir açıklama paragrafını talep maddesi yap → başa eklenir, numaralar kayar
+  const body=r0.findIndex(b=>b.role==='explanation-body');
+  const add=edits.apply(r0,{[keys[body]]:{role:'result-item'}}).blocks;
+  const nums=add.filter(b=>b.listMarker&&b.listId==='1').map(b=>b.runs[0].text);
+  assert.deepEqual(arr(nums),['1.\t','2.\t','3.\t','4.\t','5.\t','6.\t']);
+  const conv=add.find(b=>b.editKey===keys[body]);assert.equal(conv.left,18);assert.equal(conv.first,-18);assert.equal(conv.tabStops[0].pos,18);
+  // Ek maddesi ayrı liste (2) olarak 1'den başlar
+  const ek=edits.apply(r0,{[keys[body]]:{role:'attachment-item'}}).blocks.find(b=>b.editKey===keys[body]);
+  assert.equal(ek.listId,'2');assert.equal(ek.runs[0].text,'1.\t');
+  // Otomatik liste kipinde UDF listesi olur
+  const auto=edits.apply(r0,{[keys[body]]:{role:'result-item'}},{listMode:'auto'}).blocks.find(b=>b.editKey===keys[body]);
+  assert.equal(auto.list.id,'1');assert(!auto.listMarker);
+});
+test('v1.5 elle düzenleme: metin, birleştirme, boş satır, sayfa sonu; UDF geçerli kalır',()=>{
+  const keys=edits.blockKeys(IB);const body=IB.findIndex(b=>b.role==='explanation-body');
+  const t=edits.apply(IB,{[keys[body]]:{text:'Yeni metin HMK m. 6 uyarınca yazıldı.'}}).blocks.find(b=>b.editKey===keys[body]);
+  assert.equal(text(t),'Yeni metin HMK m. 6 uyarınca yazıldı.');assert(t.runs.some(r=>r.italic&&r.text==='HMK m. 6'),'atıf yeniden italik');
+  const item=IB.findIndex(b=>b.role==='result-item');
+  const ti=edits.apply(IB,{[keys[item]]:{text:'Mazeretimizin kabulüne,'}}).blocks.find(b=>b.editKey===keys[item]);
+  assert.equal(text(ti),'1.\tMazeretimizin kabulüne,','liste numarası korunur');
+  const sig=IB.map((b,i)=>b.role==='signature'?i:-1).filter(i=>i>=0);
+  const m=edits.apply(IB,{[keys[sig[0]]]:{mergeNext:true}});
+  assert.equal(m.blocks.filter(b=>b.role==='signature'||b.role==='edit-signature'||b.editKey===keys[sig[0]]).length,1);
+  assert.equal(text(m.blocks.find(b=>b.editKey===keys[sig[0]])),'Davalı İsa Çiftçi Vekili Av. Fatih NAKIŞLI');
+  const ins=edits.apply(IB,{[keys[sig[0]]]:{blankBefore:true,breakBefore:true,blankAfter:true}}).blocks;
+  const at=ins.findIndex(b=>b.editKey===keys[sig[0]]);
+  assert.equal(ins[at-2].kind,'page-break');assert.equal(ins[at-1].role,'inserted-blank');assert.equal(ins[at+1].role,'inserted-blank');
+  const w=writer.write(ins,{});writer.verify?.length;assert(/<page-break \/>/u.test(w.xml));
+  assert.equal(edits.blockKeys(ins).filter(Boolean).length,edits.blockKeys(IB).filter(Boolean).length,'eklenen boş satırlar anahtar almaz');
+  const st=edits.state(IB[sig[0]]);assert.equal(st.align,'right');assert.equal(st.bold,true);
 });
 test('v1.5 denetim: temiz dilekçede hata yok; hatalı dilekçede somut uyarılar',()=>{
   const now=new Date('2026-10-14T09:00:00Z');
@@ -527,7 +571,8 @@ test('v1.5 şablon: mahkeme başlığı, esas no ve kaynak satırları',()=>{
   assert.equal(tpl.caseNumber('2026 / 1929'),'2026/1929 Esas');assert.equal(tpl.caseNumber('2026/1929 E.'),'2026/1929 E.');
   assert.equal(tpl.trDate('2026-10-14'),'14.10.2026');
   for(const t of tpl.TEMPLATES){
-    const f={hearingDate:'14.10.2026',serviceDate:'01.10.2026',orderDate:'25.09.2026',learnDate:'01.10.2026',reason:'durusma',otherCourt:'X Mahkemesi 2026/1 E.',grounds:'Tedbir şartları oluşmamıştır.',security:true,subject:'Beyan.'};
+    const f={hearingDate:'14.10.2026',serviceDate:'01.10.2026',orderDate:'25.09.2026',learnDate:'01.10.2026',reason:'durusma',otherCourt:'X Mahkemesi 2026/1 E.',grounds:'Tedbir şartları oluşmamıştır.',security:true,subject:'Beyan.',
+      reportDate:'01.10.2026',objections:'Hesaplama hatalıdır.',supplement:true,newExpert:true,method:'segbis',place:'Gaziantep Adliyesi',witnesses:'Ali VELİ – Gaziantep – ödeme hususu',advancePaid:true,access:true,client:'İsa ÇİFTÇİ'};
     const lines=tpl.sourceLines({court:'Şanlıurfa 8. Asliye Hukuk Mahkemesi',caseNo:'2026/1929',role:'DAVALI',client:'İsa ÇİFTÇİ',other:'Yapı ve Kredi Bankası Anonim Şirketi'},
       {topic:t.topic(f),body:t.body(f),requests:t.requests(f),closing:t.closing,attachments:t.attachments(f)},{attorneyName:'Av. Fatih NAKIŞLI'});
     const n=normal.apply(tpl.toBlocks(lines));const r=legal.apply(n.blocks,{selection:n.selection,now:NOW});
@@ -542,6 +587,12 @@ test('v1.5 şablon: mahkeme başlığı, esas no ve kaynak satırları',()=>{
     assert(!checks.run(B2,r.statistics,{now:NOW}).some(c=>c.level==='error'),t.id);
     assert(!lines.some(l=>l.includes('…')),t.id+' boş alan kalmadı');
   }
+  assert.equal(tpl.TEMPLATES.length,8);
+  const ids=new Set(tpl.TEMPLATES.map(t=>t.id));assert.equal(ids.size,8,'şablon kimlikleri tekil');
+  const bk=tpl.byId('bilirkisi');assert.deepEqual(arr(bk.requests({supplement:false,newExpert:true})),['Bilirkişi raporuna yönelik itirazlarımızın kabulüne,','Yeni bir bilirkişi (heyeti) atanarak yeniden inceleme yapılmasına,']);
+  assert(/e-Duruşma/u.test(tpl.byId('segbis').body({method:'edurusma',hearingDate:'20.10.2026'})[0]));
+  assert.deepEqual(arr(tpl.byId('tanik').body({witnesses:'A – B – C\nD – E – F'}).slice(1)),['Tanık 1: A – B – C','Tanık 2: D – E – F']);
+  assert(/İsa ÇİFTÇİ/u.test(tpl.byId('vekalet').body({client:'İsa ÇİFTÇİ',access:true})[0]));
   const empty=tpl.sourceLines({role:'DAVALI'},{body:[],requests:[]},{});
   assert(empty.some(l=>l.includes('…')),'boş alan … ile gösterilir, uydurulmaz');
 });

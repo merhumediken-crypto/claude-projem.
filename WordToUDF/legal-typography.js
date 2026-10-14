@@ -326,7 +326,7 @@
       if(sub) counters[1]++; else { counters[0]++; counters[1] = 0; }
       const marker = sub ? `${alphaMarker(counters[1])}${spec.suffix}` : `${counters[0]}${spec.suffix}`;
       delete b.list;
-      b.listMarker = marker;
+      b.listMarker = marker; b.listId = list.id; b.listLevel = sub ? 1 : 0;
       b.tabStops = [{pos: b.left, align: 'left', leader: 'none'}];
       b.runs = [plainRun(`${marker}\t`, {...originRun(b), bold: false, italic: false, underline: false}), ...b.runs];
     } else b.list = {kind: 'number', id: list.id, level: sub ? 1 : 0, raw: spec.type, format: spec.format, suffix: spec.suffix};
@@ -741,48 +741,11 @@
     return b;
   }
 
-  /* ------------------------------ manual overrides ------------------------------ */
-  // The user can correct a detection mistake in the preview ("this is not a
-  // signature", "this is a body paragraph"). Overrides only change layout and
-  // emphasis of that paragraph, never its text. Keys are text-based so they
-  // survive re-rendering when an unrelated setting changes.
-  const OVERRIDES = Object.freeze({
-    'signature': 'İmza (sağa, kalın)',
-    'body': 'Gövde (iki yana, 1,25 cm girinti)',
-    'plain': 'Düz paragraf (sola, girintisiz)',
-    'heading': 'Ara başlık (kalın, altı çizili)',
-    'center': 'Ortalı başlık (kalın)'
-  });
-  function blockKeys(blocks){
-    const seen = new Map();
-    return blocks.map(b => {
-      if(b.kind !== 'paragraph') return null;
-      const t = clean(flatten(b)).slice(0, 80);
-      const n = (seen.get(t) || 0) + 1; seen.set(t, n);
-      return `${n}|${t}`;
-    });
-  }
-  function applyOverride(block, kind, ctx = {opts: {lineSpacing: SCHEMA.bodyLine}}){
-    const b = cloneBlock(block);
-    delete b.list; b.tabStops = [];
-    const line = ctx.opts?.lineSpacing ?? SCHEMA.bodyLine;
-    const strip = () => { if(b.listMarker){ b.runs = trimRuns(sliceRuns(b.runs, b.listMarker.length + 1)); delete b.listMarker; } };
-    if(kind === 'signature'){ strip(); Object.assign(b, {alignment: 'right', left: 0, first: 0, right: 0, above: 0, below: 0, line: 1}); setAllRuns(b, {bold: true, underline: false}); }
-    else if(kind === 'body'){ strip(); const R = NORMAL_RULES(); Object.assign(b, {alignment: 'justify', left: 0, right: 0, first: (R.explanationFirstCm ?? 1.25) * PT_PER_CM, above: (R.explanationParagraphCm ?? .15) * PT_PER_CM, below: (R.explanationParagraphCm ?? .15) * PT_PER_CM, line}); setAllRuns(b, {bold: false, underline: false}); }
-    else if(kind === 'plain'){ strip(); Object.assign(b, {alignment: 'left', left: 0, first: 0, right: 0, above: 0, below: 0, line}); setAllRuns(b, {bold: false, underline: false}); }
-    else if(kind === 'heading'){ strip(); Object.assign(b, {alignment: 'left', left: 0, first: 0, right: 0, above: .15 * PT_PER_CM, below: .15 * PT_PER_CM, line}); setAllRuns(b, {bold: true, underline: true}); }
-    else if(kind === 'center'){ strip(); Object.assign(b, {alignment: 'center', left: 0, first: 0, right: 0, above: 0, below: 0, line: 1}); setAllRuns(b, {bold: true, underline: false}); }
-    else return block;
-    b.role = `override-${kind}`;
-    return b;
-  }
-  function applyOverrides(blocks, overrides, opts = {}){
-    const map = typeof overrides?.get === 'function' && typeof overrides.size === 'number' ? overrides : new Map(Object.entries(overrides || {}));
-    if(!map.size) return {blocks, applied: 0};
-    const keys = blockKeys(blocks); let applied = 0;
-    const out = blocks.map((b, i) => { const k = keys[i] && map.get(keys[i]); if(!k || !OVERRIDES[k]) return b; applied++; return applyOverride(b, k, {opts}); });
-    return {blocks: out, applied};
-  }
+  /* ------------------------------ manual edits ------------------------------ */
+  // Paragraph editing lives in edits.js; it reuses these building blocks so a
+  // manually chosen "talep maddesi" is formatted exactly like a detected one.
+  const internals = Object.freeze({cloneBlock, setAllRuns, plainRun, originRun, sliceRuns, trimRuns, styleRegex, stripListPrefix,
+    makeListItem, alphaMarker, NORMAL_RULES, PT_PER_CM, LAW_RE, CASE_RE});
 
   /* ------------------------------ integrity report ------------------------------ */
   function tokens(blocks){
@@ -875,5 +838,5 @@
   }
 
   globalThis.WordToUDFLegalTypography = {apply, flatten, clean, upper, isCourtHeading, isPetitionTitle, isInternalHeading,
-    parseField: lineField, nameCase, todayTR, parseUetsRegistry, personKey, requestCuts, OVERRIDES, blockKeys, applyOverride, applyOverrides, labelWidthPt, integrity, SCHEMA};
+    parseField: lineField, nameCase, todayTR, parseUetsRegistry, personKey, requestCuts, internals, labelWidthPt, integrity, SCHEMA};
 })();

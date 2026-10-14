@@ -78,7 +78,7 @@
     }
 
     // 4. Signature ↔ künye consistency.
-    const sigs = byRole('signature').concat(paras.filter(b => b.role === 'override-signature'));
+    const sigs = byRole('signature').concat(paras.filter(b => b.role === 'edit-signature'));
     const sigText = sigs.map(b => clean(flatten(b)));
     const attorneyNames = attorneys.map(a => fieldValue(a).split(/\s*,\s*(?=Av\.|Avukat)/u)).flat().map(s => s.replace(/\(.*$/u, '').trim()).filter(Boolean);
     const sigAttorney = sigText.filter(t => /^(?:Av\.|Avukat)\s/u.test(t));

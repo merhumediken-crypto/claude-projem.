@@ -54,7 +54,7 @@ Her metin değişikliği `statistics.changes` içine `{type, before, after}` ola
 ```
 zip.js ─ docx.js ─┐
                   ▼
-settings.js ─► pipeline.js: normalize.js → legal-typography.js (+ legal-rules.js) → elle düzeltmeler → checks.js → udf.js → zip.js
+settings.js ─► pipeline.js: normalize.js → legal-typography.js (+ legal-rules.js) → edits.js → checks.js → udf.js → zip.js
                   ▲                                     │
 templates.js ─────┘                                     └► docx-writer.js (düzenlenmiş Word)
 preview.js: ortak A4 önizleme (workspace.html, templates.html)
@@ -63,6 +63,8 @@ preview.js: ortak A4 önizleme (workspace.html, templates.html)
 - **settings.js** — vekil profili, başka vekiller, liste/satır/tarih/talep-ayırma seçenekleri. Varsayılan vekil yalnız burada yazılıdır. `sanitize()` her girdiyi (eski kayıt, içe aktarılan JSON) bilinen alanlara indirger.
 - **legal-rules.js** — yalnız veri: `FIELD_RULES`, `SECTION_RULES`, algılama düzenli ifadeleri, `REQUEST_END_RE`, ad listesi, kalın harf genişlikleri. Yeni etiket veya eş anlamlı bölüm adı tek satırla buraya eklenir.
 - **legal-typography.js** — kural motoru. 1.5.0'da eklenenler: `requestCuts()` / talep ayırma (yalnız `splitRequests` açıkken uygular, kapalıyken `statistics.splittableRequests` ile önerir), `blockKeys()` / `applyOverrides()` (metne bağlı anahtarla elle düzen düzeltmesi; metin değişmez).
+- **edits.js** — elle paragraf düzenlemeleri: tür (talep/ek maddesi dahil), hizalama, yazı, girinti/aralık, metin, sil/birleştir/boş satır/sayfa sonu. Anahtar = `<sıra>|<ilk 80 karakter>` (otomatik kurallardan sonraki metin), böylece ayar değişince düzenleme kaybolmaz. Metin kipindeki listeler her uygulamada yeniden numaralanır; girdi blokları asla yerinde değiştirilmez.
+- **editor-ui.js** — düzenleme paneli, çoklu seçim, geri al; dönüştürme ve şablon sayfası ortak kullanır. Kullanıcı metni yalnız `textContent`/`value` ile yazılır.
 - **checks.js** — son blok modelini okur, hiçbir şeyi değiştirmez; `{level, code, message}` listesi döndürür.
 - **pipeline.js** — `typeset()`, `toUdf()` (yaz → doğrula → zip → aç → yeniden doğrula), `batch()` (hatalı dosya diğerlerini durdurmaz).
 - **templates.js** — form alanlarından *kaynak paragraflar* üretir; bunlar Word'den gelen paragraflarla aynı hattan geçer. Boş alan `…` olarak kalır.

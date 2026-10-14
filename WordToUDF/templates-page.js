@@ -64,7 +64,8 @@
   let edited = false;
   function regenerate(force){
     if(edited && !force){ schedule(); return; }
-    const t = T.byId($('tpl').value), f = extraValues();
+    // Template text may use the common fields too (e.g. the client's name).
+    const t = T.byId($('tpl').value), f = {client: $('client').value.trim(), caseNo: $('caseNo').value.trim(), ...extraValues()};
     $('topic').value = t.topic(f); $('body').value = t.body(f).join('\n'); $('requests').value = t.requests(f).join('\n');
     $('closing').value = t.closing; $('attachments').value = t.attachments(f).join('\n');
     edited = false; schedule();
@@ -83,7 +84,7 @@
     const own = settings.ownAttorney.name;
     const sig = S.signatureLines(settings, {sifat: T.roleWord(role), muvekkil: common.client.trim(), avukat: own});
     const src = T.sourceLines(common, {topic: $('topic').value, body: $('body').value.split(/\r?\n/u), requests: lines('requests'), closing: $('closing').value, attachments: lines('attachments')}, {attorneyName: own, signatureLines: sig});
-    return P.typeset(T.toBlocks(src), {profile: 'legal', settings, now: new Date()});
+    return P.typeset(T.toBlocks(src), {profile: 'legal', settings, now: new Date(), edits: editor.edits});
   }
   function fitPaper(){
     const scale = WordToUDFPreview.fit($('previewViewport'), $('paperScale'), $('paper'), state.fit);
@@ -96,6 +97,7 @@
       const t = build(); state.result = t;
       WordToUDFPreview.render($('paper'), t.blocks, {margins: t.norm.margins, font: P.LEGAL_FONT, size: P.LEGAL_SIZE});
       fitPaper();
+      editor.decorate();
       const list = $('checkList'); list.replaceChildren(); $('checksPanel').hidden = false;
       const counts = {error: 0, warn: 0, info: 0};
       for(const c of t.checks){ counts[c.level]++; const li = document.createElement('li'); li.className = `check-${c.level}`; li.dataset.code = c.code; li.append(Object.assign(document.createElement('strong'), {textContent: `${LEVEL_TEXT[c.level]}: `}), c.message); list.append(li); }
@@ -105,6 +107,11 @@
     }catch(err){ message(`Önizleme oluşturulamadı: ${err.message}`, 'error'); }
   }
   let timer = 0; function schedule(){ clearTimeout(timer); timer = setTimeout(render, 150); }
+  // Paragraph editor on the preview (same as the converter page). Edits are
+  // keyed by paragraph text, so changing a template field that alters a
+  // paragraph simply leaves that paragraph's old edit unused.
+  const editor = WordToUDFEditorUI.attach({paper: $('paper'), toolbar: $('previewTools'), getBlocks: () => state.result?.blocks,
+    onChange: render, onMessage: m => message(m, 'success'), enabled: () => !!state.result});
 
   // Restore draft or start from the first template.
   if(draft.tpl) $('tpl').value = draft.tpl;
@@ -115,9 +122,9 @@
   if(draft.topic !== undefined && draft.tpl === $('tpl').value){ for(const k of TEXT) $(k).value = draft[k] ?? ''; edited = !!draft.edited; schedule(); }
   else regenerate(true);
 
-  $('tpl').addEventListener('change', () => { buildFields(); edited = false; regenerate(true); });
+  $('tpl').addEventListener('change', () => { editor.reset(); buildFields(); edited = false; regenerate(true); });
   $('role').addEventListener('change', () => { $('otherRole').value = T.OPPOSITE[$('role').value] || $('otherRole').value; schedule(); });
-  for(const k of COMMON) $(k).addEventListener('input', schedule);
+  for(const k of COMMON) $(k).addEventListener('input', () => regenerate(false));
   for(const k of TEXT) $(k).addEventListener('input', () => { edited = true; schedule(); });
   $('regen').addEventListener('click', () => regenerate(true));
   $('zoomToggle').addEventListener('click', () => { state.fit = !state.fit; fitPaper(); });

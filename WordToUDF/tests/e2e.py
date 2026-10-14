@@ -321,14 +321,54 @@ def v15_checks(browser,tmp,petition,sample):
     assert 'hata' in page.locator('#checkStats').text_content()
     # --- Elle düzeltme: imzaya dokun → düz paragraf → UDF'de sola yaslı.
     page.locator('#paper .paragraph[data-role="signature"]').last.click()
-    page.locator('.override-menu button',has_text='Düz paragraf').click()
-    assert page.locator('#paper [data-role="override-plain"]').count()==1
+    sheet=page.locator('.edit-sheet')
+    assert sheet.is_visible()
+    box=sheet.bounding_box();assert box['y']+box['height']<=844+1 and box['width']>=380,box  # telefonda alttan açılan panel
+    sheet.locator('.chip',has_text='Düz paragraf').click()
+    assert page.locator('#paper .paragraph.edited').count()==1
+    assert page.locator('#paper .paragraph.edited[data-role="edit-plain"]').count()==1
+    page.locator('.edit-sheet .primary-btn',has_text='Tamam').click()
+    assert page.locator('.edit-sheet').count()==0
+    # Talep maddesi sil → numaralar kayar; geri al → geri gelir.
+    items=page.locator('#paper .paragraph[data-role="result-item"]')
+    assert items.count()==3
+    items.nth(0).click();page.locator('.edit-sheet .chip',has_text='Paragrafı sil').click()
+    nums=[re.match(r'^(\d+\.)',t).group(1) for t in page.locator('#paper .paragraph[data-role="result-item"]').all_inner_texts()]
+    assert nums==['1.','2.'],nums
+    assert page.locator('.edit-sheet').count()==0
+    page.locator('#previewTools button',has_text='Geri al').click()
+    assert page.locator('#paper .paragraph[data-role="result-item"]').count()==3
+    # Çoklu seçim: iki gövde paragrafı ortala + kalın.
+    page.locator('#previewTools button',has_text='Çoklu seçim').click()
+    bodies=page.locator('#paper .paragraph[data-role="explanation-body"]')
+    bodies.nth(0).click();bodies.nth(1).click()
+    assert 'Seçilenleri düzenle' in page.locator('.select-bar').inner_text() and '2 paragraf' in page.locator('.select-bar').inner_text()
+    page.locator('.select-bar button',has_text='Seçilenleri düzenle').click()
+    page.locator('.edit-sheet .segmented .chip',has_text='Ortala').click()
+    page.locator('.edit-sheet .chip',has_text='Kalın').click()
+    al=page.evaluate("()=>[...document.querySelectorAll('#paper .paragraph.edited')].map(p=>p.style.textAlign)")
+    assert al.count('center')==2,al
+    page.locator('.edit-sheet .primary-btn',has_text='Tamam').click()
+    page.locator('#previewTools button',has_text='Çoklu seçim').click()
+    # Metin düzenleme (tek paragraf).
+    page.locator('#paper .paragraph[data-role="topic"]').click()
+    page.locator('.edit-sheet textarea').fill('KONU\t: İhtiyati haciz kararına itiraz ve ivedi inceleme istemidir.')
+    page.locator('.edit-sheet button',has_text='Metni uygula').click()
+    assert 'ivedi inceleme istemidir' in page.locator('#paper .paragraph.edited',has_text='KONU').inner_text()
+    page.locator('.edit-sheet .primary-btn',has_text='Tamam').click()
+    assert any('Elle düzenleme' in t for t in page.locator('#changeList li').all_text_contents())
     out=tmp/'override.udf';save_download(page,'#download',out)
     root,lines=udf_lines(out)
     paras=root.xpath('./elements/paragraph')
     sig=[p for p,l in zip(paras,lines) if l=='Av. Ayşe Nur GEYİK ÖZTÜRKMEN']
     assert len(sig)==1 and sig[0].get('Alignment')=='0',[(p.attrib,l) for p,l in zip(paras,lines)][-6:]
-    print('PASS elle düzeltme: menüden seçilen düzen UDF\'ye yazıldı, metin aynı')
+    assert [l for l in lines if re.match(r'^\d\.\t',l)][:3]==['1.\tYetki itirazının kabulüne,','2.\tİhtiyati haciz kararının kaldırılmasına,','3.\tYargılama giderlerinin karşı tarafa yükletilmesine,']
+    centered=[p for p,l in zip(paras,lines) if p.get('Alignment')=='1' and l.startswith(('Mahkemenizce','Müvekkil'))]
+    assert len(centered)==2 and all(c.get('bold')=='true' for p in centered for c in p if c.tag=='content'),[p.attrib for p in centered]
+    assert 'KONU\t: İhtiyati haciz kararına itiraz ve ivedi inceleme istemidir.' in lines
+    rp=tmp/'rapor.txt';save_download(page,'#reportDownload',rp);rt=rp.read_text(encoding='utf-8')
+    assert 'Elle yapılan paragraf düzenlemeleri:' in rt and 'tür: Düz paragraf' in rt and 'metin değiştirildi' in rt,rt[-800:]
+    print('PASS paragraf düzenleyici: tür, sil + numara kayması, geri al, çoklu seçim (ortala+kalın), metin; UDF ve raporda')
     # --- Düzenlenmiş DOCX indir.
     dx=tmp/'duzenlenmis.docx';save_download(page,'#downloadDocx',dx)
     d=Document(str(dx));texts=[p.text for p in d.paragraphs]
@@ -380,8 +420,20 @@ def v15_checks(browser,tmp,petition,sample):
     assert 'HMK m. 394' in page.locator('#body').input_value()
     td=tmp/'sablon.docx';save_download(page,'#downloadDocx',td)
     assert any('ihtiyati tedbir kararının kaldırılmasına' in p.text for p in Document(str(td)).paragraphs)
+    # Bütün şablonlar önizleme üretir; şablon önizlemesinde de paragraf düzenleyici çalışır.
+    ids=page.evaluate("()=>[...document.getElementById('tpl').options].map(o=>o.value)")
+    assert len(ids)==8,ids
+    for tid in ids:
+        page.locator('#tpl').select_option(tid);page.wait_for_timeout(250)
+        assert page.locator('#paper [data-role="court-heading"]').count()==1,tid
+        assert page.locator('#paper [data-role="result-item"]').count()>=1,tid
+        assert page.locator('#paper [data-role="result-closing"]').count()==1,tid
+    page.locator('#paper .paragraph[data-role="result-closing"]').click()
+    page.locator('.edit-sheet .segmented .chip',has_text='Sağa').click()
+    assert page.locator('#paper .paragraph.edited').evaluate("p=>p.style.textAlign")=='right'
+    page.keyboard.press('Escape')
     assert not errors,errors
-    print('PASS şablon sayfası: mazeret ve tedbir itirazı → UDF/DOCX, boş alan kalmadı, düzenleme korunuyor')
+    print('PASS şablon sayfası: 8 şablon, mazeret ve tedbir itirazı → UDF/DOCX, boş alan kalmadı, düzenleme korunuyor, paragraf düzenleyici çalışıyor')
     ctx.close()
     # --- Başlangıç sayfası ve PWA dosyaları.
     import json as _j
