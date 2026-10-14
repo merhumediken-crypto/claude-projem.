@@ -13,8 +13,8 @@ const vm=require('node:vm');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const ctx=vm.createContext({Intl,Date});
-for(const name of ['normalize.js','settings.js','legal-rules.js','legal-typography.js','edits.js','checks.js','udf.js','templates.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
-const normal=ctx.WordToUDFNormalize, legal=ctx.WordToUDFLegalTypography, writer=ctx.WordToUDFWriter, checks=ctx.WordToUDFChecks, settingsApi=ctx.WordToUDFSettings, tpl=ctx.WordToUDFTemplates, edits=ctx.WordToUDFEdits;
+for(const name of ['normalize.js','settings.js','legal-rules.js','legal-typography.js','edits.js','checks.js','udf.js','templates.js','paste.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
+const normal=ctx.WordToUDFNormalize, legal=ctx.WordToUDFLegalTypography, writer=ctx.WordToUDFWriter, checks=ctx.WordToUDFChecks, settingsApi=ctx.WordToUDFSettings, tpl=ctx.WordToUDFTemplates, edits=ctx.WordToUDFEdits, paste=ctx.WordToUDFPaste;
 const para=(text,attributes={})=>({kind:'paragraph',runs:[{text}],...attributes});
 const text=b=>b.runs.map(r=>r.text).join('');
 const arr=x=>[...x];
@@ -398,7 +398,7 @@ test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
 test('WTU-072 manifest izinleri, CSP ve sürüm',()=>{
   const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
   assert.equal(m.manifest_version,3);assert.deepEqual(m.permissions,[]);assert.deepEqual(m.host_permissions,[]);
-  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.5.0');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
+  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.6.0');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
   // sw.js (PWA offline cache) may fetch, but only its own origin.
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(/url\.origin !== location\.origin\) return/u.test(sw));
   for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')&&f!=='sw.js'))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);
@@ -595,6 +595,64 @@ test('v1.5 şablon: mahkeme başlığı, esas no ve kaynak satırları',()=>{
   assert(/İsa ÇİFTÇİ/u.test(tpl.byId('vekalet').body({client:'İsa ÇİFTÇİ',access:true})[0]));
   const empty=tpl.sourceLines({role:'DAVALI'},{body:[],requests:[]},{});
   assert(empty.some(l=>l.includes('…')),'boş alan … ile gösterilir, uydurulmaz');
+});
+
+/* ----------------------------- v1.6.0 yapıştırma ----------------------------- */
+const PDF_TEXT=['ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ\'NE','DOSYA NO : 2026/1929 Esas','DAVALI : İsa ÇİFTÇİ','AÇIKLAMALAR :',
+  'Mahkemenizin yukarıda esas numarası belirtilen dosyasının 14.10.2026 tarihli','duruşmasına, şehir dışında bulunmamız ve önceden planlanmış diğer mesleki iş ve','işlemlerimiz nedeniyle katılım sağlayamayacağımızdan mesleki mazeretimizin','kabulünü talep etmekteyiz.',
+  '1','Mahkemenizin 08.10.2026 tarihli ara kararıyla müvekkil yönünden ek cevap süresi verilmiş olup cevap sürem-','iz henüz sona ermemiştir.','Sayfa 2 / 2','SONUÇ VE İSTEM : Yukarıda arz edilen sebeplerle;'].join('\n');
+test('v1.6 kaynak tanıma: Word, Google, LibreOffice, UYAP, yapay zekâ, web, PDF, WhatsApp, e-posta, düz metin',()=>{
+  assert.equal(paste.detect({html:'<html xmlns:w="urn:schemas-microsoft-com:office:word"><p class=MsoNormal>a</p>'}),'word');
+  assert.equal(paste.detect({html:'<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-1a2b"><p>a</p></b>'}),'gdocs');
+  assert.equal(paste.detect({html:'<meta name="generator" content="LibreOffice 7.6"><p>a</p>'}),'libre');
+  assert.equal(paste.detect({html:'<html>\n  <head>\n\n  </head>\n  <body>\n    <p style="margin-top: 0">\n      a\n    </p>'}),'uyap');
+  assert.equal(paste.detect({html:'<div class="markdown prose"><p><strong>a</strong></p></div>'}),'ai');
+  assert.equal(paste.detect({html:'<p>a</p>'}),'web');
+  assert.equal(paste.detect({text:PDF_TEXT}),'pdf');
+  assert.equal(paste.detect({text:'[14.10.2026 09:12] Ali: Dilekçe şöyle\n[14.10.2026 09:13] Ali: KONU: mazeret'}),'whatsapp');
+  assert.equal(paste.detect({text:'Kimden: Ali\nKime: Fatih\nKonu: Dilekçe\n\nMetin'}),'mail');
+  assert.equal(paste.detect({text:'## Dilekçe\n**DAVALI:** Ali\n- madde'}),'ai');
+  assert.equal(paste.detect({text:'DAVALI: Ali\nMetin.'}),'plain');
+});
+test('v1.6 PDF: cümle ortası satırlar birleşir, heceleme tiresi ve sayfa numaraları kalkar, etiket satırları korunur',()=>{
+  const r=paste.textToBlocks(PDF_TEXT,'pdf');const t=r.blocks.map(text);
+  assert(t.includes('Mahkemenizin yukarıda esas numarası belirtilen dosyasının 14.10.2026 tarihli duruşmasına, şehir dışında bulunmamız ve önceden planlanmış diğer mesleki iş ve işlemlerimiz nedeniyle katılım sağlayamayacağımızdan mesleki mazeretimizin kabulünü talep etmekteyiz.'),JSON.stringify(t));
+  assert(t.includes('Mahkemenizin 08.10.2026 tarihli ara kararıyla müvekkil yönünden ek cevap süresi verilmiş olup cevap süremiz henüz sona ermemiştir.'),JSON.stringify(t));
+  assert(!t.includes('1')&&!t.some(x=>/Sayfa 2/u.test(x)));
+  assert(t.includes('DOSYA NO : 2026/1929 Esas')&&t.includes('DAVALI : İsa ÇİFTÇİ'));
+  assert(r.notes.some(n=>/sayfa numarası/u.test(n))&&r.notes.some(n=>/heceleme/u.test(n)));
+});
+test('v1.6 yapay zekâ/Markdown, WhatsApp ve e-posta temizliği',()=>{
+  const md=paste.textToBlocks('## MAZERET DİLEKÇESİ\n**DAVALI:** İsa ÇİFTÇİ\n* Duruşmanın ertelenmesine,\n| A | B |\n|---|---|\n| 1 | 2 |\n```\nkod\n```','ai').blocks;
+  assert.equal(text(md[0]),'MAZERET DİLEKÇESİ');assert(md[0].runs[0].bold);
+  assert.equal(text(md[1]),'DAVALI: İsa ÇİFTÇİ');assert(md[1].runs[0].bold&&!md[1].runs[1].bold);
+  assert.equal(text(md[2]),'- Duruşmanın ertelenmesine,');assert.equal(text(md[3]),'A\tB');assert.equal(text(md[4]),'1\t2');assert.equal(text(md[5]),'kod');
+  const wa=paste.textToBlocks('[14.10.2026 09:12] Ali Veli: DAVALI: İsa\n14.10.2026 09:13 - Ali Veli: KONU: Mazeret','whatsapp');
+  assert.deepEqual(arr(wa.blocks.map(text)),['DAVALI: İsa','KONU: Mazeret']);
+  const mail=paste.textToBlocks('Kimden: a@b\nKime: c@d\nKonu: Dilekçe taslağı\n\n> DAVALI: İsa\n> KONU: Mazeret','mail');
+  assert.deepEqual(arr(mail.blocks.map(text)),['DAVALI: İsa','KONU: Mazeret'],'e-posta Konu başlığı dilekçe KONU sanılmaz');
+  const sp=paste.textToBlocks('DOSYA NO            : 2026/1\n        Girintili gövde.','plain').blocks.map(text);
+  assert.deepEqual(arr(sp),['DOSYA NO\t: 2026/1','Girintili gövde.']);
+});
+test('v1.6 dağınık metinden dilekçe kurulur: eksik parçalar formdan, olanlar korunur, hiçbir şey uydurulmaz',()=>{
+  const raw='Şanlıurfa 8. Asliye Hukuk Mahkemesine\n\nMahkemenizin dosyasının 20.10.2026 tarihli duruşmasına şehir dışında olmamız nedeniyle katılamayacağız.\nYukarıda açıklanan nedenlerle mazeretimizin kabulüne karar verilmesini saygıyla talep ederiz.';
+  const parsed=paste.parse({text:raw});assert.equal(parsed.source,'plain');
+  const a0=paste.analyze(parsed.blocks);assert.equal(a0.has.court,false);assert.equal(a0.courtCandidate,0);assert.equal(a0.has.explanations,false);
+  const asm=paste.assemble(parsed.blocks,{caseNo:'2026/1929',role:'DAVALI',client:'İsa ÇİFTÇİ',other:'Yapı ve Kredi Bankası Anonim Şirketi',topic:'20.10.2026 tarihli duruşmaya ilişkin mazeretimizin sunulmasıdır.'},{});
+  assert.deepEqual(arr(asm.addedKeys).sort(),['attorney','caseNo','client','court','explanations','other','result','signature','topic'].sort());
+  const n=normal.apply(asm.blocks);const r=legal.apply(n.blocks,{selection:n.selection,now:new Date('2026-10-14T09:00:00Z'),listMode:'text'});
+  const lines=r.blocks.map(text);
+  for(const e of ["ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİNE",'DOSYA NO\t: 2026/1929 Esas','DAVALI\t: İsa ÇİFTÇİ','VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)','DAVACI\t: Yapı ve Kredi Bankası Anonim Şirketi',
+    'KONU\t: 20.10.2026 tarihli duruşmaya ilişkin mazeretimizin sunulmasıdır.','AÇIKLAMALAR\t:','SONUÇ VE İSTEM\t: Yukarıda arz edilen sebeplerle;','1.\tMazeretimizin kabulüne,','Karar verilmesini saygıyla talep ederiz. 14.10.2026','Davalı İsa ÇİFTÇİ Vekili','Av. Fatih NAKIŞLI'])
+    assert(lines.includes(e),e+'\n'+JSON.stringify(lines));
+  assert.equal(r.blocks[0].role,'court-heading');
+  assert(!checks.run(r.blocks,r.statistics,{now:new Date('2026-10-14T09:00:00Z')}).some(c=>c.level==='error'));
+  // Formda boş bırakılan bilgi eklenmez.
+  const bare=paste.assemble(parsed.blocks,{addSignature:false},{});
+  assert(!bare.blocks.some(b=>/DOSYA NO|DAVACI|KONU|Vekili/u.test(text(b))));
+  // Zaten tam olan dilekçeye hiçbir şey eklenmez.
+  const full=paste.assemble(paste.parse({text:ISA.join('\n')}).blocks,{caseNo:'9999/1',client:'X',other:'Y',topic:'Z'},{});
+  assert.deepEqual(arr(full.added),[]);
 });
 console.log(failed?`SONUÇ ${count} başarılı, ${failed} BAŞARISIZ`:`SONUÇ ${count} mantık testi başarılı`);
 if(failed)process.exitCode=1;

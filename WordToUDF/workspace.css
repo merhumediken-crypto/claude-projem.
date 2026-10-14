@@ -54,3 +54,10 @@
 @media(min-width:1101px){.edit-sheet{right:auto;left:max(20px,calc((100vw - 1500px)/2 + 28px));width:400px}}
 @media(max-width:700px){.edit-sheet{max-height:56vh}}
 @media(max-width:700px){body.sheet-open{padding-bottom:58vh}}
+.paste-panel textarea{width:100%;border:1px solid #cad4e4;border-radius:8px;padding:10px;font:13px/1.45 'Times New Roman',serif;color:var(--ink);background:#fff;resize:vertical;min-height:110px}
+.paste-notes{margin:8px 0 0;padding-left:18px;font-size:12px;color:#335c9d}.paste-notes li{padding:2px 0}
+#pasteBuild.pending{border-color:var(--accent);background:#eef4ff}
+.part-list{list-style:none;margin:4px 0 8px;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:12px}.part-list li{padding:4px 0}
+.part-list .ok{color:#1e6e52}.part-list .added{color:#264783;font-weight:700}.part-list .missing{color:#a3271a}
+.complete-panel input[type=text]{width:100%;border:1px solid #cad4e4;border-radius:7px;padding:9px;font:13px system-ui,sans-serif;color:var(--ink);background:#fff}
+@media(max-width:650px){.part-list{grid-template-columns:1fr}}

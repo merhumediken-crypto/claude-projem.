@@ -33,7 +33,8 @@
     $('listMode').value=s.listMode;$('lineSpacing').value=String(s.lineSpacing);$('dateToday').checked=s.dateToday;$('markUets').checked=s.markUets;$('splitRequests').checked=s.splitRequests;
     syncSpec();
   }
-  function settingsChanged(){state.settings=readForm();S.save(state.settings);syncSpec();render();}
+  // Vekil/imza settings feed the pasted-petition skeleton too.
+  function settingsChanged(){state.settings=readForm();S.save(state.settings);syncSpec();if(state.paste)buildFromPaste(false);else render();}
   function addOtherRow(data={}){
     const row=document.createElement('div');row.className='other-row';
     const name=document.createElement('input');name.type='text';name.className='o-name';name.placeholder='Av. Ad SOYAD';name.value=data.name||'';name.spellcheck=false;name.setAttribute('aria-label','Başka vekil adı');
@@ -141,6 +142,7 @@
     if(file.size<100||file.size>24*1024*1024){message('Dosya boş, hasarlı veya 24 MB sınırını aşıyor.','error');return;}
     const serial=++state.loadSerial;
     state.file=null;state.source=null;state.result=null;state.selection={start:'auto',end:'auto'};editor.reset();
+    state.paste=null;state.pasteInfo=null;$('completePanel').hidden=true;
     $('sectionPanel').hidden=true;$('reportPanel').hidden=true;$('checksPanel').hidden=true;$('paper').replaceChildren();
     review.checked=false;setReady();message('Belge yerel olarak okunuyor…');
     try{
@@ -159,6 +161,77 @@
     }
   }
   fileInput.addEventListener('change',e=>handleFile(e.target.files?.[0]));
+
+  /* ------------------------------ paste (no Word file needed) ------------------------------ */
+  // The clipboard's formatted (text/html) and plain versions are both read;
+  // paste.js recognises the source and rebuilds the petition skeleton.
+  const PASTE_PARTS=[['court','Mahkeme başlığı'],['caseNo','Dosya no'],['client','Müvekkil (taraf) satırı'],['attorney','Vekil satırı'],['other','Karşı taraf satırı'],['topic','KONU'],['explanations','AÇIKLAMALAR'],['result','SONUÇ VE İSTEM'],['signature','İmza bloğu']];
+  const pasteFill=()=>({court:$('pc_court').value,caseNo:$('pc_caseNo').value,role:$('pc_role').value,client:$('pc_client').value,otherRole:$('pc_otherRole').value,
+    other:$('pc_other').value,topic:$('pc_topic').value,addHeadings:$('pc_headings').checked,addSignature:$('pc_signature').checked});
+  function pasteName(){
+    const who=$('pc_client').value.trim()||state.pasteInfo?.court||'';
+    return `${who?`${who} `:''}Dilekce ${L.todayTR()}.docx`;
+  }
+  function buildFromPaste(fresh){
+    if(!state.paste)return;
+    let parsed;
+    try{parsed=state.paste.parsed||(state.paste.parsed=WordToUDFPaste.parse(state.paste));}
+    catch(err){message(`Yapıştırılan metin okunamadı: ${err.message}`,'error');return;}
+    const asm=WordToUDFPaste.assemble(parsed.blocks,pasteFill(),state.settings);
+    const a=asm.analysis.has;
+    const present={court:a.court,caseNo:a.caseNo,client:a.parties>0,attorney:a.attorney,other:a.parties>1,topic:a.topic,explanations:a.explanations,result:a.result,signature:a.signature};
+    // Only the missing parts get an input.
+    // A lower-case court line is fixed automatically, so it needs no input.
+    const hide={...present,court:a.court||asm.analysis.courtCandidate>=0};
+    for(const el of document.querySelectorAll('#completeFields .cf'))el.hidden=!!hide[el.dataset.part];
+    const list=$('partList');list.replaceChildren();
+    for(const [k,label] of PASTE_PARTS){
+      const added=asm.addedKeys.includes(k);
+      const li=document.createElement('li');li.className=present[k]?'ok':added?'added':'missing';
+      const hint=k==='attorney'&&!present[k]&&!added&&state.settings.ownAttorney?.name?' — müvekkil yazılınca ayarlardaki vekille eklenir':'';
+      li.textContent=`${present[k]?'✓':added?'+':'✗'} ${label}${present[k]?'':added?' — eklendi':hint||' — yok'}`;list.append(li);
+    }
+    $('pasteSource').hidden=false;$('pasteSource').textContent=`Kaynak: ${parsed.sourceLabel}`;
+    const notes=$('pasteNotes');notes.replaceChildren();
+    for(const n of [`${parsed.sourceLabel} kaynağından ${parsed.paragraphs} paragraf okundu.`,...parsed.notes,...(asm.added.length?[`Eklenen: ${asm.added.join(', ')}.`]:[])]){const li=document.createElement('li');li.textContent=n;notes.append(li);}
+    state.pasteInfo={source:parsed.sourceLabel,notes:parsed.notes,added:asm.added,court:''};
+    const text=asm.blocks.map(b=>WordToUDFNormalize.flatten(b));
+    state.source={blocks:asm.blocks,warnings:[],statistics:{paragraphs:asm.blocks.filter(b=>b.kind==='paragraph').length,tables:0,characters:text.join('').length,pages:0},
+      options:{margins:{},landscape:false,font:P.LEGAL_FONT,size:P.LEGAL_SIZE}};
+    state.file={name:pasteName()};
+    if(fresh){state.selection={start:'auto',end:'auto'};editor.reset();++state.loadSerial;}
+    fillSelect('startSection',state.source.blocks,state.selection.start);fillSelect('endSection',state.source.blocks,state.selection.end);
+    $('completePanel').hidden=false;$('sectionPanel').hidden=false;$('reportPanel').hidden=false;
+    $('fileStats').textContent=`${state.source.statistics.paragraphs} paragraf · yapıştırılan metin`;
+    showWarnings(state.source);render();
+    if(fresh)message(`Metin ${parsed.sourceLabel} kaynağından okundu ve dilekçe kuruldu. Eksik parçaları soldaki listeden tamamlayabilir, önizlemede paragrafa dokunarak düzeltebilirsiniz.`,'success');
+  }
+  $('pasteBox').addEventListener('paste',e=>{
+    const html=e.clipboardData?.getData('text/html')||'',text=e.clipboardData?.getData('text/plain')||'';
+    if(!html&&!text)return;
+    e.preventDefault();
+    $('pasteBox').value=text||WordToUDFPaste.parse({html}).blocks.map(b=>WordToUDFNormalize.flatten(b)).join('\n');
+    state.paste={html,text,typed:false};
+    buildFromPaste(true);
+  });
+  $('pasteBox').addEventListener('input',()=>{$('pasteBuild').classList.add('pending');});
+  $('pasteBuild').addEventListener('click',()=>{
+    const text=$('pasteBox').value;
+    if(!text.trim()){message('Önce kutuya metin yapıştırın veya yazın.','error');return;}
+    // Edited or typed text: only the plain version is used.
+    state.paste={html:'',text,typed:true};$('pasteBuild').classList.remove('pending');
+    buildFromPaste(true);
+  });
+  $('pasteClear').addEventListener('click',()=>{
+    $('pasteBox').value='';state.paste=null;state.pasteInfo=null;$('pasteNotes').replaceChildren();$('pasteSource').hidden=true;$('completePanel').hidden=true;
+    if(state.file&&!(state.file instanceof Blob)){state.file=null;state.source=null;state.result=null;editor.reset();$('paper').replaceChildren();$('checksPanel').hidden=true;$('reportPanel').hidden=true;$('sectionPanel').hidden=true;setReady();}
+    message('Yapıştırma alanı temizlendi.');
+  });
+  for(const id of ['pc_court','pc_caseNo','pc_client','pc_otherRole','pc_other','pc_topic'])$(id).addEventListener('change',()=>buildFromPaste(false));
+  for(const id of ['pc_role','pc_headings','pc_signature'])$(id).addEventListener('change',()=>{
+    if(id==='pc_role'){const o=WordToUDFTemplates.OPPOSITE[$('pc_role').value];if(o)$('pc_otherRole').value=o;}
+    buildFromPaste(false);
+  });
   for(const name of ['dragover','dragenter'])drop.addEventListener(name,e=>{e.preventDefault();drop.classList.add('drag');});
   for(const name of ['dragleave','drop'])drop.addEventListener(name,e=>{e.preventDefault();drop.classList.remove('drag');});
   drop.addEventListener('drop',e=>{
@@ -211,7 +284,7 @@
   /* ------------------------------ downloads ------------------------------ */
   function reportText(){
     const source=state.source,norm=state.result;
-    const parts=[`Kaynak: ${state.file.name}`,'WORD → UDF DÖNÜŞÜM RAPORU','',`Paragraf sayısı: ${source.statistics.paragraphs}`,`Düz metne çevrilen tablo sayısı: ${source.statistics.tables}`,`Tipografi profili: ${state.profile==='legal'?'Hukuk dilekçesi':'Word biçimini koru'}`,`Birleştirilen künye satırı: ${norm?.typography?.metadataMerged||0}`];
+    const parts=[`Kaynak: ${state.pasteInfo?`yapıştırılan metin (${state.pasteInfo.source})`:state.file.name}`,'WORD → UDF DÖNÜŞÜM RAPORU',...(state.pasteInfo?['Yapıştırma notları:',...state.pasteInfo.notes.map(n=>`- ${n}`),`- Dilekçeye eklenen parçalar: ${state.pasteInfo.added.join(', ')||'yok'}`]:[]),'',`Paragraf sayısı: ${source.statistics.paragraphs}`,`Düz metne çevrilen tablo sayısı: ${source.statistics.tables}`,`Tipografi profili: ${state.profile==='legal'?'Hukuk dilekçesi':'Word biçimini koru'}`,`Birleştirilen künye satırı: ${norm?.typography?.metadataMerged||0}`];
     if(state.profile==='legal'){
       const t=norm.typography||{},ls=String(t.lineSpacing??1.5).replace('.',',');
       const auto=state.settings.listMode==='auto';

@@ -546,6 +546,8 @@
         const start = flatten(seq[pos].block).indexOf(rest.slice(0, 12));
         const nb = cloneBlock(seq[pos].block);
         nb.runs = start >= 0 ? trimRuns(sliceRuns(seq[pos].block.runs, start)) : textRuns(rest, seq[pos].block);
+        // The request after the intro starts a list item: capital first letter.
+        if(nb.runs.length) nb.runs[0] = {...nb.runs[0], text: nb.runs[0].text.charAt(0).toLocaleUpperCase('tr-TR') + nb.runs[0].text.slice(1)};
         seq[pos] = {block: nb, idx: seq[pos].idx};
       } else seq.splice(pos, 1);
     } else ctx.changes.push({type: 'result-intro', before: '(yok)', after: SCHEMA.resultIntro});

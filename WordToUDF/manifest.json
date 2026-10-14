@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Word ↔ UDF | UDF → PDF",
   "short_name": "Word ↔ UDF",
-  "version": "1.5.0",
-  "description": "DOCX↔UYAP UDF, UDF→PDF, dilekçe şablonları ve gönderim öncesi denetim. UETS'li vekil satırı, numaralı talepler, çevrimdışı.",
+  "version": "1.6.0",
+  "description": "DOCX veya yapıştırılan metinden UYAP UDF; UDF→Word/PDF, dilekçe şablonları, paragraf düzenleyici ve denetim. Çevrimdışı.",
   "action": {
     "default_title": "Word ↔ UDF / PDF",
     "default_popup": "popup.html",

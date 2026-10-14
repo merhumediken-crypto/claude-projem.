@@ -1,4 +1,4 @@
-# WordToUDF 1.5.0 güvenlik notları
+# WordToUDF 1.6.0 güvenlik notları
 
 - Manifest V3; host izni ve genişletilmiş tarayıcı izni yoktur.
 - Ağ erişimi kapalıdır (`connect-src 'none'`); uzaktan script/kod kullanılmaz.
@@ -15,5 +15,7 @@
 - Elle düzeltme menüsü ve denetim mesajları `textContent` ile yazılır.
 - Toplu dönüşüm en fazla 100 dosya alır; her dosya tek dosyadaki sınır ve doğrulamalardan geçer.
 - Web uygulaması (PWA) kipinde `sw.js` yalnız **aynı kaynaktaki** uygulama dosyalarını önbelleğe alır (`url.origin !== location.origin` ise karışmaz); belge içeriği ağ üzerinden hiçbir yere gönderilmez. Sayfaların CSP'si (`connect-src 'none'`) değişmedi. Chrome uzantısı service worker'ı kaydetmez.
+
+- 1.6.0 yapıştırma: panodaki HTML en fazla 4 MB, düz metin 2 MB; HTML `DOMParser` ile etkisiz belgeye ayrıştırılır (betik çalışmaz, görsel/bağlantı yüklenmez), `script/style/iframe/object` vb. atlanır, içerik yalnız `textContent`/`value` ile gösterilir.
 
 Bu kontroller dosyanın hukuki veya içerik doğruluğunu garanti etmez; yalnızca dönüştürme yüzeyini sertleştirir.

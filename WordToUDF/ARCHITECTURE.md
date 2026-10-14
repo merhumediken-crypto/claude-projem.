@@ -75,3 +75,7 @@ preview.js: ortak A4 önizleme (workspace.html, templates.html)
 1. `tests/logic.test.js` — kural birimleri (Node, bağımlılıksız).
 2. `tests/golden.test.js` + `tests/fixtures/*.json` — isimleri değiştirilmiş gerçek dilekçe yapıları; çıktı satır satır (rol + metin) ve denetim hataları beklenen değerle karşılaştırılır. Bilinçli kural değişikliğinden sonra `--update` ile yenilenir ve fark gözden geçirilir.
 3. `tests/e2e.py` — Chromium'da gerçek sayfa: DOCX→UDF, telefon görünümü, elle düzeltme, DOCX çıktısı, ayar aktarımı, toplu dönüşüm, şablonlar, PWA dosya listesi, güvenlik reddi testleri.
+
+## 1.6.0 — yapıştırma girişi
+
+`paste.js` ikinci bir kaynak okuyucudur (DOCX için `docx.js`): pano `text/html` + `text/plain` → kaynak tanıma (`detect`) → kaynağa özgü onarım (`textToBlocks` / `htmlToBlocks`) → `analyze` (hangi dilekçe parçaları var) → `assemble` (eksikleri yalnız form/ayar değerleriyle ekler) → normal hat (`pipeline.typeset`). HTML, `DOMParser` ile etkisiz bir belgeye ayrıştırılır; yalnız okunur, sayfaya eklenmez. Metin işleyiciler DOM gerektirmez ve Node testlerinde doğrudan sınanır.

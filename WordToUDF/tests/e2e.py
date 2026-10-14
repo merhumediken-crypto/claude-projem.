@@ -292,6 +292,7 @@ def main():
         assert not errors,errors
         print('PASS tarayıcı JS konsolu: hata yok')
         v15_checks(browser,tmp,petition,source)
+        v16_paste(browser,tmp)
         browser.close()
 
 def udf_lines(path):
@@ -443,5 +444,103 @@ def v15_checks(browser,tmp,petition,sample):
     for html in ['workspace.html','templates.html']:
         for src in page_scripts(html):assert src in swsrc,(html,src)
     print('PASS çevrimdışı web uygulaması: manifest ve önbellek listesi bütün dosyaları kapsıyor')
+
+WORD_HTML="""<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><style>p.MsoNormal{margin:0}</style></head><body lang=TR><!--StartFragment-->
+<p class=MsoNormal align=center style='text-align:center'><b><span style='font-size:12.0pt'>ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ'NE<o:p></o:p></span></b></p>
+<p class=MsoNormal><b><u>DOSYA NO</u></b><span style='mso-tab-count:2'>                    </span><b><u>:</u></b> 2026/1929 Esas</p>
+<p class=MsoNormal><b><u>DAVALI</u></b><span style='mso-tab-count:2'>       </span><b><u>:</u></b> İsa ÇİFTÇİ</p>
+<p class=MsoNormal><b><u>VEKİLİ</u></b><span style='mso-tab-count:2'> </span><b><u>:</u></b> Av. Fatih NAKIŞLI</p>
+<p class=MsoNormal><b><u>DAVACI</u></b><span style='mso-tab-count:2'> </span><b><u>:</u></b> Yapı ve Kredi Bankası Anonim Şirketi</p>
+<p class=MsoNormal><b><u>KONU</u></b><span style='mso-tab-count:2'> </span><b><u>:</u></b> Duruşmaya ilişkin mazeretimizin sunulmasıdır.</p>
+<p class=MsoNormal><b><u>AÇIKLAMALAR</u></b><span style='mso-tab-count:1'> </span><b><u>:</u></b></p>
+<p class=MsoNormal style='text-align:justify;text-indent:35.4pt'>Mahkemenizin dosyasının 20.10.2026 tarihli duruşmasına <b>ivedi</b> bir mazeretimiz nedeniyle katılamayacağız.</p>
+<p class=MsoNormal><b><u>SONUÇ VE İSTEM</u></b><span style='mso-tab-count:1'> </span><b><u>:</u></b> Yukarıda arz edilen sebeplerle;</p>
+<p class=MsoListParagraphCxSpFirst style='mso-list:l0 level1 lfo1'><![if !supportLists]><span style='mso-list:Ignore'>1.<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;&nbsp;</span></span><![endif]>Mazeretimizin kabulüne,</p>
+<p class=MsoListParagraphCxSpLast style='mso-list:l0 level1 lfo1'><![if !supportLists]><span style='mso-list:Ignore'>2.<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;&nbsp;</span></span><![endif]>Duruşmanın ertelenmesine,</p>
+<p class=MsoNormal>Karar verilmesini saygıyla talep ederiz. 14.10.2026</p>
+<p class=MsoNormal align=right style='text-align:right'><b>Davalı İsa Çiftçi Vekili</b></p>
+<p class=MsoNormal align=right style='text-align:right'><b>Av. Fatih NAKIŞLI</b></p><img src="x.png">
+<!--EndFragment--></body></html>"""
+GDOCS_HTML='<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-1f2e"><p dir="ltr" style="text-align: center;"><span style="font-weight:700;">ANKARA 3. İŞ MAHKEMESİ\'NE</span></p><p dir="ltr"><span style="font-weight:700;text-decoration:underline;">DAVACI</span><span style="font-weight:400;">: Ali VELİ</span></p><p dir="ltr"><span style="font-weight:400;">Davacı ücret alacağı için </span><span style="font-weight:400;font-style:italic;">ayrıca</span><span style="font-weight:400;"> başvurmuştur.</span></p><p dir="ltr"><span>Yukarıda açıklanan nedenlerle davanın kabulüne karar verilmesini talep ederim.</span></p></b>'
+PDF_TEXT="\n".join(['ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ\'NE','DOSYA NO : 2026/1929 Esas','DAVALI : İsa ÇİFTÇİ','AÇIKLAMALAR :',
+  'Mahkemenizin yukarıda esas numarası belirtilen dosyasının 14.10.2026 tarihli','duruşmasına, şehir dışında bulunmamız ve önceden planlanmış diğer mesleki iş ve','işlemlerimiz nedeniyle katılım sağlayamayacağımızdan mesleki mazeretimizin','kabulünü talep etmekteyiz.','Sayfa 1 / 1',
+  'SONUÇ VE İSTEM : Yukarıda arz edilen sebeplerle;','1. Mazeretimizin kabulüne,','Karar verilmesini saygıyla talep ederiz.'])
+
+def paste_into(page,html,text):
+    page.evaluate("""([html,text])=>{const dt=new DataTransfer();if(html)dt.setData('text/html',html);dt.setData('text/plain',text);
+      document.getElementById('pasteBox').dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));}""",[html,text])
+    page.wait_for_timeout(250)
+
+def v16_paste(browser,tmp):
+    import datetime,zoneinfo
+    today=datetime.datetime.now(zoneinfo.ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y')
+    ctx=browser.new_context(accept_downloads=True,viewport={'width':1400,'height':1000})
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html')
+    # 1) Word'den biçimli kopya: sekme, liste numarası, kalın, hizalama, görsel.
+    paste_into(page,WORD_HTML,'DOSYA NO\t: 2026/1929 Esas')
+    assert 'Microsoft Word' in page.locator('#pasteSource').text_content()
+    notes=' '.join(page.locator('#pasteNotes li').all_text_contents());assert 'görsel aktarılmadı' in notes,notes
+    assert page.locator('#pasteBox').input_value().startswith('DOSYA NO')
+    out=tmp/'word-paste.udf';save_download(page,'#download',out)
+    root,lines=udf_lines(out)
+    for e in ["ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ'NE",'DOSYA NO\t: 2026/1929 Esas','DAVALI\t: İsa ÇİFTÇİ','VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)',
+              'KONU\t: Duruşmaya ilişkin mazeretimizin sunulmasıdır.','AÇIKLAMALAR\t:','1.\tMazeretimizin kabulüne,','2.\tDuruşmanın ertelenmesine,',f'Karar verilmesini saygıyla talep ederiz. {today}','Davalı İsa Çiftçi Vekili','Av. Fatih NAKIŞLI']:
+        assert e in lines,(e,lines)
+    txt=udf_text(root)
+    ivedi=[c for c in root.iter('content') if c.get('startOffset') is not None and txt[int(c.get('startOffset')):int(c.get('startOffset'))+int(c.get('length'))]=='ivedi']
+    assert ivedi and ivedi[0].get('bold')=='true','kalın sözcük korunur'
+    assert page.locator('#partList li.missing').count()==0,page.locator('#partList li').all_text_contents()
+    print('PASS yapıştır (Word): kaynak tanındı, sekme/numara/kalın korundu, görsel bildirildi, UDF standart')
+    # 2) Google Dokümanlar: dış <b style=font-weight:normal> sarmalayıcısı kalın sayılmaz.
+    paste_into(page,GDOCS_HTML,'x')
+    assert 'Google' in page.locator('#pasteSource').text_content()
+    body=page.locator('#paper .paragraph',has_text='ücret alacağı')
+    assert body.locator('span',has_text='ayrıca').evaluate("s=>getComputedStyle(s).fontStyle")=='italic'
+    assert body.locator('span',has_text='Davacı').evaluate("s=>getComputedStyle(s).fontWeight") in ('400','normal')
+    assert page.locator('#paper [data-role="major-heading"]',has_text='AÇIKLAMALAR').count()==1,'eksik AÇIKLAMALAR eklendi'
+    assert page.locator('#paper [data-role="result-heading"]').count()==1,'eksik SONUÇ VE İSTEM eklendi'
+    print('PASS yapıştır (Google Dokümanlar): biçim doğru okundu, eksik bölüm başlıkları eklendi')
+    # 3) PDF'den kopya: kırık satırlar birleşir.
+    paste_into(page,'',PDF_TEXT)
+    assert 'PDF' in page.locator('#pasteSource').text_content()
+    assert page.locator('#paper .paragraph',has_text='14.10.2026 tarihli duruşmasına, şehir dışında').count()==1
+    assert page.locator('#paper .paragraph',has_text='Sayfa 1').count()==0
+    print('PASS yapıştır (PDF): satırlar birleşti, sayfa numarası atıldı')
+    # 4) Yapay zekâ / Markdown yanıtı.
+    paste_into(page,'','## MAZERET DİLEKÇESİ\n**ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ\'NE**\n**DAVALI:** İsa ÇİFTÇİ\n**KONU:** Mazeret.\n\nDuruşmaya katılamayacağız.\n\nYukarıda açıklanan nedenlerle mazeretimizin kabulüne karar verilmesini talep ederim.')
+    assert 'Yapay zekâ' in page.locator('#pasteSource').text_content()
+    assert '**' not in page.locator('#paper').inner_text()
+    assert page.locator('#paper [data-role="court-heading"]').count()==1
+    print('PASS yapıştır (yapay zekâ/Markdown): işaretler temizlendi, dilekçe kuruldu')
+    # 5) Dağınık düz metin + eksikleri formdan tamamla.
+    paste_into(page,'','Şanlıurfa 8. Asliye Hukuk Mahkemesine\n\nDuruşmaya şehir dışında olmamız nedeniyle katılamayacağız.\nYukarıda açıklanan nedenlerle mazeretimizin kabulüne karar verilmesini saygıyla talep ederiz.')
+    assert page.locator('#completePanel').is_visible()
+    assert page.locator('.cf[data-part="court"]').is_hidden(),'küçük harfli mahkeme satırı kendiliğinden düzeltildi'
+    assert page.locator('.cf[data-part="caseNo"]').is_visible() and page.locator('.cf[data-part="topic"]').is_visible()
+    page.locator('#pc_caseNo').fill('2026/1929');page.locator('#pc_caseNo').dispatch_event('change')
+    page.locator('#pc_client').fill('İsa ÇİFTÇİ');page.locator('#pc_client').dispatch_event('change')
+    page.locator('#pc_other').fill('Yapı ve Kredi Bankası Anonim Şirketi');page.locator('#pc_other').dispatch_event('change')
+    page.locator('#pc_topic').fill('Duruşmaya ilişkin mazeretimizin sunulmasıdır.');page.locator('#pc_topic').dispatch_event('change')
+    page.wait_for_timeout(200)
+    out=tmp/'plain-paste.udf';save_download(page,'#download',out)
+    _,lines=udf_lines(out)
+    for e in ['ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİNE','DOSYA NO\t: 2026/1929 Esas','DAVALI\t: İsa ÇİFTÇİ','VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)','DAVACI\t: Yapı ve Kredi Bankası Anonim Şirketi',
+              'KONU\t: Duruşmaya ilişkin mazeretimizin sunulmasıdır.','AÇIKLAMALAR\t:','SONUÇ VE İSTEM\t: Yukarıda arz edilen sebeplerle;','1.\tMazeretimizin kabulüne,',f'Karar verilmesini saygıyla talep ederiz. {today}','Davalı İsa ÇİFTÇİ Vekili','Av. Fatih NAKIŞLI']:
+        assert e in lines,(e,lines)
+    assert page.locator('#partList li.added').count()>=6,page.locator('#partList li').all_text_contents()
+    # Paragraf düzenleyici yapıştırılan dilekçede de çalışır.
+    page.locator('#paper .paragraph[data-role="explanation-body"]').first.click()
+    page.locator('.edit-sheet .chip',has_text='Kalın').click();page.keyboard.press('Escape')
+    assert page.locator('#paper .paragraph.edited').count()==1
+    rp=tmp/'paste-rapor.txt';save_download(page,'#reportDownload',rp);rt=rp.read_text(encoding='utf-8')
+    assert 'yapıştırılan metin (Düz metin)' in rt and 'Dilekçeye eklenen parçalar' in rt,rt[:400]
+    # Kutudaki metni elle düzenleyip yeniden oluşturma.
+    page.locator('#pasteBox').fill('DAVALI: Ali VELİ\nKısa açıklama.\nKabulüne karar verilmesini talep ederim.')
+    page.locator('#pasteBuild').click();page.wait_for_timeout(200)
+    assert 'Düz metin' in page.locator('#pasteSource').text_content() and page.locator('#paper .paragraph',has_text='Ali VELİ').count()==1
+    assert not errors,errors
+    print('PASS yapıştır (dağınık metin): eksikler formdan tamamlandı, dilekçe baştan kuruldu, düzenleyici ve rapor çalışıyor')
+    ctx.close()
 
 if __name__=='__main__':main()

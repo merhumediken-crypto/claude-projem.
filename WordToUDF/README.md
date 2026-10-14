@@ -1,6 +1,33 @@
-# Word ↔ UDF / PDF — WordToUDF 1.5.0
+# Word ↔ UDF / PDF — WordToUDF 1.6.0
 
-**Sürüm:** 1.5.0 | **Çalışma biçimi:** Manifest V3 / çevrimdışı / sunucusuz / Chrome izni yok · ayrıca çevrimdışı web uygulaması (PWA)
+**Sürüm:** 1.6.0 | **Çalışma biçimi:** Manifest V3 / çevrimdışı / sunucusuz / Chrome izni yok · ayrıca çevrimdışı web uygulaması (PWA)
+
+## 1.6.0 — Word'süz: metni yapıştır, dilekçe kurulsun
+
+Word → UDF sayfasındaki **“…ya da metni yapıştırın”** kutusuna dilekçeyi yapıştırmanız yeterli; Word dosyası gerekmez.
+
+**Kaynak tanıma.** Panodaki biçimli (HTML) ve düz metin birlikte okunur; nereden kopyalandığı tanınır ve o kaynağın bozduğu şeyler onarılır:
+
+| Kaynak | Ne yapılır |
+|---|---|
+| Microsoft Word | Kalın/italik/altı çizili, hizalama, Word sekmeleri ve liste numaraları korunur; görseller bildirilir. |
+| Google Dokümanlar | Google'ın dış “kalın” sarmalayıcısı yok sayılır; gerçek kalın/italik okunur. |
+| LibreOffice, UYAP editörü (Java), web sayfası | Biçimli içerik okunur; tablolar sekmeli satırlara çevrilir. |
+| PDF | Cümle ortasında kırılan satırlar birleştirilir, heceleme tireleri ve sayfa numaraları atılır. |
+| Yapay zekâ / Markdown | `**`, `#`, tablo çizgileri temizlenir; kalın ve başlıklar korunur. |
+| WhatsApp, e-posta | Tarih/saat/gönderen önekleri, e-posta başlıkları ve `>` alıntı işaretleri atılır. |
+
+**Dilekçeyi baştan kurma.** “Dilekçenin parçaları” panelinde mahkeme, dosya no, taraflar, vekil, KONU, AÇIKLAMALAR, SONUÇ VE İSTEM ve imza ✓ / ✗ olarak gösterilir. Eksikler için yalnız o alanlar sorulur:
+- Küçük harfle yazılmış mahkeme satırı büyük harfe çevrilir; hiç yoksa formdan eklenir.
+- Dosya no, müvekkil, karşı taraf, KONU formdan; vekil satırı ve imza bloğu ayarlardaki vekil profilinden eklenir.
+- AÇIKLAMALAR başlığı ilk gövde paragrafının önüne, SONUÇ VE İSTEM son “… talep ederim/ederiz” cümlesinin (ve önündeki maddelerin) önüne konur.
+- Boş bırakılan bilgi **eklenmez, uydurulmaz**. Zaten tam olan dilekçeye hiçbir şey eklenmez.
+
+Sonra her şey Word'den gelen belgeyle aynı: hukuk dilekçesi kuralları, dilekçe denetimi, paragraf düzenleyici, UDF / düzenlenmiş Word indirme ve rapor (rapor yapıştırma kaynağını ve eklenen parçaları da yazar).
+
+**Sınır:** Araç çevrimdışı çalışır ve metin cihazdan çıkmaz; bu yüzden serbest anlatılmış bir olaydan hukuki metni kendisi *yazmaz*. Metindeki yapıyı tanır, eksik çerçeveyi sizin verdiğiniz bilgilerle tamamlar ve standarda göre dizer.
+
+Ayrıca: SONUÇ girişinden (“Yukarıda açıklanan nedenlerle; …”) ayrılan ilk talep artık büyük harfle başlar.
 
 ## 1.5.0 — Geliştirme planının tamamı
 
@@ -96,7 +123,7 @@ Hukuk dilekçesi profili artık son kararlaştırılan dilekçe standardını uy
 1. ZIP paketini bilgisayarınızda **klasörün tamamını koruyarak** çıkarın.
 2. Masaüstü Chrome adres çubuğuna `chrome://extensions` yazın.
 3. **Geliştirici modu**nu açın → **Paketlenmemiş öğe yükle**yi seçin.
-4. ZIP'ten çıkan `WordToUDF-1.5.0` klasörünü seçin (içinde `manifest.json` bulunan klasör).
+4. ZIP'ten çıkan `WordToUDF-1.6.0` klasörünü seçin (içinde `manifest.json` bulunan klasör).
 5. Araç çubuğundaki **Word ↔ UDF** simgesine tıklayın → dönüştürme yönünü seçin.
 6. Word → UDF için DOCX dosyasını seçin; önizlemeyi, “Hukuk profilinin metin değişiklikleri” listesini ve varsa dönüşüm uyarılarını denetleyin. Gerekirse AÇIKLAMALAR bölümünün başlangıç/bitiş başlığını elle seçin.
 7. **UDF oluştur ve indir** ile `.udf` dosyasını kaydedin. UDF → Word / PDF için UDF seçin; Word düğmesi `.docx` indirir, PDF düğmesi Chrome yazdır penceresini açar. PDF hedefini **PDF olarak kaydet** seçin.
