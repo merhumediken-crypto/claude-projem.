@@ -2,7 +2,7 @@
  * Cache-first for the app's own files only; nothing is fetched from or sent
  * to any other origin. Bump VERSION with every release so updates install. */
 'use strict';
-const VERSION = 'wordtoudf-1.10.2';
+const VERSION = 'wordtoudf-1.10.3';
 const FILES = ['./', 'index.html', 'workspace.html', 'templates.html', 'reverse.html', 'sure.html', 'workspace.css', 'reverse.css',
   'zip.js', 'docx.js', 'normalize.js', 'settings.js', 'legal-rules.js', 'legal-typography.js', 'checks.js', 'udf.js', 'udf-reader.js',
   'edits.js', 'docx-writer.js', 'paste.js', 'pipeline.js', 'preview.js', 'editor-ui.js', 'templates.js', 'templates-page.js', 'workspace.js', 'reverse.js',

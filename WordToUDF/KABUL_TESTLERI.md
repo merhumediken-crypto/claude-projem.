@@ -18,7 +18,7 @@ Otomatik testler UDF'nin yapısını (ZIP, XML, metin ofsetleri) doğrular; **UY
 
 - [ ] Bütün iki noktalar (DOSYA NO, taraflar, VEKİLİ, KONU, AÇIKLAMALAR, SONUÇ VE İSTEM, EKLER) aynı dikey sütunda.
 - [ ] Etiketin alt çizgisi sekme boşluğunda kesilmeden iki noktaya kadar sürüyor; değerin altı çizili değil.
-- [ ] **Sekme kalıcı (1.10.2):** UYAP'ta bir künye satırının değerini düzenleyin (ör. DAVALI adını değiştirin), etiketin sonuna tıklayıp bir harf yazıp silin; belgeyi kaydedip kapatın ve yeniden açın. Etiket ile iki nokta arasındaki sekme duruyor, iki noktalar hâlâ aynı sütunda.
+- [x] **Sekme kalıcı (1.10.2, UYAP'ta doğrulandı):** UYAP'ta bir künye satırının değerini düzenleyin (ör. DAVALI adını değiştirin), etiketin sonuna tıklayıp bir harf yazıp silin; belgeyi kaydedip kapatın ve yeniden açın. Etiket ile iki nokta arasındaki sekme duruyor, iki noktalar hâlâ aynı sütunda.
 - [ ] Uzun değer (adres, KONU) alt satıra girintisiz geçiyor ve iki nokta sütununu bozmuyor.
 - [ ] VEKİLİ satırı doğru: `Av. Ad SOYAD (UETS: …)`; UETS girilmemiş vekilde numara veya boş `(UETS)` yok.
 

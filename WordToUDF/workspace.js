@@ -93,7 +93,7 @@
     review.checked=false;
     setReady();
   }
-  const CHANGE_LABELS={label:'Etiket kısaltıldı','case-number':'Dosya/karar no tek etikette',surname:'Soyadı büyük harf','name-ambiguous':'Ad/soyad belirsiz','uets-profile':'UETS kayıtlı vekilden','attorney-fuse':'Vekil adres/UETS satırı birleşti','label-split':'Uzun etiket iki satıra bölündü','explanations-split':'AÇIKLAMALAR metni yeni paragrafta','section-inline':'Bölüm değeri başlık satırında','result-intro':'SONUÇ girişi','closing-split':'Kapanış listeden ayrıldı','closing-added':'Kapanış cümlesi eklendi','manual-number':'Metindeki numara listeye çevrildi',date:'Kapanış tarihi','blank-removed':'Boş satır kaldırıldı','request-split':'Talepler maddelere ayrıldı'};
+  const CHANGE_LABELS={label:'Etiket kısaltıldı','case-number':'Dosya/karar no tek etikette',surname:'Soyadı büyük harf','name-ambiguous':'Ad/soyad belirsiz','uets-profile':'UETS kayıtlı vekilden','uets-format':'UETS yazımı standarda getirildi','attorney-fuse':'Vekil adres/UETS satırı birleşti','label-split':'Uzun etiket iki satıra bölündü','explanations-split':'AÇIKLAMALAR metni yeni paragrafta','section-inline':'Bölüm değeri başlık satırında','result-intro':'SONUÇ girişi','closing-split':'Kapanış listeden ayrıldı','closing-added':'Kapanış cümlesi eklendi','manual-number':'Metindeki numara listeye çevrildi',date:'Kapanış tarihi','blank-removed':'Boş satır kaldırıldı','request-split':'Talepler maddelere ayrıldı'};
   function changeText(c){return `${CHANGE_LABELS[c.type]||c.type}: ${c.before} → ${c.after}`;}
   function showChanges(stats){
     const list=$('changeList');list.replaceChildren();

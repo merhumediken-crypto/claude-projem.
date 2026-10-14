@@ -1,6 +1,6 @@
-# Word ↔ UDF / PDF — WordToUDF 1.10.2
+# Word ↔ UDF / PDF — WordToUDF 1.10.3
 
-**Sürüm:** 1.10.2 · **Çalışma biçimi:** Chrome uzantısı (Manifest V3) ve çevrimdışı web uygulaması (PWA) · sunucusuz · Chrome izni yok · internete bağlanmaz
+**Sürüm:** 1.10.3 · **Çalışma biçimi:** Chrome uzantısı (Manifest V3) ve çevrimdışı web uygulaması (PWA) · sunucusuz · Chrome izni yok · internete bağlanmaz
 
 Hukuk dilekçelerini UYAP Doküman Editörü'nün UDF biçimine çeviren, gönderimden önce denetleyen ve UDF'yi Word/PDF'ye geri çeviren araç. Bütün işlemler cihazda yapılır; dosyalar hiçbir sunucuya gönderilmez.
 
@@ -30,10 +30,10 @@ Sürüm geçmişi: [CHANGELOG.md](CHANGELOG.md) · UYAP kabul kontrol listesi: [
 
 ## Kurulum (Chrome uzantısı)
 
-1. `WordToUDF-1.10.2.zip` paketini **klasörün tamamını koruyarak** çıkarın.
+1. `WordToUDF-1.10.3.zip` paketini **klasörün tamamını koruyarak** çıkarın.
 2. Masaüstü Chrome adres çubuğuna `chrome://extensions` yazın.
 3. **Geliştirici modu**nu açın → **Paketlenmemiş öğe yükle**yi seçin.
-4. ZIP'ten çıkan `WordToUDF-1.10.2` klasörünü seçin (içinde `manifest.json` bulunan klasör).
+4. ZIP'ten çıkan `WordToUDF-1.10.3` klasörünü seçin (içinde `manifest.json` bulunan klasör).
 5. Araç çubuğundaki **Word ↔ UDF** simgesine tıklayın → bölümü seçin.
 
 **Güncelleme (verileriniz kaybolmasın):** yeni ZIP'in içindeki dosyaları **ilk kurduğunuz klasörün üzerine** kopyalayın ve `chrome://extensions` sayfasında uzantı kartındaki **Yeniden yükle**'ye basın; ayarlar, dosya kartları ve kendi şablonlarınız aynen kalır. Chrome, paketlenmemiş uzantıyı klasör yolundan tanır: uzantıyı **kaldırırsanız** ya da **başka bir klasörden** yüklerseniz yeni bir uzantı sayılır ve bu veriler boş başlar. Böyle bir durumdan önce Word → UDF sayfasında **Ayarlar → Dışa aktar** ile yedek alın, yeni kurulumda **İçe aktar** ile geri yükleyin (yedek, dosya kartlarını ve şablonları da içerir).

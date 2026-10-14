@@ -217,6 +217,7 @@
 
   /* ------------------------------ UETS ------------------------------ */
   const UETS_NUMBER_RE = /^\d{5}-\d{5}-\d{5}$/u;
+  const UETS_WRITTEN_RE = /\s*[(\[]?\s*UETS(?:\s*(?:No|Numarası|Adresi))?\.?\s*[:：]?\s*(\d{5}\s*-\s*\d{5}\s*-\s*\d{5})\s*[)\]]?/iu;
   const personKey = s => upper(s).replace(/^(?:AV\.|AVUKAT)\s*/u, '').replace(/[^\p{L}\s]/gu, '').replace(/\s+/gu, ' ').trim();
   // Registry text: one attorney per line, "Av. Ad SOYAD = 12345-12345-12345".
   function parseUetsRegistry(input){
@@ -239,6 +240,15 @@
       // A bare "(UETS)" marker without a number is replaced by the real
       // number when one is known, otherwise removed (left empty).
       let s = nameCase(clean(seg.replace(/\s*\(\s*UETS\s*\)\s*/giu, ' ')), ctx.changes);
+      // A number already in the source but written another way ("– UETS: …",
+      // ", UETS No: …", "[UETS …]") takes the standard form "(UETS: …)";
+      // the number itself is kept exactly as written, never looked up or changed.
+      const written = UETS_WRITTEN_RE.exec(s);
+      if(written){
+        const std = `${s.slice(0, written.index).replace(/[\s,;–—-]+$/u, '')} (UETS: ${written[1].replace(/\s+/gu, '')})${s.slice(written.index + written[0].length)}`;
+        if(std !== s){ ctx.changes.push({type: 'uets-format', before: s, after: std}); s = std; }
+        return s;
+      }
       if(/UETS/iu.test(s) || !ctx.opts.markUets) return s;
       const known = ctx.uets.get(personKey(s.replace(/\(.*$/u, '')));
       if(known){ ctx.changes.push({type: 'uets-profile', before: s, after: `${s} (UETS: ${known})`}); return `${s} (UETS: ${known})`; }

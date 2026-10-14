@@ -2,6 +2,11 @@
 
 WordToUDF'nin bütün sürümleri, yeniden eskiye. Kullanım kılavuzu: [README.md](README.md).
 
+## 1.10.3 — UETS yazımı standarda getirilir
+
+- 1.10.2'nin sekme düzeltmesi UYAP'ta doğrulandı: künye ve bölüm satırlarında iki noktalar aynı sütunda, etiketten iki noktaya alt çizgi kesintisiz; numaralı taleplerin asılı girintisi de doğru.
+- **VEKİLİ satırı:** kaynakta başka biçimde yazılmış UETS (`Av. Fatih NAKIŞLI – UETS: 16615-…`, `, UETS No: …`, `[UETS …]`) artık standart `Av. Ad SOYAD (UETS: numara)` biçimine getirilir. Numara yazıldığı gibi korunur; numarasız bir ifadeye dokunulmaz, numara uydurulmaz. Değişiklik dönüşüm raporunda “UETS yazımı standarda getirildi” olarak listelenir.
+
 ## 1.10.2 — Künye sekmeleri UYAP editöründe artık silinmiyor
 
 **Sorun:** UYAP Doküman Editörü'nde künye ve bölüm satırlarında (DOSYA NO, DAVACI, VEKİLİ, KONU, AÇIKLAMALAR…) etiket ile iki nokta arasındaki sekme, düzenleme sırasında siliniyordu; etiket ve iki nokta kalıyor, hiza bozuluyordu.

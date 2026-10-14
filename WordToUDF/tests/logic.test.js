@@ -409,7 +409,7 @@ test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
 test('WTU-072 manifest izinleri, CSP ve sürüm',()=>{
   const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
   assert.equal(m.manifest_version,3);assert.deepEqual(m.permissions,[]);assert.deepEqual(m.host_permissions,[]);
-  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.10.2');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
+  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.10.3');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
   // sw.js (PWA offline cache) may fetch, but only its own origin.
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(/url\.origin !== location\.origin\) return/u.test(sw));
   for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')&&f!=='sw.js'))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);
@@ -833,6 +833,16 @@ test('v1.10.1 düzenleyici denetimi: numara metne yapışmaz, taşımalar birle�
   const hlE={[k7[i7]]:{marks:[{text:'uyarınca',at:11,highlight:true}]},[edits.DOC_KEY]:{marks:[{text:'süre',highlight:true,bold:true}]}};
   const off=edits.apply(r7,hlE,{highlight:false}).blocks[i7].runs,on=edits.apply(r7,hlE,{highlight:true}).blocks[i7].runs;
   assert(!off.some(r=>r.highlight)&&off.some(r=>r.text==='süre'&&r.bold),JSON.stringify(off));assert(on.some(r=>r.highlight&&r.text==='uyarınca'));
+});
+test('v1.10.2 VEKİLİ satırında başka biçimde yazılmış UETS standart "(UETS: …)" biçimine gelir, numara aynen korunur',()=>{
+  const own={ownAttorney:{name:'Av. Fatih NAKIŞLI',uets:'16615-16448-62422'}};
+  const row=v=>{const t=pipe.typeset(['ŞANLIURFA 2. ASLİYE HUKUK MAHKEMESİNE','DAVALI: Zeliha BAĞIŞ',v,'KONU: Deneme.','AÇIKLAMALAR','Metin.'].map(x=>para(x)),{settings:own,now:NOW});return text(t.blocks.find(b=>/^VEKİLİ/u.test(text(b))));};
+  assert.equal(row('VEKİLİ: Av. Fatih NAKIŞLI – UETS: 16615-16448-62422'),'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)');
+  assert.equal(row('VEKİLİ: Av. Ali KAYA, UETS No: 12345-12345-12345'),'VEKİLİ\t: Av. Ali KAYA (UETS: 12345-12345-12345)');
+  assert.equal(row('VEKİLİ: Av. Ali KAYA [UETS 12345 - 12345 - 12345]'),'VEKİLİ\t: Av. Ali KAYA (UETS: 12345-12345-12345)');
+  assert.equal(row('VEKİLİ: Av. Ali KAYA – UETS: 12345-12345-12345, Av. Fatih NAKIŞLI'),'VEKİLİ\t: Av. Ali KAYA (UETS: 12345-12345-12345), Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)');
+  assert.equal(row('VEKİLİ: Av. Ali KAYA UETS adresi kayıtlı'),'VEKİLİ\t: Av. Ali KAYA UETS adresi kayıtlı','numarasız metne dokunulmaz, numara uydurulmaz');
+  assert.equal(row('VEKİLİ: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)'),'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)','standart biçim değişmez');
 });
 /* ----------------------------- v1.9.0 kütüphane, düzeltme önerileri ----------------------------- */
 test('v1.9 öneriler ve düzeltmeler: fazla boşluk, noktalama, virgül, tarih; biçim korunur, tekrar uygulanınca değişmez',()=>{

@@ -1,4 +1,4 @@
-# WordToUDF 1.10.2 – Mimari
+# WordToUDF 1.10.3 – Mimari
 
 ## Dönüşüm hattı
 
