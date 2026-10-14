@@ -181,7 +181,8 @@
     },
     /* ---------- v1.10 ---------- */
     {
-      id: 'islah', title: 'Islah dilekçesi (HMK m. 176)',
+      // role: the side that files this petition (set when the template is chosen).
+      id: 'islah', title: 'Islah dilekçesi (HMK m. 176)', role: 'DAVACI',
       fields: [
         {id: 'kind', label: 'Islah türü', type: 'select', options: [['kismi', 'Kısmi ıslah (talep miktarının artırılması vb.)'], ['tam', 'Tamamen ıslah']]},
         {id: 'subject', label: 'Islah edilen talep / kalem', type: 'text', placeholder: 'ör. fazla çalışma ücreti alacağı'},
@@ -242,7 +243,7 @@
       attachments: f => f.advance ? ['Gider avansı makbuzu'] : []
     },
     {
-      id: 'ihtiyatihaciz', title: 'İhtiyati haciz talebi (İİK m. 257)',
+      id: 'ihtiyatihaciz', title: 'İhtiyati haciz talebi (İİK m. 257)', role: 'ALACAKLI',
       fields: [
         {id: 'amount', label: 'Alacak tutarı', type: 'text', placeholder: 'ör. 250.000 TL'},
         {id: 'due', label: 'Vade tarihi', type: 'date'},
@@ -262,7 +263,7 @@
       attachments: () => ['Alacağın dayanağı belge örneği']
     },
     {
-      id: 'feragat', title: 'Davadan feragat dilekçesi (HMK m. 307)',
+      id: 'feragat', title: 'Davadan feragat dilekçesi (HMK m. 307)', role: 'DAVACI',
       fields: [
         {id: 'authority', label: 'Vekâletnamede davadan feragat yetkisi var (HMK m. 74)', type: 'checkbox', value: true},
         {id: 'costs', label: 'Yargılama giderleri', type: 'select', options: [['mutabakat', 'Karşı tarafla mutabakat: karşılıklı gider ve vekâlet ücreti talebi yok'], ['genel', 'HMK m. 312 uyarınca karar verilsin']]}

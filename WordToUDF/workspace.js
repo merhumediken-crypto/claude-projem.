@@ -53,7 +53,9 @@
     syncSpec();
   }
   // Vekil/imza settings feed the pasted-petition skeleton too.
-  function settingsChanged(){state.settings=readForm();S.save(state.settings);syncSpec();if(state.paste)holdPosition(()=>buildFromPaste(false));else render();}
+  function rebuild(){if(state.paste)holdPosition(()=>buildFromPaste(false));else render();}
+  function saveSettings(){if(!S.save(state.settings))message('Ayarlar bu tarayıcıda saklanamadı (depolama kapalı veya dolu); yalnız bu oturumda geçerli.','error');}
+  function settingsChanged(){state.settings=readForm();saveSettings();syncSpec();rebuild();}
   function addOtherRow(data={}){
     const row=document.createElement('div');row.className='other-row';
     const name=document.createElement('input');name.type='text';name.className='o-name';name.placeholder='Av. Ad SOYAD';name.value=data.name||'';name.spellcheck=false;name.setAttribute('aria-label','Başka vekil adı');
@@ -359,11 +361,14 @@
   $('importSettings').addEventListener('change',async e=>{
     const f=e.target.files?.[0];if(!f)return;
     try{
-      if(f.size>256*1024)throw new Error('Ayar dosyası çok büyük.');
+      // The file also carries the library (up to 300 cards and 100 templates), so the cap is generous.
+      if(f.size>8*1024*1024)throw new Error('Ayar dosyası çok büyük (en fazla 8 MB).');
       const text=await f.text();
-      state.settings=S.importJson(text);S.save(state.settings);writeForm(state.settings);render();
+      state.settings=S.importJson(text);saveSettings();writeForm(state.settings);syncSpec();
+      // A pasted petition is rebuilt too (new attorney / signature), like any settings change.
+      rebuild();
       const lib=Lib.importData(JSON.parse(text).library);refreshLibrary();
-      message(`Ayarlar içe aktarıldı${lib.cases||lib.templates?` (${lib.cases} dosya kartı, ${lib.templates} şablon eklendi/güncellendi)`:''}.`,'success');
+      message(`Ayarlar içe aktarıldı${lib.cases||lib.templates?` (${lib.cases} dosya kartı, ${lib.templates} şablon eklendi/güncellendi)`:''}.${lib.kept?` Bu tarayıcıdaki ${lib.kept} kayıt yedektekinden daha yeni olduğu için korundu.`:''}${lib.skipped?` ${lib.skipped} kayıt geçersiz olduğu ya da sınır / depolama dolduğu için alınamadı.`:''}`,lib.skipped?'error':'success');
     }catch(err){message(err.message,'error');}
     finally{e.target.value='';}
   });
@@ -437,8 +442,12 @@
   });
 
   /* ------------------------------ library (case cards, own templates) ------------------------------ */
+  // Only filled fields: a stored card keeps what this petition does not mention (e.g. the other attorney, the note).
+  const filled=o=>Object.fromEntries(Object.entries(o||{}).filter(([k,v])=>k!=='id'&&k!=='updated'&&String(v??'').trim()));
+  const docCase=()=>state.result?Lib.caseFromBlocks(state.result.blocks,state.settings.ownAttorney?.name)||{}:{};
   const pastePicker=Lib.picker($('pasteCasePicker'),{
-    read:()=>({court:$('pc_court').value,caseNo:$('pc_caseNo').value,role:$('pc_role').value,client:$('pc_client').value,otherRole:$('pc_otherRole').value,other:$('pc_other').value}),
+    // The assembled petition (pasted text + completion form), the form winning where it is filled.
+    read:()=>({...filled(docCase()),...filled({court:$('pc_court').value,caseNo:$('pc_caseNo').value,role:$('pc_role').value,client:$('pc_client').value,otherRole:$('pc_otherRole').value,other:$('pc_other').value})}),
     apply:c=>{
       $('pc_court').value=c.court;$('pc_caseNo').value=c.caseNo;$('pc_client').value=c.client;$('pc_other').value=c.other;
       if([...$('pc_role').options].some(o=>o.value===c.role))$('pc_role').value=c.role;
@@ -453,8 +462,16 @@
   }
   $('saveCaseFromDoc').addEventListener('click',()=>{
     if(!state.result)return;
-    try{const card=Lib.saveCase(Lib.caseFromBlocks(state.result.blocks,state.settings.ownAttorney?.name)||{});refreshLibrary();message(`Dosya kartı kaydedildi: ${Lib.caseLabel(card)}`,'success');}
+    try{const card=Lib.saveCase(filled(docCase()));refreshLibrary();message(`Dosya kartı kaydedildi: ${Lib.caseLabel(card)}`,'success');}
     catch(err){message(err.message,'error');}
+  });
+  // Two presses (no dialogs): the first arms the button for 4 seconds.
+  let clearArmed=0;
+  $('clearLibrary').addEventListener('click',()=>{
+    const btn=$('clearLibrary');
+    if(!clearArmed){clearArmed=setTimeout(()=>{clearArmed=0;btn.textContent='Bu tarayıcıdaki kartları, şablonları ve taslağı sil';},4000);btn.textContent='Silmek için tekrar basın';return;}
+    clearTimeout(clearArmed);clearArmed=0;btn.textContent='Bu tarayıcıdaki kartları, şablonları ve taslağı sil';
+    Lib.clearAll();refreshLibrary();message('Dosya kartları, kendi şablonlarınız ve şablon taslağı bu tarayıcıdan silindi. Ayarlar (vekil, UETS) duruyor.','success');
   });
   $('saveTplFromDoc').addEventListener('click',()=>{
     if(!state.result)return;
@@ -465,7 +482,8 @@
     try{
       const tpl=Lib.saveTemplate({title,role:info.role,otherRole:info.otherRole,...Object.fromEntries(Object.entries(parts).map(([k,v])=>[k,Lib.generalize(v,info)]))});
       $('docTplName').value='';refreshLibrary();
-      message(`“${tpl.title}” şablon olarak kaydedildi; Şablonlar sayfasında “Kendi şablonlarım” altında.`,'success');
+      // No AÇIKLAMALAR body found (e.g. an unrecognised heading): saved, but say so.
+      message(`“${tpl.title}” şablon olarak kaydedildi; Şablonlar sayfasında “Kendi şablonlarım” altında.${parts.body?'':' Dikkat: AÇIKLAMALAR bölümü bulunamadığı için şablonda açıklama metni yok; Şablonlar sayfasında ekleyin.'}`,parts.body?'success':'error');
     }catch(err){message(err.message,'error');}
   });
   refreshLibrary();
@@ -480,7 +498,12 @@
       WordToUDFPrint.printBlocks(state.result.blocks,{...outputOptions(),title:outBase()});
     }catch(err){message(`PDF hazırlanamadı: ${err.message}`,'error');}
   });
-  $('fileNamePattern').addEventListener('input',()=>{state.settings.fileName=$('fileNamePattern').value;S.save(state.settings);showFileName();});
+  $('fileNamePattern').addEventListener('input',()=>{state.settings.fileName=$('fileNamePattern').value;saveSettings();showFileName();});
+  // Another tab changed the settings (e.g. the file name on the template page): follow it instead of overwriting it later.
+  window.addEventListener('storage',e=>{
+    if(e.key!==S.KEY)return;
+    state.settings=S.load();writeForm(state.settings);syncSpec();rebuild();
+  });
   // Experimental UDF features (opt-in): text highlight.
   $('experimental').addEventListener('change',()=>{$('experimentBox').hidden=!$('experimental').checked;settingsChanged();editor.close();});
   $('experimentSample').addEventListener('click',async()=>{

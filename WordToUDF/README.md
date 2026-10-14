@@ -1,6 +1,6 @@
-# Word ↔ UDF / PDF — WordToUDF 1.10.0
+# Word ↔ UDF / PDF — WordToUDF 1.10.1
 
-**Sürüm:** 1.10.0 · **Çalışma biçimi:** Chrome uzantısı (Manifest V3) ve çevrimdışı web uygulaması (PWA) · sunucusuz · Chrome izni yok · internete bağlanmaz
+**Sürüm:** 1.10.1 · **Çalışma biçimi:** Chrome uzantısı (Manifest V3) ve çevrimdışı web uygulaması (PWA) · sunucusuz · Chrome izni yok · internete bağlanmaz
 
 Hukuk dilekçelerini UYAP Doküman Editörü'nün UDF biçimine çeviren, gönderimden önce denetleyen ve UDF'yi Word/PDF'ye geri çeviren araç. Bütün işlemler cihazda yapılır; dosyalar hiçbir sunucuya gönderilmez.
 
@@ -30,15 +30,17 @@ Sürüm geçmişi: [CHANGELOG.md](CHANGELOG.md) · UYAP kabul kontrol listesi: [
 
 ## Kurulum (Chrome uzantısı)
 
-1. `WordToUDF-1.10.0.zip` paketini **klasörün tamamını koruyarak** çıkarın.
+1. `WordToUDF-1.10.1.zip` paketini **klasörün tamamını koruyarak** çıkarın.
 2. Masaüstü Chrome adres çubuğuna `chrome://extensions` yazın.
 3. **Geliştirici modu**nu açın → **Paketlenmemiş öğe yükle**yi seçin.
-4. ZIP'ten çıkan `WordToUDF-1.10.0` klasörünü seçin (içinde `manifest.json` bulunan klasör). Önceki sürüm yüklüyse önce onu kaldırın ya da aynı klasörün içeriğini değiştirip uzantı kartında **Yeniden yükle**'ye basın; ayarlarınız (vekil, UETS) korunur.
+4. ZIP'ten çıkan `WordToUDF-1.10.1` klasörünü seçin (içinde `manifest.json` bulunan klasör).
 5. Araç çubuğundaki **Word ↔ UDF** simgesine tıklayın → bölümü seçin.
+
+**Güncelleme (verileriniz kaybolmasın):** yeni ZIP'in içindeki dosyaları **ilk kurduğunuz klasörün üzerine** kopyalayın ve `chrome://extensions` sayfasında uzantı kartındaki **Yeniden yükle**'ye basın; ayarlar, dosya kartları ve kendi şablonlarınız aynen kalır. Chrome, paketlenmemiş uzantıyı klasör yolundan tanır: uzantıyı **kaldırırsanız** ya da **başka bir klasörden** yüklerseniz yeni bir uzantı sayılır ve bu veriler boş başlar. Böyle bir durumdan önce Word → UDF sayfasında **Ayarlar → Dışa aktar** ile yedek alın, yeni kurulumda **İçe aktar** ile geri yükleyin (yedek, dosya kartlarını ve şablonları da içerir).
 
 Kurumsal Chrome politikaları paketlenmemiş eklenti yüklemeyi engelliyorsa eklenti yönetici izni olmadan yüklenemeyebilir.
 
-**Telefonda (web uygulaması):** klasör bir web sunucusunda (ör. GitHub Pages) yayınlanırsa `index.html` başlangıç sayfasıdır; tarayıcı menüsünden “Ana ekrana ekle” ile uygulama gibi açılır ve `sw.js` sayesinde çevrimdışı çalışır. Dosyalar yine cihazdan çıkmaz.
+**Telefonda (web uygulaması):** klasör bir web sunucusunda (ör. GitHub Pages) yayınlanırsa `index.html` tanıtım ve giriş sayfasıdır; tarayıcı menüsünden “Ana ekrana ekle” ile eklenen uygulama doğrudan Word → UDF sayfasını açar ve `sw.js` sayesinde çevrimdışı çalışır. Dosyalar yine cihazdan çıkmaz.
 
 ## Kullanım
 
@@ -78,7 +80,7 @@ Tipografi profili **Hukuk dilekçesi** (önerilen) aşağıdaki standardı uygul
 
 ## Güvenlik ve veri işleme
 
-Manifest V3; `permissions` ve `host_permissions` boştur, ağ bağlantısı kapalıdır (`connect-src 'none'`), dış betik/CDN/`eval` yoktur. Belgeler yalnız bellekte işlenir; kalıcı dosya arşivi tutulmaz. Vekil/UETS ayarları ve tema seçimi yalnız bu tarayıcının yerel depolamasındadır. ZIP yolu, boyut, CRC32, XML sözdizimi ve DTD/ENTITY kontrolleri uygulanır; kullanıcı metni sayfaya yalnız `textContent`/`value` ile yazılır. Ayrıntılar: [SECURITY.md](SECURITY.md).
+Manifest V3; `permissions` ve `host_permissions` boştur, ağ bağlantısı kapalıdır (`connect-src 'none'`), dış betik/CDN/`eval` yoktur. Belgeler yalnız bellekte işlenir; DOCX/UDF dosyaları saklanmaz. Bu tarayıcının yerel depolamasında yalnız şunlar durur ve hiçbir yere gönderilmez: vekil/UETS ayarları ve tema seçimi; kaydettiğiniz **dosya kartları** (mahkeme, esas no, taraf ve müvekkil adları); **kendi şablonlarınız**; Şablonlar sayfasının **son taslağı**. Kartlar, şablonlar ve taslak Word → UDF sayfasındaki “Dosya kartları ve şablonlar” kartından tek düğmeyle silinir; ortak kullanılan bir bilgisayarda işiniz bitince silmeniz önerilir. ZIP yolu, boyut, CRC32, XML sözdizimi ve DTD/ENTITY kontrolleri uygulanır; kullanıcı metni sayfaya yalnız `textContent`/`value` ile yazılır. Ayrıntılar: [SECURITY.md](SECURITY.md).
 
 Bu eklenti LexUDF'den bağımsızdır; LexUDF'yi değiştirmez, onun ayarlarını veya depolama alanını kullanmaz. Açık kaynak örneklerden ve LexUDF'nin UDF çıktılarından yalnız biçim uyumluluğu konusunda yararlanılmıştır.
 
@@ -89,7 +91,7 @@ npm test                # mantık + altın çıktı testleri (Node)
 npm run test:e2e        # Chromium testleri (Python playwright)
 npm run test:fuzz       # tohumlu zorlama testi
 npm run build           # dist/WordToUDF-<sürüm>.zip + SHA-256
-python3 tools/pages.py  # dört HTML sayfasını ortak başlık ve simge setinden yeniden üretir
+python3 tools/pages.py  # beş HTML sayfasını ortak başlık ve simge setinden yeniden üretir
 ```
 
-Sayfa gövdeleri `tools/pages/*.body.html` içindedir; `workspace.html`, `templates.html`, `reverse.html` ve `index.html` elle düzenlenmez, `tools/pages.py` ile üretilir. Test katmanları için [tests/README.md](tests/README.md), modül düzeni için [ARCHITECTURE.md](ARCHITECTURE.md).
+Sayfa gövdeleri `tools/pages/*.body.html` içindedir; `workspace.html`, `templates.html`, `reverse.html`, `sure.html` ve `index.html` elle düzenlenmez, `tools/pages.py` ile üretilir. Paket (`npm run build`) yalnız izin listesindeki dosyaları alır (`sw.js` dosya listesi, açılır pencere, manifest, belgeler); klasöre bırakılmış başka bir dosya pakete girmez. Test katmanları için [tests/README.md](tests/README.md), modül düzeni için [ARCHITECTURE.md](ARCHITECTURE.md).

@@ -87,14 +87,19 @@
     ]},
     {group: 'Diğer', items: [{id: 'custom', label: 'Süreyi kendim gireceğim', amount: 7, unit: 'gun', law: '', recess: true}]}
   ];
+  // Ten years in every unit: longer is never a procedural deadline and only invites typos.
+  const MAX = {gun: 3650, hafta: 520, ay: 120, yil: 10};
   const preset = id => PRESETS.flatMap(g => g.items).find(p => p.id === id) || null;
   const ICRA_NOTE = 'İcra ve iflas işlerinde adli tatilin bu süreye etkisini kontrol edin; hesapta adli tatil uzatması varsayılan olarak uygulanmadı.';
 
   // start: Date (UTC midnight), amount: integer, unit: gun|hafta|ay|yil.
-  function compute(start, amount, unit, {recess = true, saturday = true, today} = {}){
+  // recessBasis names the rule in the steps (İYUK m. 8/3 for administrative courts).
+  function compute(start, amount, unit, {recess = true, saturday = true, today, recessBasis = 'HMK m. 104'} = {}){
     if(!(start instanceof Date) || Number.isNaN(start.getTime())) throw new Error('Başlangıç tarihi geçersiz.');
-    const n = Math.trunc(Number(amount));
-    if(!(n >= 1 && n <= 3650) || !UNITS[unit]) throw new Error('Süre 1 ile 3650 arasında bir sayı olmalıdır.');
+    if(start.getUTCFullYear() < 1950 || start.getUTCFullYear() > 2100) throw new Error('Başlangıç tarihi 1950 ile 2100 yılları arasında olmalıdır.');
+    if(!UNITS[unit]) throw new Error('Süre birimi geçersiz.');
+    const n = Number(amount);
+    if(!Number.isInteger(n) || n < 1 || n > MAX[unit]) throw new Error(`Süre 1 ile ${MAX[unit]} ${UNITS[unit]} arasında bir tam sayı olmalıdır.`);
     const steps = [], warnings = [];
     let end = unit === 'gun' ? addDays(start, n) : unit === 'hafta' ? addDays(start, 7 * n) : addMonths(start, unit === 'ay' ? n : 12 * n);
     steps.push(`Başlangıç: ${longDate(start)} (bu gün hesaba katılmaz).`);
@@ -105,16 +110,20 @@
       while((r = offReason(d, {saturday}))){ steps.push(`${longDate(d)}: ${r} → ertesi gün.`); d = addDays(d, 1); }
       return d;
     };
+    // The recess test uses the period's own last day too: 30 August (holiday) →
+    // 31 August (Sunday) → 1 September still "ends in the recess" and moves to 7 September.
+    const raw = end;
     end = shift(end);
-    if(recess && inRecess(end)){
-      const y = end.getUTCFullYear();
-      steps.push(`${longDate(end)} adli tatile (20 Temmuz – 31 Ağustos) rastlıyor → tatilin bitiminden itibaren bir hafta uzar (HMK m. 104).`);
+    if(recess && (inRecess(raw) || inRecess(end))){
+      const hit = inRecess(raw) ? raw : end, y = hit.getUTCFullYear();
+      steps.push(`${longDate(hit)} adli tatile (20 Temmuz – 31 Ağustos) rastlıyor → tatilin bitiminden itibaren bir hafta uzar (${recessBasis}).`);
       end = shift(addDays(D(y, 8, 31), 7));
       steps.push(`Uzatılmış son gün: ${longDate(end)}.`);
     }
     const half = yearInfo(end.getUTCFullYear()).half.get(key(end));
     if(half) warnings.push(`Son gün ${half}: süre uzamaz ve o gün mesai öğleden sonra bitebilir; işlemi sabahtan yapın.`);
-    for(const y of new Set([start.getUTCFullYear(), end.getUTCFullYear()])) if(!KNOWN_YEARS.includes(y)) warnings.push(`${y} yılının dini bayram tarihleri tabloda yok; Ramazan ve Kurban Bayramı tatillerini kendiniz kontrol edin.`);
+    // Only the years the last day can fall in matter (the start year's holidays play no part).
+    for(const y of new Set([raw.getUTCFullYear(), end.getUTCFullYear()])) if(!KNOWN_YEARS.includes(y)) warnings.push(`${y} yılının dini bayram tarihleri tabloda yok; Ramazan ve Kurban Bayramı tatillerini kendiniz kontrol edin.`);
     if(today instanceof Date){
       const left = Math.round((end - today) / 864e5);
       if(left < 0) warnings.push(`Bu süre ${-left} gün önce dolmuş görünüyor.`);
@@ -123,6 +132,18 @@
     return {end, steps, warnings};
   }
 
+  // RFC 5545 §3.1: content lines are folded at 75 octets (CRLF + space), never inside a UTF-8 sequence.
+  function fold(line){
+    const out = [];
+    let cur = '', size = 0;
+    for(const ch of line){
+      const cp = ch.codePointAt(0), n = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
+      if(size + n > 75){ out.push(cur); cur = ' '; size = 1; }
+      cur += ch; size += n;
+    }
+    out.push(cur);
+    return out.join('\r\n');
+  }
   function ics({end, title, description}){
     const esc = s => String(s || '').replace(/[\\;,]/gu, m => `\\${m}`).replace(/\r?\n/gu, '\\n');
     const ymd = d => key(d).replace(/-/gu, '');
@@ -130,7 +151,7 @@
     const uid = `${ymd(end)}-${Math.random().toString(36).slice(2, 10)}@wordtoudf`;
     return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//WordToUDF//Sure hesabi//TR', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${stamp}`,
       `DTSTART;VALUE=DATE:${ymd(end)}`, `DTEND;VALUE=DATE:${ymd(addDays(end, 1))}`, `SUMMARY:${esc(title)}`, `DESCRIPTION:${esc(description)}`,
-      'BEGIN:VALARM', 'TRIGGER:-P2D', 'ACTION:DISPLAY', `DESCRIPTION:${esc(title)}`, 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR', ''].join('\r\n');
+      'BEGIN:VALARM', 'TRIGGER:-P2D', 'ACTION:DISPLAY', `DESCRIPTION:${esc(title)}`, 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].map(fold).join('\r\n') + '\r\n';
   }
 
   globalThis.WordToUDFDeadline = {PRESETS, preset, compute, ics, offReason, inRecess, longDate, trDate, holidays, KNOWN_YEARS, ICRA_NOTE};
@@ -138,7 +159,11 @@
   /* ------------------------------ page ------------------------------ */
   if(typeof document === 'undefined' || !document.getElementById('dKind')) return;
   const $ = id => document.getElementById(id);
-  const todayUTC = () => { const p = new Intl.DateTimeFormat('en-CA', {timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date()); return new Date(`${p}T00:00:00Z`); };
+  // formatToParts: the en-CA "YYYY-MM-DD" shape is not guaranteed by every ICU version.
+  const todayUTC = () => {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone: 'Europe/Istanbul', year: 'numeric', month: 'numeric', day: 'numeric'}).formatToParts(new Date()).map(x => [x.type, x.value]));
+    return D(Number(parts.year), Number(parts.month), Number(parts.day));
+  };
   for(const g of PRESETS){ const og = document.createElement('optgroup'); og.label = g.group; for(const p of g.items) og.append(new Option(`${p.label}${p.law ? ` — ${p.amount} ${UNITS[p.unit]} (${p.law})` : ''}`, p.id)); $('dKind').append(og); }
   $('dStart').value = key(todayUTC());
   let last = null;
@@ -155,9 +180,14 @@
   function update(){
     const p = preset($('dKind').value);
     const v = $('dStart').value;
-    if(!/^\d{4}-\d{2}-\d{2}$/u.test(v)){ $('dDate').textContent = '—'; $('dLeft').textContent = ''; $('dSteps').replaceChildren(); $('dWarn').replaceChildren(); last = null; return; }
+    $('dAmount').max = String(MAX[$('dUnit').value] || MAX.gun);
+    // A failed or empty input must not leave the previous result's steps, days left or "late" colour behind.
+    const clear = () => { $('dDate').textContent = '—'; $('dLeft').textContent = ''; $('dSteps').replaceChildren(); $('dWarn').replaceChildren(); $('dWarn').hidden = true; $('dResult').classList.remove('late'); last = null; };
+    if(!/^\d{4}-\d{2}-\d{2}$/u.test(v)){ clear(); say(''); return; }
     try{
-      const r = compute(new Date(`${v}T00:00:00Z`), Number($('dAmount').value), $('dUnit').value, {recess: $('dRecess').checked, saturday: $('dSaturday').checked, today: todayUTC()});
+      const raw = $('dAmount').value.trim();
+      const r = compute(new Date(`${v}T00:00:00Z`), raw === '' ? NaN : Number(raw), $('dUnit').value, {recess: $('dRecess').checked, saturday: $('dSaturday').checked, today: todayUTC(),
+        recessBasis: PRESETS[2].items.includes(p) ? 'İYUK m. 8/3' : 'HMK m. 104'});
       last = {...r, preset: p};
       $('dDate').textContent = longDate(r.end);
       $('dLeft').textContent = r.left > 0 ? `Bugünden itibaren ${r.left} gün kaldı.` : r.left === 0 ? 'Son gün bugün.' : '';
@@ -166,7 +196,7 @@
       $('dWarn').hidden = !r.warnings.length;
       $('dResult').classList.toggle('late', r.left < 0);
       say('');
-    }catch(err){ $('dDate').textContent = '—'; last = null; say(err.message, 'error'); }
+    }catch(err){ clear(); say(err.message, 'error'); }
   }
   const noteText = () => {
     if(!last) return '';
@@ -179,7 +209,7 @@
   for(const id of ['dStart', 'dAmount', 'dUnit', 'dRecess', 'dSaturday']) $(id).addEventListener('input', update);
   for(const id of ['dRecess', 'dSaturday', 'dUnit']) $(id).addEventListener('change', update);
   $('dIcs').addEventListener('click', () => {
-    if(!last){ say('Önce geçerli bir başlangıç tarihi girin.', 'error'); return; }
+    if(!last){ say('Önce geçerli bir başlangıç tarihi ve süre girin.', 'error'); return; }
     const label = $('dLabel').value.trim();
     const title = `Son gün: ${last.preset.id === 'custom' ? 'süre' : last.preset.label}${label ? ` – ${label}` : ''}`;
     const blob = new Blob([ics({end: last.end, title, description: noteText()})], {type: 'text/calendar;charset=utf-8'});
@@ -189,7 +219,7 @@
     say('Takvim dosyası indirildi; açınca son gün iki gün önceden hatırlatmalı olarak takviminize eklenir.', 'success');
   });
   $('dCopy').addEventListener('click', async () => {
-    if(!last){ say('Önce geçerli bir başlangıç tarihi girin.', 'error'); return; }
+    if(!last){ say('Önce geçerli bir başlangıç tarihi ve süre girin.', 'error'); return; }
     try{ await navigator.clipboard.writeText(noteText()); say('Hesap notu panoya kopyalandı.', 'success'); }
     catch{ say('Pano kullanılamadı; notu aşağıdaki adımlardan elle kopyalayın.', 'error'); }
   });

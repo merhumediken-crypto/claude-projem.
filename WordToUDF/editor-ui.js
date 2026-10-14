@@ -47,6 +47,8 @@
     const selected = new Set();       // keys
     const DOC = E().DOC_KEY;
     let multi = false, sheet = null, sentSel = new Set(), sentFor = null, addOpen = false;
+    // Text typed in the panel but not applied yet survives the panel's rebuilds.
+    let textDraft = null; // {key, base, value}
 
     /* ---------- toolbar ---------- */
     const multiBtn = el('button', {type: 'button', class: 'secondary tool-btn', 'aria-pressed': 'false', text: 'Çoklu seçim', title: 'Birden çok paragrafı seçip birlikte düzenleyin (masaüstünde Ctrl/Shift + tıklama da olur)'});
@@ -105,7 +107,11 @@
       redoBtn.disabled = !future.length;
       resetBtn.disabled = !edits.size;
       resetBtn.textContent = edits.size ? `Düzenlemeleri sıfırla (${edits.size})` : 'Düzenlemeleri sıfırla';
-      for(const p of paper.querySelectorAll('.paragraph[data-key]')) p.classList.toggle('selected', selected.has(p.dataset.key));
+      for(const p of paper.querySelectorAll('.paragraph[data-key]')){
+        p.classList.toggle('selected', selected.has(p.dataset.key));
+        // Keyboard: Tab reaches each paragraph, Enter / Space opens its panel.
+        if(on){ p.tabIndex = 0; p.setAttribute('aria-keyshortcuts', 'Enter'); } else { p.removeAttribute('tabindex'); p.removeAttribute('aria-keyshortcuts'); }
+      }
       bar.hidden = !on || !(multi || selected.size > 1);
       bar.querySelector('.select-count').textContent = selected.size ? `${selected.size} paragraf seçili` : 'Paragraf seçin';
       bar.querySelector('.primary-btn').disabled = !selected.size;
@@ -144,9 +150,13 @@
       snapshot();
       if(all){
         const d = E().sanitizeDoc(edits.get(DOC));
-        const prev = (d.marks || []).find(m => m.text === text);
+        // A selection on word boundaries formats that word only, never the
+        // same letters inside other words ("Ali" not in "talimat").
+        const W = /[\p{L}\p{N}]/u;
+        const ww = !W.test(body[start - 1] || '') && !W.test(body[end] || '') && W.test(text[0]) && W.test(text.at(-1));
+        const prev = (d.marks || []).find(m => m.text === text && !!m.wholeWord === ww && !m.caseSensitive);
         const marks = (d.marks || []).filter(m => m !== prev);
-        marks.push({...(prev || {}), text, ...p});
+        marks.push({...(prev || {}), text, ...(ww ? {wholeWord: true} : {}), ...p});
         edits.set(DOC, E().sanitizeDoc({...d, marks}));
         changed(`Belgedeki her “${clip(text)}” ${styleName(p)} yapıldı.`);
       } else {
@@ -209,11 +219,19 @@
       const range = sel.getRangeAt(0);
       const para = n => (n.nodeType === 1 ? n : n.parentElement)?.closest?.('.paragraph[data-key]');
       const p = para(range.startContainer);
-      if(!p || p !== para(range.endContainer) || !paper.contains(p)) return null;
+      if(!p || !paper.contains(p)) return null;
       const key = p.dataset.key, b = blockFor(key); if(!b) return null;
       const base = E().markerLength(b), body = E().bodyText(b);
       let start = Math.max(0, offsetIn(p, range.startContainer, range.startOffset) - base);
-      let end = Math.min(body.length, offsetIn(p, range.endContainer, range.endOffset) - base);
+      let end;
+      if(p === para(range.endContainer)) end = Math.min(body.length, offsetIn(p, range.endContainer, range.endOffset) - base);
+      else{
+        // A triple click selects the paragraph up to the start of the next one: clamp to this paragraph's end.
+        const r2 = document.createRange(); r2.selectNodeContents(p); r2.collapse(false);
+        const tail = document.createRange(); tail.setStart(r2.endContainer, r2.endOffset); tail.setEnd(range.endContainer, range.endOffset);
+        if(tail.toString().replace(/\s/gu, '')) return null;
+        end = body.length;
+      }
       while(start < end && /\s/u.test(body[start])) start++;
       while(end > start && /\s/u.test(body[end - 1])) end--;
       return end > start ? {key, start, end, text: body.slice(start, end)} : null;
@@ -295,8 +313,9 @@
     /* ---------- find / replace (whole document) ---------- */
     function buildFindBox(){
       const box = el('div', {class: 'find-box', role: 'search', 'aria-label': 'Bul ve değiştir', hidden: true});
-      const q = el('input', {type: 'search', class: 'find-in', placeholder: 'Bul', 'aria-label': 'Aranacak metin', autocomplete: 'off', spellcheck: 'false'});
-      const to = el('input', {type: 'text', class: 'find-to', placeholder: 'Yerine (isteğe bağlı)', 'aria-label': 'Yerine yazılacak metin', autocomplete: 'off', spellcheck: 'false'});
+      // Lengths match what a stored rule keeps (edits.sanitizeDoc).
+      const q = el('input', {type: 'search', class: 'find-in', placeholder: 'Bul', 'aria-label': 'Aranacak metin', autocomplete: 'off', spellcheck: 'false', maxlength: '500'});
+      const to = el('input', {type: 'text', class: 'find-to', placeholder: 'Yerine (isteğe bağlı)', 'aria-label': 'Yerine yazılacak metin', autocomplete: 'off', spellcheck: 'false', maxlength: '2000'});
       const cs = el('input', {type: 'checkbox', class: 'find-case'}), ww = el('input', {type: 'checkbox', class: 'find-word'});
       const count = el('span', {class: 'find-count', 'aria-live': 'polite'});
       const rules = el('ul', {class: 'rule-list', 'aria-label': 'Belge geneli kurallar'});
@@ -355,8 +374,8 @@
         ...(doc.cleanups || []).map((id, i) => row(E().CLEANUPS[id].label, () => dropRule('cleanups', i))));
       list.hidden = !list.children.length;
     }
-    function setDoc(next, msg){
-      snapshot();
+    function setDoc(next, msg, snap = true){
+      if(snap) snapshot();
       const d = E().sanitizeDoc(next);
       if(Object.keys(d).length) edits.set(DOC, d); else edits.delete(DOC);
       changed(msg);
@@ -364,8 +383,23 @@
     }
     function dropRule(kind, i){
       const d = E().sanitizeDoc(edits.get(DOC));
+      const rule = d[kind]?.[i];
       d[kind] = (d[kind] || []).filter((_, j) => j !== i);
-      setDoc(d, 'Kural kaldırıldı.');
+      // "Tümünü değiştir" also rewrote the user's own typed / added paragraphs:
+      // removing the rule puts their text back too (when it can be found).
+      let mine = 0;
+      snapshot(); // one undo step for the rule and the user's text together
+      if(kind === 'replace' && rule?.to){
+        for(const [k, e] of [...edits]){
+          if(k === DOC) continue;
+          const back = t => { const n = String(t).split(rule.to).length - 1; mine += n; return n ? String(t).split(rule.to).join(rule.from) : t; };
+          const ne = {...e};
+          if(typeof e.text === 'string') ne.text = back(e.text);
+          if(e.addAfter) ne.addAfter = e.addAfter.map(it => ({...it, text: back(it.text)}));
+          edits.set(k, E().sanitize(ne));
+        }
+      }
+      setDoc(d, kind === 'replace' && rule && !rule.to ? 'Kural kaldırıldı. Kendi yazdığınız paragraflardaki silme geri getirilemez; gerekirse "Geri al"ı kullanın.' : `Kural kaldırıldı${mine ? ` (kendi yazdığınız metinlerde ${mine} yerde de geri alındı)` : ''}.`, false);
     }
     // One string → all matches replaced (used for the user's own typed text).
     function replaceIn(text, from, to, opts){
@@ -413,7 +447,13 @@
     }
 
     /* ---------- sheet ---------- */
-    function closeSheet(){ sheet?.remove(); sheet = null; addOpen = false; document.body.classList.remove('sheet-open'); if(!multi) { selected.clear(); decorate(); } }
+    function closeSheet(){
+      const back = sheet && sheet.contains(document.activeElement) ? keys()[0] : null;
+      sheet?.remove(); sheet = null; addOpen = false; textDraft = null; document.body.classList.remove('sheet-open');
+      if(!multi){ selected.clear(); decorate(); }
+      // Keyboard users continue from the paragraph they edited.
+      if(back) paper.querySelector(`.paragraph[data-key="${CSS.escape(back)}"]`)?.focus({preventScroll: true});
+    }
     // Every control carries a stable data-ctl so focus survives a rebuild.
     function chip(label, active, onclick, extra = {}){ return el('button', {type: 'button', class: 'chip' + (active ? ' on' : ''), 'aria-pressed': String(!!active), text: label, onclick, 'data-ctl': label, ...extra}); }
     function select(label, values, current, unit, onchange){
@@ -455,9 +495,13 @@
       const {i, n} = placeOf(key);
       if(i < 0) return;
       if((step < 0 && i === 0) || (step > 0 && i === n - 1)){ onMessage(step < 0 ? 'Paragraf zaten en üstte.' : 'Paragraf zaten en altta.'); return; }
-      const cur = edits.get(key)?.move || 0;
+      // Stored as "just above / below that paragraph" in the order made, so
+      // later moves and deletions do not change where this one landed.
+      const list = (getBlocks() || []).filter(b => b.kind === 'paragraph' && b.editKey);
+      const target = list[i + step]?.editKey; if(!target) return;
+      const seq = Math.max(0, ...[...edits.values()].map(e => e?.move?.seq || 0)) + 1;
       selected.clear(); selected.add(key);
-      update({move: cur + step || null}, step < 0 ? 'Paragraf bir sıra yukarı taşındı.' : 'Paragraf bir sıra aşağı taşındı.');
+      update({move: step < 0 ? {before: target, seq} : {after: target, seq}}, step < 0 ? 'Paragraf bir sıra yukarı taşındı.' : 'Paragraf bir sıra aşağı taşındı.');
       reveal();
     }
     function addParagraph(key, text, role){
@@ -515,7 +559,12 @@
       // Words and sentences (single paragraph)
       let ta = null;
       if(one){
-        ta = el('textarea', {class: 'sheet-text', rows: '4', 'aria-label': 'Paragraf metni', 'data-ctl': 'text'}); ta.value = ed.text ?? st.text;
+        // The text as shown (tidy-ups included); an unapplied draft for the same paragraph is kept.
+        ta = el('textarea', {class: 'sheet-text', rows: '4', 'aria-label': 'Paragraf metni', 'data-ctl': 'text'});
+        const prevTa = textDraft?.key === ks[0] ? textDraft : null;
+        ta.value = prevTa && prevTa.value !== prevTa.base ? prevTa.value : st.text;
+        textDraft = {key: ks[0], base: st.text, value: ta.value};
+        ta.addEventListener('input', () => { if(textDraft) textDraft.value = ta.value; });
         body.append(marksSection(ks[0], first, ed, () => ta));
       }
       // Indents and spacing
@@ -531,8 +580,8 @@
         body.append(section('Metin',
           ta,
           el('p', {class: 'note small', text: 'Değiştirmediğiniz kısımların kalın/italik biçimi korunur; kanun ve karar atıfları yeniden biçimlenir. Bir sözcüğü bu kutuda seçip yukarıdaki K / İ / A / S düğmeleriyle de biçimleyebilirsiniz.'}),
-          el('div', {class: 'row'}, el('button', {type: 'button', class: 'tool-btn primary-btn', text: 'Metni uygula', 'data-ctl': 'apply-text', onclick: () => { if(ta.value.trim()) update({text: ta.value.trim()}, 'Paragraf metni güncellendi.'); }}),
-            ed.text !== undefined ? el('button', {type: 'button', class: 'secondary tool-btn', text: 'Özgün metne dön', onclick: () => update({text: null}, 'Özgün metin geri yüklendi.')}) : null)));
+          el('div', {class: 'row'}, el('button', {type: 'button', class: 'tool-btn primary-btn', text: 'Metni uygula', 'data-ctl': 'apply-text', onclick: () => { if(ta.value.trim()){ textDraft = null; update({text: ta.value.trim()}, 'Paragraf metni güncellendi.'); } }}),
+            ed.text !== undefined ? el('button', {type: 'button', class: 'secondary tool-btn', text: 'Özgün metne dön', onclick: () => { textDraft = null; update({text: null}, 'Özgün metin geri yüklendi.'); }}) : null)));
       }
       // Actions
       const flag = (f, label, msg, extra = {}) => chip(label, !!common(f), () => update({[f]: !common(f) || null}, common(f) ? `${label}: kaldırıldı.` : msg), extra);
@@ -625,8 +674,9 @@
     /* ---------- events ---------- */
     paper.addEventListener('click', ev => {
       if(!enabled()) return;
-      // Finishing a text selection is not a paragraph tap.
-      if(readSelection()) return;
+      // Finishing a text selection (also the 2nd / 3rd click of a double or
+      // triple click) is not a paragraph tap.
+      if(readSelection() || ev.detail > 1) return;
       const p = ev.target.closest('.paragraph[data-key]');
       if(!p) return;
       const key = p.dataset.key, additive = multi || ev.ctrlKey || ev.metaKey || ev.shiftKey;
@@ -638,12 +688,21 @@
       }
       selected.clear(); selected.add(key); decorate(); openSheet();
     });
+    paper.addEventListener('keydown', ev => {
+      if(!enabled() || (ev.key !== 'Enter' && ev.key !== ' ')) return;
+      const p = ev.target.closest?.('.paragraph[data-key]'); if(!p || ev.target !== p) return;
+      ev.preventDefault();
+      const key = p.dataset.key;
+      if(multi || ev.shiftKey){ if(selected.has(key)) selected.delete(key); else selected.add(key); decorate(); if(sheet) refreshSheet(); return; }
+      selected.clear(); selected.add(key); decorate(); openSheet();
+    });
     document.addEventListener('keydown', ev => {
       if(ev.key === 'Escape' && !pop.hidden){ hidePop(); window.getSelection()?.removeAllRanges(); return; }
       if(ev.key === 'Escape' && sheet){ closeSheet(); return; }
       if(ev.key === 'Escape' && !findBox.hidden && findBox.contains(document.activeElement)){ toggleFind(false); findBtn.focus(); return; }
       if(!(ev.ctrlKey || ev.metaKey) || ev.altKey) return;
-      const k = ev.key.toLocaleLowerCase('en-US');
+      // Turkish Q keyboards give "ı" for the I key: Ctrl+I is italic there too.
+      const k = ev.key.toLocaleLowerCase('en-US').replace('ı', 'i');
       const act = document.activeElement;
       if(k === 'f' && enabled() && !ev.shiftKey){ ev.preventDefault(); toggleFind(true); return; }
       // Ctrl+B / I / U: a selection in the preview, or in the panel's text box.

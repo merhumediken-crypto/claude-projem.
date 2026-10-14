@@ -32,11 +32,13 @@
   function userTemplate(id){
     const u = Lib.templates().find(t => `u:${t.id}` === id);
     if(!u) return null;
-    const own = Lib.placeholders(u).filter(p => !p.standard);
+    const all = Lib.placeholders(u), own = all.filter(p => !p.standard);
+    // Values by placeholder (any spelling: {MUVEKKIL} is {MÜVEKKİL}).
     const values = f => {
-      const v = {MAHKEME: $('court').value, 'ESAS NO': $('caseNo').value, MÜVEKKİL: $('client').value, 'KARŞI TARAF': $('other').value,
-        'KARŞI TARAF VEKİLİ': $('otherAttorney').value, TARİH: L.todayTR(), VEKİL: settings.ownAttorney.name};
-      own.forEach((p, i) => { v[p.key] = f[`ph${i}`] ?? ''; });
+      const std = {court: $('court').value, caseNo: $('caseNo').value, client: $('client').value, other: $('other').value,
+        otherAttorney: $('otherAttorney').value, today: L.todayTR(), attorney: settings.ownAttorney.name};
+      const v = {};
+      for(const p of all) v[p.key] = p.standard ? std[p.standard] : f[`ph${own.indexOf(p)}`] ?? '';
       return v;
     };
     const lines = t => t ? t.split(/\n/u).map(x => x.trim()).filter(Boolean) : [];
@@ -47,9 +49,12 @@
   }
   const current = () => userTemplate($('tpl').value) || T.byId($('tpl').value);
   for(const r of T.ROLES) $('role').add(new Option(r, r));
-  $('attorneyNote').textContent = settings.ownAttorney.name
-    ? `Vekil: ${settings.ownAttorney.name}${settings.ownAttorney.uets ? ` (UETS: ${settings.ownAttorney.uets})` : ' (UETS kayıtlı değil)'} — Word → UDF sayfasındaki ayarlardan değiştirilebilir.`
-    : 'Vekil adı ayarlarda boş; Word → UDF sayfasındaki ayarlardan ekleyin.';
+  function showAttorney(){
+    $('attorneyNote').textContent = settings.ownAttorney.name
+      ? `Vekil: ${settings.ownAttorney.name}${settings.ownAttorney.uets ? ` (UETS: ${settings.ownAttorney.uets})` : ' (UETS kayıtlı değil)'} — Word → UDF sayfasındaki ayarlardan değiştirilebilir.`
+      : 'Vekil adı ayarlarda boş; Word → UDF sayfasındaki ayarlardan ekleyin.';
+  }
+  showAttorney();
 
   // Template-specific inputs.
   function extraValues(){
@@ -109,8 +114,13 @@
     return o;
   }
   // A typed "1. " / "2) " number is removed (the list numbers itself), but only
-  // when followed by a space: "20.10.2026 tarihli …" starts with a date.
-  const lines = id => $(id).value.split(/\r?\n/u).map(s => s.replace(/^\s*\d{1,2}\s*[.)-](?=\s)\s*/u, '').trim()).filter(Boolean);
+  // when followed by a space and only when it is the line's own position:
+  // "20.10.2026 tarihli …" starts with a date and "3. kişilerdeki …" as the
+  // first request is an ordinal, not a list number.
+  const lines = id => $(id).value.split(/\r?\n/u).map(s => s.trim()).filter(Boolean).map((s, i) => {
+    const m = /^(\d{1,2})\s*[.)-](?=\s)\s*/u.exec(s);
+    return m && Number(m[1]) === i + 1 ? s.slice(m[0].length).trim() : s;
+  }).filter(Boolean);
   function build(){
     const common = Object.fromEntries(COMMON.map(k => [k, $(k).value]));
     const role = common.role;
@@ -165,9 +175,12 @@
   else regenerate(true);
 
   function useTemplate(){
-    const u = current().user;
-    // A user template remembers which side the client was on.
-    if(u?.role && T.ROLES.includes(u.role)){ $('role').value = u.role; $('otherRole').value = u.otherRole || T.OPPOSITE[u.role] || $('otherRole').value; }
+    const t = current(), u = t.user;
+    // A user template remembers which side the client was on; a one-sided
+    // built-in one (ıslah, feragat: davacı; ihtiyati haciz: alacaklı) sets it.
+    const role = u ? u.role : t.role;
+    if(role && T.ROLES.includes(role)){ $('role').value = role; $('otherRole').value = (u && u.otherRole) || T.OPPOSITE[role] || $('otherRole').value; }
+    disarmDelete();
     editor.reset(); buildFields(); edited = false; regenerate(true);
   }
   $('tpl').addEventListener('change', useTemplate);
@@ -176,16 +189,38 @@
     const title = $('tplName').value.trim();
     if(!title){ message('Şablona bir ad verin.', 'error'); $('tplName').focus(); return; }
     const info = Object.fromEntries(COMMON.map(k => [k, $(k).value]));
-    const g = id => Lib.generalize($(id).value, info);
+    const u = current().user;
+    let parts, note = '';
+    if(u && !edited){
+      // An own template's text was not touched: keep its {PLACEHOLDERS} exactly
+      // (re-generalising the filled text would bake today's values in).
+      parts = {topic: u.topic, body: u.body, requests: u.requests, closing: u.closing, attachments: u.attachments};
+    }else{
+      // Edited text: the filled values go back to their own placeholders.
+      const more = [], extra = rawExtra(), empty = [];
+      if(u){
+        const all = Lib.placeholders(u), own = all.filter(p => !p.standard);
+        for(const p of all){
+          const v = String(p.standard === 'today' ? L.todayTR() : p.standard === 'attorney' ? settings.ownAttorney.name
+            : p.standard ? info[p.standard] ?? '' : extra[`ph${own.indexOf(p)}`] ?? '').trim();
+          // An empty field shows as "…" in the text; a filled one goes back to its placeholder.
+          if(v) more.push([v, p.label]); else empty.push(p.label);
+        }
+      }
+      const g = v => { let out = Lib.generalize(v, info, more); if(empty.length === 1) out = out.split('…').join(`{${empty[0]}}`); return out; };
+      parts = {topic: g($('topic').value), body: g($('body').value), requests: lines('requests').map(g).join('\n'), closing: g($('closing').value), attachments: lines('attachments').map(g).join('\n')};
+      if(empty.length > 1) note = ` Boş bırakılan ${empty.length} alan metinde “…” olarak kaldı; şablonu kullanmadan önce bunları {ALAN ADI} biçiminde yazın.`;
+    }
     try{
-      const tpl = Lib.saveTemplate({title, role: $('role').value, otherRole: $('otherRole').value, topic: g('topic'), body: g('body'),
-        requests: lines('requests').map(x => Lib.generalize(x, info)).join('\n'), closing: g('closing'), attachments: lines('attachments').map(x => Lib.generalize(x, info)).join('\n')});
+      const tpl = Lib.saveTemplate({title, role: $('role').value, otherRole: $('otherRole').value, ...parts});
       // Continue with the saved template: its fields fill the text from now on.
       fillTemplateSelect(`u:${tpl.id}`); buildFields(); $('tplName').value = ''; edited = false; regenerate(true);
-      message(`“${tpl.title}” kendi şablonlarınıza kaydedildi.`, 'success');
+      message(`“${tpl.title}” kendi şablonlarınıza kaydedildi.${note}`, note ? 'error' : 'success');
     }catch(err){ message(err.message, 'error'); }
   });
   let delArmed = 0;
+  // Switching templates cancels a pending "press again to delete".
+  function disarmDelete(){ clearTimeout(delArmed); delArmed = 0; $('tplDelete').textContent = 'Bu şablonu sil'; }
   $('tplDelete').addEventListener('click', () => {
     const u = current().user; if(!u) return;
     if(!delArmed){ delArmed = setTimeout(() => { delArmed = 0; $('tplDelete').textContent = 'Bu şablonu sil'; }, 4000); $('tplDelete').textContent = 'Silmek için tekrar basın'; return; }
@@ -215,7 +250,19 @@
   }
   function showFileName(){ $('fileNamePreview').textContent = `→ ${fileBase()}.udf`; }
   $('fileNamePattern').value = settings.fileName || '';
-  $('fileNamePattern').addEventListener('input', () => { settings.fileName = $('fileNamePattern').value; S.save(settings); showFileName(); });
+  // Only the file name is written, onto the latest stored settings (another tab may have changed the attorney).
+  $('fileNamePattern').addEventListener('input', () => {
+    const cur = S.load(); cur.fileName = $('fileNamePattern').value; settings.fileName = cur.fileName;
+    if(!S.save(cur)) message('Dosya adı kalıbı bu tarayıcıda saklanamadı (depolama kapalı veya dolu); bu oturumda geçerli.', 'error');
+    showFileName();
+  });
+  // Settings changed on the converter page (attorney, UETS, file name): follow them here.
+  window.addEventListener('storage', e => {
+    if(e.key !== S.KEY) return;
+    Object.assign(settings, S.load()); showAttorney();
+    if(document.activeElement !== $('fileNamePattern')) $('fileNamePattern').value = settings.fileName || '';
+    schedule();
+  });
   $('printPdf').addEventListener('click', () => {
     render(); const t = state.result; if(!t) return;
     try{

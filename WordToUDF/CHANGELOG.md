@@ -2,6 +2,65 @@
 
 WordToUDF'nin bütün sürümleri, yeniden eskiye. Kullanım kılavuzu: [README.md](README.md).
 
+## 1.10.1 — Ayrıntılı denetim: hatalar giderildi
+
+1.8–1.10'da eklenen her özellik tek tek denetlendi: dört alanda kod incelemesi; gerçek güvenlik kuralı (CSP) açıkken bütün sayfalarda ve düğmelerde masaüstü, telefon, 340 px dar ekran ve koyu temada tarayıcı taraması (sayfa hatası, konsol hatası, CSP ihlali, taşma, kontrast, dokunma hedefi); uç girdiler ve tohumlu zorlama testi. Bulunan her hata yeniden üretildi, düzeltildi ve teste bağlandı.
+
+### Düzenleyici (önizlemede düzenleme)
+- **Talep numarası metne karışıyordu:** yapıştırılan taleplerde bir sözcük biçimlenince ya da metin değişince `2.` numarası metnin parçası oluyor, madde silinince numaralar “2., 2.” kalıyordu. Numara artık hiçbir işlemde metinle birleşmez.
+- **Taşımalar birbirini bozuyordu:** “C yukarı, sonra B yukarı” A B C D yerine B C A D veriyordu; bir taşımadan sonra yapılan silme taşımayı kaydırıyordu. Taşıma artık “şu paragrafın üstüne / altına” olarak, yapıldığı sırayla uygulanır.
+- Taşınan paragrafın altına eklenen paragraf eski yerde kalıyordu; artık onunla gider.
+- **Sonrakiyle birleştir**, sonraki paragrafın düzenlenmiş metnini ve biçimlerini kullanır; silinmiş paragrafı geri getirmez, onun altına eklenenleri kaybetmez.
+- Düzeltmeler (tarih, tutar, boşluk) artık biçimlendirmeden ve bul / değiştirden **önce** uygulanır: düzeltilmiş “14.10.2026” biçimlenebilir, aranabilir.
+- “Tüm belgede” ile biçimlenen sözcük yalnız tam sözcük olarak biçimlenir (“Ali” artık “t**ali**mat”ı, “H**ali**l”i etkilemez).
+- Panelde yazılıp henüz uygulanmamış metin, başka bir düğmeye basınca kaybolmaz.
+- Bir değiştirme kuralı kaldırılınca, kendi yazdığınız paragraflardaki değişiklik de geri alınır.
+- Paragrafa üç kez tıklayınca biçim çubuğu açılır (panel açılmaz); tek tıkla panel kısa bir gecikmeyle açılır ki çift / üç tık seçimi bozulmasın.
+- Türkçe Q klavyede **Ctrl+I** (ı tuşu) italik yapar.
+- “Word biçimini koru” profilinde elle metin değişikliği kanun atıflarını italik yapmaz.
+- Otomatik listede a), b) maddelerinin “Sol girinti” ayarı ikinci düzeyden hesaplanır.
+- Deneysel vurgu, ayardan kapatılınca UDF / Word / PDF çıktısına yazılmaz.
+- **Klavye erişimi:** paragraflara Tab ile gelinir, Enter / Boşluk paneli açar, Escape kapatır ve odak paragrafa döner; dosya seçme düğmelerinde odak halkası görünür.
+
+### Dosya kartları, kendi şablonlar, ayarlar
+- **Kendi şablonunu aynı adla yeniden kaydetmek** doldurulan değerleri ({ALACAK TUTARI} yerine “10.000”, {TARİH} yerine bugünün tarihi) kalıcı yapıyordu; artık alanlar korunur, düzenlenmiş metinde değerler kendi alanlarına döner.
+- **Ayarları içe aktar** WordToUDF'ye ait olmayan bir JSON dosyasını kabul edip vekil adını ve UETS'yi varsayılana döndürüyordu; artık reddedilir.
+- Büyüyen kütüphaneyle kendi yedeğiniz içe aktarılamıyordu (256 KB sınırı); sınır 8 MB.
+- Eski bir yedek, bu tarayıcıdaki daha yeni dosya kartının / şablonun üzerine yazmaz; yedeğin tarihleri korunur.
+- 100. şablondan sonra alfabede ilk şablon sessizce siliniyordu; sınırda artık yeni kayıt reddedilir, hiçbir kayıt kendiliğinden silinmez (300 kart için de aynı).
+- Ayarlar içe aktarılınca yapıştırılmış dilekçe de yeni vekille yeniden kurulur.
+- Yapıştırma formundaki dosya kartı, yapıştırılan metindeki bilgileri de alır; kayıtlı kartın karşı taraf vekili ve notu silinmez.
+- Dilekçeden şablon kaydederken HUKUKİ SEBEPLER ve DELİLLER kaybolmuyor; AÇIKLAMALAR bulunamazsa uyarılır.
+- Adlar alana çevrilirken büyük / küçük harf farkı tanınır, sözcük içinde değiştirme yapılmaz (“Ali” → “Alikaya” bozulmaz).
+- Mahkeme adındaki “-NE” eki kesme işareti olmadan da atılır; “2026/1929 Esas”, “2026/1929 E.” ve “2026/1929” aynı dosya sayılır (çift kart oluşmaz).
+- Kendi vekil satırı bir tarafa bağlanamıyorsa müvekkil uydurulmaz (karşı taraf müvekkil sanılmıyordu artık); “İHTİYATİ TEDBİRE İTİRAZ EDEN” gibi üç sözcüklü sıfatlar taraf satırı olarak tanınır.
+- {TARIH}, {MUVEKKIL}, {iban} gibi farklı yazımlar aynı alan sayılır; dosya adı kalıbında {muvekkil} de çalışır, boş alan yanındaki ayırıcıyla birlikte düşer.
+- Islah ve feragat şablonları **davacı**, ihtiyati haciz **alacaklı** tarafıyla açılır.
+- Taleplerde “3. kişilerdeki …” gibi sıra sayıları liste numarası sanılıp silinmez.
+- Şablon silme onayı başka şablona geçince sıfırlanır; ayarlar başka sekmede değişince sayfa güncellenir ve üzerine eski ayar yazılmaz; ayar kaydedilemezse (depolama dolu) bildirilir.
+- **Yerel verileri sil:** dosya kartları, kendi şablonlar ve şablon taslağı tek düğmeyle (iki basış) silinir; gizlilik metinleri neyin saklandığını tam olarak yazar.
+
+### Süre hesabı
+- **31 Ağustos hafta sonuna denk gelen yıllarda adli tatil uzatması kaçıyordu:** ör. 16.08.2025 + 2 hafta → 30 Ağustos (Zafer Bayramı) → 1 Eylül değil, **8 Eylül 2025**. Son gün tatile rastlıyorsa, bayram ve hafta sonu ertelemesi tatil dışına çıkarsa da süre uzar.
+- Geçersiz miktarda eski sonucun adımları ve “… gün kaldı” yazısı ekranda kalıyordu; artık temizlenir.
+- Süre birime göre sınırlı (en çok 3650 gün / 520 hafta / 120 ay / 10 yıl), kesirli süre sessizce kesilmez, başlangıç yılı 1950–2100.
+- İdari yargı sürelerinde uzatmanın dayanağı İYUK m. 8/3 olarak yazılır; bilinmeyen yıl uyarısı yalnız son günün yılı için çıkar.
+- Takvim dosyası (.ics) satırları standarda göre 75 baytta katlanır.
+
+### Word, PDF, düzeltmeler
+- Word şablonunda tanımlı ama **kullanılmayan** üst simge stili, indirme onayı isteyen yanlış bir uyarı çıkarıyordu; artık yalnız metinde gerçekten kullanılan biçimler uyarı verir (`none`, `auto`, `baseline`, sıfır aralık da sayılmaz).
+- Tutar düzeltmesi: parantez içindeki tutara (“(1.000 TL)”) ve “on bin Türk lirası (10.000 TL)” gibi zaten yazılmış tutara ikinci kez eklemez; “1 000 TL” artık “sıfır Türk lirası” olmaz; “0,50 TL” → “elli kuruş”; “10.000 Türk Lirası” ve “₺500” tanınır; eklenen kısım tutarın biçimini değiştirmez.
+- Virgülden sonra boşluk düzeltmesi web ve e-posta adreslerini bozmaz; “12/05/2024-15/05/2024” gibi tarih aralıkları da düzeltilir.
+- PDF'te deneysel vurgu, “Arka plan grafikleri” kapalı olsa da basılır.
+- Word çıktısında biçim öğeleri OOXML şema sırasında yazılır.
+
+### Görünüm ve paket
+- Telefonda boşluksuz çok uzun bir metin (yanlış yazılmış esas no, adres) sayfayı yana taşırıyor ve düğmeler basılamıyordu; artık satır kırılır.
+- Küçük açıklama yazılarının kontrastı (2,9 → 5,3) ve koyu temada açılır pencere yazısı yükseltildi; sayı ve arama kutuları diğer kutularla aynı boyutta.
+- Açılır pencere 14 şablon yazar; web uygulaması için 192 ve 512 px simgeler eklendi.
+- **Paket izin listesiyle** oluşturulur: klasöre bırakılmış bir müvekkil belgesi sürüm ZIP'ine girmez.
+- README: güncellemede verilerin kaybolmaması için aynı klasörün üzerine kopyalama ve “Dışa aktar” yedeği anlatıldı.
+
 ## 1.10.0 — Süre hesabı, PDF, sayfa ve değişiklik görünümü, yeni şablonlar
 
 ### Süre hesapla (yeni sayfa)

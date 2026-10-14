@@ -1,4 +1,4 @@
-# WordToUDF 1.10.0 – Mimari
+# WordToUDF 1.10.1 – Mimari
 
 ## Dönüşüm hattı
 
@@ -68,7 +68,7 @@ preview.js: ortak A4 önizleme (workspace.html, templates.html)
 - **checks.js** — son blok modelini okur, hiçbir şeyi değiştirmez; `{level, code, message}` listesi döndürür.
 - **pipeline.js** — `typeset()`, `toUdf()` (yaz → doğrula → zip → aç → yeniden doğrula), `batch()` (hatalı dosya diğerlerini durdurmaz).
 - **templates.js** — form alanlarından *kaynak paragraflar* üretir; bunlar Word'den gelen paragraflarla aynı hattan geçer. Boş alan `…` olarak kalır.
-- **sw.js / app.webmanifest / index.html** — yalnız web uygulaması (PWA) kipinde; yalnız kendi kaynağındaki dosyaları önbelleğe alır.
+- **sw.js / app.webmanifest** — yalnız web uygulaması (PWA) kipinde; yalnız kendi kaynağındaki dosyaları önbelleğe alır. **index.html** tanıtım/giriş sayfasıdır; hem uzantıda hem web uygulamasında bulunur, üst çubuktaki marka bağlantısı ona gider.
 
 ### Test katmanları
 
@@ -83,13 +83,13 @@ preview.js: ortak A4 önizleme (workspace.html, templates.html)
 ## 1.7.0 — arayüz katmanı
 
 ```
-tools/pages.py ─► workspace.html · templates.html · reverse.html · index.html
+tools/pages.py ─► workspace.html · templates.html · reverse.html · sure.html · index.html
    ├ tools/pages/sprite.svg          (ortak SVG simge seti)
    ├ tools/pages/<sayfa>.body.html   (sayfaya özgü gövde)
    └ ortak <head> (CSP, workspace.css, theme.js) + üst çubuk + sürüm (manifest.json)
 ```
 
-- **tools/pages.py** — dört sayfanın başlığını, üst çubuğunu ve simge setini tek kaynaktan üretir; satır içi stil/betik bulursa durur. Üretilen HTML elle düzenlenmez.
+- **tools/pages.py** — beş sayfanın başlığını, üst çubuğunu ve simge setini tek kaynaktan üretir; satır içi stil/betik bulursa durur. Üretilen HTML elle düzenlenmez.
 - **workspace.css** — tasarım sistemi: renk/boşluk/gölge belirteçleri (açık ve koyu), bileşenler (kart, düğme, form, sekme, rozet, önizleme, düzenleme paneli), telefon düzeni, erişilebilirlik. Adım numaraları CSS sayacıyla görünen kartlardan üretilir. Dilekçe kâğıdı (`.paper`) her temada beyazdır.
 - **theme.js** — `<head>` içinde, ilk boyamadan önce `data-theme` uygular (yanıp sönme olmaz); üst çubuktaki düğme Otomatik → Açık → Koyu döngüsünü yapar.
 - **Konum koruma** — `workspace.js` `holdPosition()`: yeniden çizimden önce değiştirilen kontrolün (yoksa kartının) ekrandaki yerini ölçer, sonra farkı kaydırarak geri verir; üstteki rapor/denetim listeleri yeniden kurulsa da kontrol yerinde kalır. `editor-ui.js` düzenleme panelini yeniden kurarken panelin kaydırma konumunu ve odaktaki düğmeyi (`data-ctl` anahtarıyla) korur.
@@ -116,4 +116,15 @@ tools/pages.py ─► workspace.html · templates.html · reverse.html · index.
 - **print.js** — son blok modelini ekran dışındaki `#docPrint` yüzeyine yazdırılabilir genişlikte yeniden çizer (sekme durakları önizlemedeki gibi ölçülür), `@page` boyutu ve kenar boşluklarını oluşturulmuş bir stil sayfasıyla (`adoptedStyleSheets`, satır içi stil yok) verir, `body.print-doc` iken yalnız bu yüzey yazdırılır; `afterprint` ile her şey eski hâline döner.
 - **preview.js** — `render()` artık `paginate()` sonucunu döndürür: kesik çizgi sayfa kılavuzları (mutlak konumlu, paragraf akışına girmez), sayfa sayısı, imzanın yalnız kalması. `markChanges()` çıktıdaki sözcükleri kaynak sözcük havuzuyla (büyük/küçük harf duyarlı) karşılaştırıp yalnız DOM'da `<mark class="chg">` ile işaretler; biçim çubuğunun ofset eşlemesi Range / TreeWalker ile yapıldığından bu işaretlerden etkilenmez.
 - **edits.js** — `amounts` düzeltmesi (`numberWords()`, `amountWords()`; TDK'ye göre ayrı yazım) ve isteğe bağlı `highlight` biçimi; **udf.js** vurguyu `background`, **docx-writer.js** `w:highlight` olarak yazar.
-- **pipeline.js** `fileName()` — dosya adı kalıbı; boş kalan alanlar kaynak adına düşer.
+- **pipeline.js** `fileName()` — dosya adı kalıbı; alan adları her klavyeyle yazılabilir ({muvekkil} = {MÜVEKKİL}); boş kalan bir alan yanındaki ayırıcıyla birlikte düşer, **bütün** alanlar boşsa ad kaynak / şablon adına düşer. `safeName()` Windows'un ayrılmış adlarını (CON, NUL…) ve yarım emojiyi önler.
+
+## 1.10.1 — denetim sonrası model değişiklikleri
+
+- **Taşıma** artık göreli sıra (`move: -1`) değil, ekrandaki sıraya göre bir çapadır: `move: {before|after: <anahtar>, seq}`. `moveUnits` taşımaları `seq` sırasıyla (yapıldıkları sırayla) uygular; silinmiş bir paragrafın birimi boş da olsa yerini korur, böylece sonraki silmeler önceki taşımayı kaydırmaz. Kendi taşıması olmayan eklenen paragraflar (`<üst>#+<id>`) üst paragrafla birlikte gider.
+- **Uygulama sırası** (`edits.apply`): anahtarlar → her dizgi paragrafına önce düzeltmeler (`cleanups`), sonra belge geneli değiştirme → tür → metin (kullanıcının metnine de düzeltmeler) → paragraf biçimi → belge geneli biçim → paragrafa özgü biçim → eklenen paragraflar → taşıma → yeniden numaralandırma. Böylece biçim ve bul / değiştir, önizlemede görünen (düzeltilmiş) metin üzerinde çalışır.
+- **Liste numarası** (`"2.<TAB>"` koşusu) `mergeBlockRuns` ile hiçbir zaman metin koşusuyla birleştirilmez; `renumber` ve paneldeki metin kutusu buna dayanır.
+- **Sonrakiyle birleştir**, sonraki paragrafın düzenlenmiş hâlini (metin, sözcük biçimleri) kullanır; birleşen paragrafın eklenen paragrafları kendi yerinde kalır.
+- `opts.legal === false` (Word biçimini koru) iken metin düzeltmesi atıf biçimi eklemez; `opts.highlight` (ayarlardaki “Deneysel”) kapalıyken vurgu biçimleri uygulanmaz.
+- **library.js:** `saveCase/saveTemplate(x, {imported})` — içe aktarmada daha yeni yerel kayıt korunur, yedeğin zamanı saklanır; sınırda yeni kayıt reddedilir. `generalize(text, info, more)` Türkçe büyük / küçük harf katlamasıyla ve sözcük sınırıyla çalışır; yer tutucu anahtarları `phFold` ile katlanır ({MUVEKKIL} = {MÜVEKKİL}). `clearAll()` kartları, şablonları ve şablon taslağını siler.
+- **docx.js:** stil tanımlarındaki uyarılar, stil gerçekten kullanılana kadar bekletilir.
+- **tools/build.js:** izin listesi = `sw.js` FILES + açılır pencere + manifest + belgeler; listede olmayan dosya pakete girmez, adıyla bildirilir.

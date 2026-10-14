@@ -18,6 +18,8 @@
       dateMode: s.dateToday === false ? 'keep' : 'today',
       markUets: s.markUets !== false,
       listMode: s.listMode === 'auto' ? 'auto' : 'text',
+      // v1.10 experimental text highlight: only while switched on in the settings.
+      highlight: s.experimental === true,
       splitRequests: !!s.splitRequests,
       font: LEGAL_FONT,
       ownAttorney: s.ownAttorney?.name ? s.ownAttorney : null,
@@ -33,7 +35,7 @@
     // Manual paragraph edits (edits.js) run in both profiles, after the
     // automatic rules; every paragraph is tagged with its edit key.
     let blocks = typo.blocks, applied = 0, editLog = [], lost = [];
-    if(globalThis.WordToUDFEdits){ const r = WordToUDFEdits.apply(blocks, edits || overrides, opts); blocks = r.blocks; applied = r.applied; editLog = r.log; lost = r.lost || []; }
+    if(globalThis.WordToUDFEdits){ const r = WordToUDFEdits.apply(blocks, edits || overrides, {...opts, legal}); blocks = r.blocks; applied = r.applied; editLog = r.log; lost = r.lost || []; }
     const checks = globalThis.WordToUDFChecks ? WordToUDFChecks.run(blocks, typo.statistics, {now}) : [];
     if(applied && legal) checks.push({level: 'info', code: 'manual-edits', message: `${applied} paragraf elle düzenlendi; ayrıntılar dönüşüm raporunda.`});
     // A word/sentence format whose text is gone is reported, never moved elsewhere.
@@ -58,20 +60,30 @@
   }
 
   function safeName(s, ext = /\.docx$/iu){
-    return String(s || 'Belge').replace(ext, '').normalize('NFKC').replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/gu, '')
-      .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/gu, '_').replace(/\s+/gu, ' ').trim().replace(/[. ]+$/u, '').slice(0, 90) || 'Belge';
+    // Cut by code point (never half an emoji), then drop trailing dots / spaces; a
+    // Windows device name (CON, NUL, COM1…) gets "_" so the file can be saved.
+    const name = [...String(s || 'Belge').replace(ext, '').normalize('NFKC').replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/gu, '')
+      .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/gu, '_').replace(/\s+/gu, ' ').trim()].slice(0, 90).join('').replace(/[. ]+$/u, '') || 'Belge';
+    return /^(?:CON|PRN|AUX|NUL|COM\d|LPT\d)$/iu.test(name.split('.')[0]) ? `${name}_` : name;
   }
 
   // Download name from the user's pattern (v1.10): {TARİH} {MÜVEKKİL} {ESAS}
   // {TÜR} {KAYNAK}; unknown fields stay as typed, "/" becomes "-".
-  const FILE_FIELDS = {'TARİH': 'date', 'TARIH': 'date', 'MÜVEKKİL': 'client', 'MUVEKKIL': 'client', 'ESAS': 'caseNo', 'ESASNO': 'caseNo', 'TÜR': 'type', 'TUR': 'type', 'KAYNAK': 'source'};
+  // Keys are folded to ASCII capitals: {Müvekkil}, {muvekkil} and {MUVEKKIL} all work.
+  const FILE_FIELDS = {TARIH: 'date', MUVEKKIL: 'client', ESAS: 'caseNo', ESASNO: 'caseNo', TUR: 'type', KAYNAK: 'source'};
+  const foldKey = k => k.toLocaleUpperCase('tr-TR').replace(/\s+/gu, '').replace(/[İÜÖŞÇĞ]/gu, ch => ({'İ': 'I', 'Ü': 'U', 'Ö': 'O', 'Ş': 'S', 'Ç': 'C', 'Ğ': 'G'})[ch]);
   function fileName(pattern, vars = {}){
     const p = String(pattern || '').trim() || '{KAYNAK}';
+    const EMPTY = '\u0000';
     const out = p.replace(/\{([^{}]{1,20})\}/gu, (all, k) => {
-      const f = FILE_FIELDS[k.toLocaleUpperCase('tr-TR').replace(/\s+/gu, '')];
-      return f ? String(vars[f] || '').replace(/[\\/]+/gu, '-').trim() : all;
+      const f = FILE_FIELDS[foldKey(k)];
+      return f ? String(vars[f] || '').replace(/[\\/]+/gu, '-').trim() || EMPTY : all;
     });
-    const name = out.replace(/[{}]/gu, '').replace(/_{2,}/gu, '_').replace(/^[_\s-]+|[_\s-]+$/gu, '');
+    // An empty field takes one neighbouring separator with it: "{TARİH} - {MÜVEKKİL} - {ESAS}"
+    // without a client is "14.10.2026 - 2026-1929 E", not "14.10.2026 - - 2026-1929 E".
+    const SEP = '\\s*[-_–]\\s*';
+    const name = out.replace(new RegExp(`(${SEP})?${EMPTY}(${SEP})?`, 'gu'), (_, a, b) => a && b ? a : '')
+      .replace(new RegExp(EMPTY, 'gu'), '').replace(/[{}]/gu, '').replace(/_{2,}/gu, '_').replace(/^[_\s–-]+|[_\s–-]+$/gu, '');
     // Every field empty: fall back to the source / template name.
     return name ? safeName(name) : vars.source ? safeName(vars.source) : 'Dilekce';
   }

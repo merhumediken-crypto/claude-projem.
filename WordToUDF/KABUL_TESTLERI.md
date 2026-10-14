@@ -35,6 +35,15 @@ Otomatik testler UDF'nin yapısını (ZIP, XML, metin ofsetleri) doğrular; **UY
 - [ ] Belge UYAP'ta düzenlenip kaydedilebiliyor; e-imza ile imzalanıp gönderim ekranına eklenebiliyor.
 - [ ] Yazdırma önizlemesinde sayfa kırılımı kabul edilebilir (önizleme yaklaşık yerleşimdir; birebir garanti edilmez).
 
+## Sözcük / cümle biçimi, yeni paragraf, PDF (1.8–1.10)
+
+- [ ] Önizlemede seçip **kalın / italik / altı çizili / üstü çizili** yaptığınız sözcük ve cümleler UYAP'ta da yalnız o kısımda; paragrafın geri kalanı değişmemiş.
+- [ ] “Tüm belgede” ile biçimlediğiniz sözcük, başka sözcüklerin içinde (ör. “Ali” → “t**ali**mat”) biçimlenmemiş.
+- [ ] Eklediğiniz ve taşıdığınız talepler doğru sırada; numaralar 1., 2., 3. diye kesintisiz; bir talebi silince numaralar yeniden sıralanmış.
+- [ ] “Düzelt” ile eklenen tutarın yazıyla karşılığı doğru (ör. `15.000 TL (on beş bin Türk lirası)`); parantez içindeki tutara ikinci kez eklenmemiş.
+- [ ] PDF çıktısında yalnız dilekçe var (düğmeler, paneller yok); kenar boşlukları ve sayfa sayısı önizlemeyle uyumlu.
+- [ ] **Deneysel vurgu** (yalnız “Deneysel” açıkken): sarı vurgu UYAP'ta görünüyor mu, belge açılıp kaydedilebiliyor mu? Görünmüyor ya da hata veriyorsa bu özelliği kapalı tutun ve bildirin.
+
 ## UDF → Word / PDF yönü (kullanılıyorsa)
 
 - [ ] UYAP'tan alınan bir UDF, Word'de metin kaybı olmadan açılıyor; numaralı listeler gerçek Word listesi.

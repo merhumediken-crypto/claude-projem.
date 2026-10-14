@@ -311,6 +311,7 @@ def main():
         v18_marks(browser,tmp,petition)
         v19_library(browser,tmp)
         v110_tools(browser,tmp,petition)
+        v1101_audit(browser,tmp,petition)
         csp_check(browser)
         browser.close()
 
@@ -461,8 +462,12 @@ def v15_checks(browser,tmp,petition,sample):
     m=_j.loads((ROOT/'app.webmanifest').read_text(encoding='utf-8'));assert m['start_url']=='workspace.html'
     swsrc=(ROOT/'sw.js').read_text(encoding='utf-8')
     for f in re.findall(r"'([\w.-]+\.(?:js|html|css|png|webmanifest))'",swsrc):assert (ROOT/f).exists(),f
-    for html in ['workspace.html','templates.html']:
+    for html in ['workspace.html','templates.html','reverse.html','sure.html','index.html']:
         for src in page_scripts(html):assert src in swsrc,(html,src)
+        for css in re.findall(r'<link\s+rel="stylesheet"\s+href="([^"]+)"',(ROOT/html).read_text(encoding='utf-8')):assert css in swsrc,(html,css)
+    # Ana ekrana eklenebilmesi için 192 ve 512 px simgeler.
+    sizes={i['sizes'] for i in m['icons']};assert {'192x192','512x512'}<=sizes,sizes
+    for i in m['icons']:assert (ROOT/i['src']).exists() and i['src'] in swsrc,i
     print('PASS çevrimdışı web uygulaması: manifest ve önbellek listesi bütün dosyaları kapsıyor')
 
 WORD_HTML="""<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><style>p.MsoNormal{margin:0}</style></head><body lang=TR><!--StartFragment-->
@@ -857,6 +862,149 @@ def v110_tools(browser,tmp,petition):
     assert 'davanın reddine' in page.locator('#requests').input_value().lower()
     ctx.close()
     print('PASS 1.10 araçları: yaklaşık sayfa ve yalnız kalan imza, değişiklikleri göster, PDF (yalnız dilekçe, @page), dosya adı kalıbı, deneysel vurgu (UDF background + deneme dosyası), süre hesabı ve takvim, cevaba cevap / ikinci cevap')
+
+def v1101_audit(browser,tmp,petition):
+    """1.10.1 denetim düzeltmeleri, tarayıcıda: klavyeyle paragraf, Türkçe Q
+    Ctrl+I, üç tık, panel taslağı, tüm belgede tam sözcük, taşımaların
+    birleşmesi, numaranın metne yapışmaması, yabancı JSON'un reddi, kendi
+    şablonunun alanları, taraf varsayılanı, süre sayfası, Word stil uyarıları,
+    DOCX öğe sırası, yerel verileri silme."""
+    import json as _j
+    ctx=browser.new_context(accept_downloads=True,viewport={'width':1440,'height':900})
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html');fetch_data(page,petition)
+    # Klavye: Tab ile paragrafa gelinir, Enter paneli açar, Escape kapatır ve odak paragrafa döner.
+    para=page.locator('#paper .paragraph[data-key]',has_text='verilen karara')
+    assert para.get_attribute('tabindex')=='0'
+    para.focus();page.keyboard.press('Enter');page.wait_for_timeout(250)
+    assert page.locator('.edit-sheet').is_visible(),'Enter paneli açar'
+    page.keyboard.press('Escape');page.wait_for_timeout(200)
+    assert page.evaluate("document.activeElement?.dataset?.key")==para.get_attribute('data-key'),'odak paragrafa döner'
+    # Türkçe Q klavye: Ctrl + ı italik yapar.
+    assert page.evaluate(SELECT_JS,['#paper .paragraph','verilen karara']);page.wait_for_timeout(250)
+    page.evaluate("document.dispatchEvent(new KeyboardEvent('keydown',{key:'ı',ctrlKey:true,bubbles:true,cancelable:true}))");page.wait_for_timeout(200)
+    assert 'verilen karara' in page.evaluate("[...document.querySelectorAll('#paper span')].filter(s=>s.style.fontStyle==='italic').map(s=>s.textContent)")
+    page.evaluate('getSelection().removeAllRanges()');page.keyboard.press('Escape')
+    # Üç tık: paragrafın tamamı seçilir ve biçim çubuğu açılır (seçim sonraki paragrafın başında bitse de).
+    page.locator('#paper .paragraph',has_text='Müvekkil şirketin merkezi').click(click_count=3);page.wait_for_timeout(350)
+    assert page.locator('.mark-pop').is_visible(),'üç tıkla biçim çubuğu'
+    page.locator('.mark-pop .mp-underline').click();page.wait_for_timeout(200)
+    assert 'Müvekkil şirketin merkezi Gaziantep’tir.' in page.evaluate("[...document.querySelectorAll('#paper span')].filter(s=>s.style.textDecoration.includes('underline')).map(s=>s.textContent)")
+    page.keyboard.press('Control+z');page.wait_for_timeout(150)
+    page.evaluate('getSelection().removeAllRanges()');page.keyboard.press('Escape');page.wait_for_timeout(150)
+    # Panelde yazılan ama uygulanmayan metin, başka bir düğmeye basınca kaybolmaz.
+    page.locator('#paper .paragraph',has_text='Müvekkil şirketin merkezi').click();page.wait_for_timeout(300)
+    page.locator('.edit-sheet .sheet-text').fill('Taslak metin, henüz uygulanmadı.')
+    page.locator('.edit-sheet .chip.style-b').click();page.wait_for_timeout(250)
+    assert page.locator('.edit-sheet .sheet-text').input_value()=='Taslak metin, henüz uygulanmadı.'
+    page.keyboard.press('Escape')
+    # Word → DOCX: rPr öğeleri şema sırasında (b, i … sz … u).
+    dx=tmp/'v1101.docx';save_download(page,'#downloadDocx',dx)
+    with zipfile.ZipFile(dx) as z:xml=z.read('word/document.xml').decode('utf-8')
+    for rpr in re.findall(r'<w:rPr>(.*?)</w:rPr>',xml):
+        tags=re.findall(r'<w:(\w+)',rpr);order=['rFonts','b','bCs','i','iCs','strike','color','sz','szCs','highlight','u','shd']
+        idx=[order.index(t) for t in tags if t in order];assert idx==sorted(idx),tags
+    for ppr in re.findall(r'<w:pPr>(.*?)</w:pPr>',xml):
+        tags=[t for t in re.findall(r'<w:(\w+)',ppr) if t in ('pageBreakBefore','numPr','tabs','spacing','ind','jc')];order=['pageBreakBefore','numPr','tabs','spacing','ind','jc']
+        assert [order.index(t) for t in tags]==sorted(order.index(t) for t in tags),tags
+    # WordToUDF'ye ait olmayan JSON ayarları sıfırlamaz.
+    before=page.locator('#ownName').input_value()
+    bad=tmp/'paket.json';bad.write_text('{"name":"paket","version":"1.0.0"}',encoding='utf-8')
+    page.locator('#importSettings').set_input_files(str(bad));page.wait_for_timeout(300)
+    assert 'WordToUDF ayar dosyası değil' in page.locator('#status').text_content() and page.locator('#ownName').input_value()==before
+    assert not errors,errors
+    ctx.close()
+    # Yapıştırılan talepler: bir sözcüğü kalın yapıp 1. maddeyi silince numaralar 1., 2.; tüm belgede tam sözcük; taşımalar.
+    ctx=browser.new_context(viewport={'width':1440,'height':900});page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html')
+    html=('<p>ANKARA 1. ASLİYE HUKUK MAHKEMESİNE</p><p>DAVACI: Ali VELİ</p><p>KONU: Deneme.</p><p>AÇIKLAMALAR</p>'
+          '<p>Paragraf A: Ali talimat verdi.</p><p>Paragraf B: Halil geldi.</p><p>Paragraf C: Ali gitti.</p><p>Paragraf D: son.</p>'
+          '<p>SONUÇ VE İSTEM</p><p>1. Mazeretimizin kabulüne,</p><p>2. Duruşmanın ertelenmesine,</p><p>3. Giderlerin yükletilmesine,</p>')
+    paste_into(page,html,'x');page.wait_for_timeout(300)
+    assert page.evaluate(SELECT_JS,['#paper .paragraph','ertelenmesine']);page.wait_for_timeout(250)
+    page.locator('.mark-pop .mp-bold').click();page.wait_for_timeout(200)
+    page.evaluate('getSelection().removeAllRanges()');page.keyboard.press('Escape')
+    page.locator('#paper .paragraph',has_text='Mazeretimizin kabulüne').click();page.wait_for_timeout(250)
+    page.locator('.edit-sheet .chip',has_text='Paragrafı sil').click();page.wait_for_timeout(250);page.keyboard.press('Escape')
+    items=[t.replace('\u00a0',' ') for t in page.locator('#paper .paragraph[data-role="result-item"]').all_text_contents()]
+    assert len(items)==2 and items[0].startswith('1.') and 'Duruşmanın' in items[0] and items[1].startswith('2.'),items
+    # Tüm belgede: "Ali" yalnız tam sözcük olarak (talimat, Halil değil).
+    assert page.evaluate(SELECT_JS,['#paper .paragraph','Ali gitti']);page.wait_for_timeout(100)
+    page.evaluate(SELECT_JS,['#paper .paragraph','Ali gitti'])
+    page.evaluate("""()=>{const p=[...document.querySelectorAll('#paper .paragraph')].find(x=>x.textContent.includes('Ali gitti'));const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let t;while((t=w.nextNode())){const i=t.data.indexOf('Ali gitti');if(i>=0){const r=document.createRange();r.setStart(t,i);r.setEnd(t,i+3);const s=getSelection();s.removeAllRanges();s.addRange(r);return;}}}""")
+    page.wait_for_timeout(250)
+    page.locator('.mark-pop .mp-scope').click();page.locator('.mark-pop .mp-bold').click();page.wait_for_timeout(250)
+    bold=page.evaluate("[...document.querySelectorAll('#paper span')].filter(s=>s.style.fontWeight==='700').map(s=>s.textContent)")
+    assert 'Ali' in bold and not any(t in ('ali','Hal') for t in bold) and not any('talimat' in t for t in bold),bold
+    page.evaluate('getSelection().removeAllRanges()');page.keyboard.press('Escape')
+    # Taşıma: C yukarı, sonra B yukarı → A B C D.
+    for name in ['Paragraf C','Paragraf B']:
+        page.locator('#paper .paragraph',has_text=name).click();page.wait_for_timeout(250)
+        page.locator('.edit-sheet .chip',has_text='Yukarı taşı').click();page.wait_for_timeout(250);page.keyboard.press('Escape');page.wait_for_timeout(150)
+    order=[t[9] for t in page.locator('#paper .paragraph').all_text_contents() if t.startswith('Paragraf ')]
+    assert order==['A','B','C','D'],order
+    assert not errors,errors
+    ctx.close()
+    # Kendi şablonu: aynı adla yeniden kaydetmek alanları korur; düzenlenmiş metinde değerler alana döner.
+    ctx=browser.new_context(accept_downloads=True);page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'templates.html');page.wait_for_timeout(300)
+    page.locator('#tpl').select_option('feragat');page.wait_for_timeout(250)
+    assert page.locator('#role').input_value()=='DAVACI','feragat davacı tarafından yapılır'
+    page.locator('#tpl').select_option('beyan');page.wait_for_timeout(250)
+    page.locator('#client').fill('Ali VELİ')
+    page.locator('#body').fill('Müvekkil {MÜVEKKİL} {TARİH} tarihinde {ALACAK TUTARI} TL ödedi.');page.locator('#tplName').fill('Ödeme');page.locator('#tplSave').click();page.wait_for_timeout(300)
+    page.locator('#tplFields input').fill('10.000');page.wait_for_timeout(300)
+    assert 'Ali VELİ' in page.locator('#body').input_value() and '10.000' in page.locator('#body').input_value()
+    page.locator('#tplName').fill('Ödeme');page.locator('#tplSave').click();page.wait_for_timeout(300)
+    tpl=[t for t in _j.loads(dump_storage(page)['wordtoudf.userTemplates.v1']) if t['title']=='Ödeme'][0]
+    assert tpl['body']=='Müvekkil {MÜVEKKİL} {TARİH} tarihinde {ALACAK TUTARI} TL ödedi.',tpl['body']
+    page.locator('#tplFields input').fill('10.000');page.wait_for_timeout(300)
+    page.locator('#body').fill(page.locator('#body').input_value()+' Ödeme dekontu ektedir.')
+    page.locator('#tplName').fill('Ödeme');page.locator('#tplSave').click();page.wait_for_timeout(300)
+    tpl=[t for t in _j.loads(dump_storage(page)['wordtoudf.userTemplates.v1']) if t['title']=='Ödeme'][0]
+    assert tpl['body']=='Müvekkil {MÜVEKKİL} {TARİH} tarihinde {ALACAK TUTARI} TL ödedi. Ödeme dekontu ektedir.',tpl['body']
+    assert not errors,errors
+    store=dump_storage(page);ctx.close()
+    # Yerel verileri silme: iki basış; ayarlar kalır.
+    store['wordtoudf.cases.v1']=_j.dumps([{'id':'abcdef12','court':'Ankara 1. Asliye Hukuk Mahkemesi','caseNo':'2026/1','client':'Ali VELİ','updated':'2026-10-01T00:00:00.000Z'}])
+    ctx=browser.new_context();page=ctx.new_page();load_page(page,'workspace.html',storage=store)
+    page.locator('#libraryPanel summary').click()
+    assert 'Bu tarayıcıda 1 dosya kartı ve 1 kendi şablonunuz var.'==page.locator('#libraryStats').text_content(),page.locator('#libraryStats').text_content()
+    page.locator('#clearLibrary').click();assert 'tekrar' in page.locator('#clearLibrary').text_content()
+    page.locator('#clearLibrary').click();page.wait_for_timeout(200)
+    left=dump_storage(page)
+    assert not any(k in left for k in ['wordtoudf.cases.v1','wordtoudf.userTemplates.v1','wordtoudf.templateDraft.v1']),list(left)
+    assert page.locator('#libraryStats').text_content()=='Bu tarayıcıda 0 dosya kartı ve 0 kendi şablonunuz var.'
+    ctx.close()
+    # Süre sayfası: geçersiz miktar eski sonucu bırakmaz; birime göre sınır.
+    ctx=browser.new_context();page=ctx.new_page();load_page(page,'sure.html')
+    page.locator('#dKind').select_option('custom');page.locator('#dStart').fill('2026-07-10');page.wait_for_timeout(100)
+    assert page.locator('#dSteps li').count()>0
+    page.locator('#dAmount').fill('');page.wait_for_timeout(100)
+    assert page.locator('#dDate').text_content()=='—' and page.locator('#dLeft').text_content()=='' and page.locator('#dSteps li').count()==0
+    page.locator('#dAmount').fill('11');page.locator('#dUnit').select_option('yil');page.wait_for_timeout(100)
+    assert '1 ile 10 yıl' in page.locator('#status').text_content()
+    page.locator('#dAmount').fill('2');page.locator('#dUnit').select_option('hafta');page.locator('#dStart').fill('2025-08-16');page.wait_for_timeout(100)
+    assert page.locator('#dDate').text_content()=='8 Eylül 2025 Pazartesi',page.locator('#dDate').text_content()
+    ctx.close()
+    # Word: kullanılmayan üst simge stili engelleyici uyarı vermez; gerçek üst simge verir.
+    from docx.enum.style import WD_STYLE_TYPE
+    d=Document()
+    st=d.styles.add_style('Dipnot Başvurusu',WD_STYLE_TYPE.CHARACTER);st.font.superscript=True
+    for t in ['ANKARA 1. ASLİYE HUKUK MAHKEMESİNE','DAVACI: Ali VELİ','KONU: Deneme.','AÇIKLAMALAR','Metin.']:d.add_paragraph(t)
+    plain=tmp/'unused-style.docx';d.save(plain)
+    p2=d.add_paragraph('Alan 10 m');r=p2.add_run('2');r.font.superscript=True
+    sup=tmp/'superscript.docx';d.save(sup)
+    ctx=browser.new_context();page=ctx.new_page();load_page(page,'workspace.html')
+    page.locator('#fileInput').set_input_files(str(plain));page.wait_for_timeout(1200)
+    warns=' '.join(page.locator('#warningList li').all_text_contents())
+    assert 'simge' not in warns and 'karakter aralığı' not in warns and page.locator('#reviewLabel').is_hidden(),warns
+    page.locator('#fileInput').set_input_files(str(sup));page.wait_for_timeout(1200)
+    assert 'simge' in ' '.join(page.locator('#warningList li').all_text_contents())
+    ctx.close()
+    # Açılır pencere doğru şablon sayısını söyler.
+    assert '14 hazır dilekçe şablonu' in (ROOT/'popup.html').read_text(encoding='utf-8')
+    print('PASS 1.10.1 denetim: klavyeyle paragraf, Ctrl+ı, üç tık, panel taslağı, DOCX öğe sırası, yabancı JSON reddi, numara metne yapışmaz, tüm belgede tam sözcük, taşımalar birleşir, şablon alanları korunur, feragat davacı, yerel verileri silme, süre sayfası, kullanılmayan Word stili')
 
 def csp_check(browser):
     """The other tests strip the pages' CSP; here the real pages are served

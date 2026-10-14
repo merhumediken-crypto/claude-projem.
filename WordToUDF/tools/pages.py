@@ -3,7 +3,7 @@
 Run after changing the header, navigation, icons or version:
     python3 tools/pages.py
 Each page keeps its own body in tools/pages/<name>.body.html; this script wraps
-it with the identical <head>, app bar and SVG sprite so the four pages can
+it with the identical <head>, app bar and SVG sprite so the five pages can
 never drift apart. CSP note: no inline style or script anywhere.
 """
 from pathlib import Path

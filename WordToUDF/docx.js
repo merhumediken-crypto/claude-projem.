@@ -119,7 +119,11 @@
       else if(key||v)warning('theme-color','Word tema rengi çözümlenemedi; varsayılan renk kullanıldı.');
     }
     if(toggle(rpr,'vanish')||toggle(rpr,'webHidden'))props.hidden=true;
-    if(kid(rpr,'highlight')||kid(rpr,'shd'))warning('highlight','Word metin vurgusu / arka plan gölgesi aktarılmadı; metin aynen aktarıldı.',true);
+    // Only real values count: highlight "none", an "auto"/white clear shading,
+    // spacing 0, width 100 % and baseline are Word's way of saying "nothing".
+    const hl=kid(rpr,'highlight'),shd=kid(rpr,'shd');
+    const shdOn=shd&&!(['auto','ffffff',''].includes(String(attr(shd,'fill')??'auto').toLowerCase())&&['clear','nil',''].includes(String(attr(shd,'val')??'clear')));
+    if((hl&&!['none',''].includes(String(attr(hl,'val')??'')))||shdOn)warning('highlight','Word metin vurgusu / arka plan gölgesi aktarılmadı; metin aynen aktarıldı.',true);
     // Caps are real capitals in UDF (same look, same text); small caps become
     // capitals too. Purely visual effects never lose text: they are listed
     // as information and do not block the download.
@@ -127,9 +131,10 @@
     const small=toggle(rpr,'smallCaps');if(small!==undefined)props.smallCaps=small;
     if(['outline','shadow','emboss','imprint','effect'].some(name=>kid(rpr,name)))
       warning('effects','Gölge, kabartma veya dış çizgi gibi Word karakter efektleri uygulanmadı; metin aynen aktarıldı.',true);
-    if(['spacing','w'].some(name=>kid(rpr,name)))
+    const sp=kid(rpr,'spacing'),wd=kid(rpr,'w');
+    if((sp&&Number(attr(sp,'val')||0)!==0)||(wd&&Number(attr(wd,'val')||100)!==100))
       warning('char-spacing','Word karakter aralığı / genişlik ayarı uygulanmadı; metin aynen aktarıldı, görünüm farkı küçüktür.',true);
-    if(kid(rpr,'vertAlign'))warning('vertical','Üst simge veya alt simge düz metne aktarıldı.');
+    if(['superscript','subscript'].includes(String(attr(kid(rpr,'vertAlign'),'val')||'')))warning('vertical','Üst simge veya alt simge düz metne aktarıldı.');
     return props;
   }
   function readPPr(ppr,warning){
@@ -201,9 +206,13 @@
       const base=kid(styles.documentElement,'docDefaults');
       defaultsP=readPPr(kid(kid(base,'pPrDefault'),'pPr'),warn);
       defaultsR=readRPr(kid(kid(base,'rPrDefault'),'rPr'),warn,theme);
+      // A style's warnings are kept until a paragraph or run actually uses it:
+      // Word templates define many styles (superscript footnote reference,
+      // spaced titles…) that the document never shows.
       for(const style of kids(styles.documentElement,'style')){
         const id=attr(style,'styleId');if(!id)continue;
-        styleMap.set(id,{id,name:attr(kid(style,'name'),'val')||'',type:attr(style,'type'),basedOn:attr(kid(style,'basedOn'),'val'),default:attr(style,'default'),p:readPPr(kid(style,'pPr'),warn),r:readRPr(kid(style,'rPr'),warn,theme)});
+        const later=[],hold=(...a)=>later.push(a);
+        styleMap.set(id,{id,name:attr(kid(style,'name'),'val')||'',type:attr(style,'type'),basedOn:attr(kid(style,'basedOn'),'val'),default:attr(style,'default'),p:readPPr(kid(style,'pPr'),hold),r:readRPr(kid(style,'rPr'),hold,theme),later});
       }
     }
     // A direct paragraph property may add/clear one Word tab stop without
@@ -226,6 +235,7 @@
       const cache=kind==='p'?pCache:rCache;if(cache.has(styleId))return cache.get(styleId);
       const st=styleMap.get(styleId);
       if(!st)return {};
+      if(st.later?.length){for(const a of st.later)warn(...a);st.later.length=0;}
       if(seen.has(styleId)){warn('styles','Word stillerinde döngü algılandı; ilgili kalıtım atlandı.');return {};}
       seen.add(styleId);
       const parent=resolveStyle(st.basedOn,kind,seen);

@@ -84,7 +84,12 @@
         .map(x => ({id: x.id, text: x.text.replace(/\r\n?/gu, '\n').slice(0, 20000), ...(ROLES[x.role] ? {role: x.role} : {})}));
       if(items.length) e.addAfter = items;
     }
-    if(Number.isInteger(src.move) && src.move !== 0 && Math.abs(src.move) <= 500) e.move = src.move;
+    // A move is an anchor on the screen order at the time it was made: "just
+    // above / below paragraph K"; seq replays several moves in the order made.
+    const mv = src.move;
+    if(mv && typeof mv === 'object' && Number.isInteger(mv.seq) && mv.seq > 0 && mv.seq < 1e9){
+      for(const side of ['before', 'after']) if(typeof mv[side] === 'string' && mv[side] && mv[side].length <= 400 && mv[side] !== DOC_KEY){ e.move = {[side]: mv[side], seq: mv.seq}; break; }
+    }
     return e;
   }
   const isEmpty = e => !e || !Object.keys(e).length;
@@ -154,23 +159,39 @@
     return parts.join(' ');
   }
   function amountWords(intPart, kurus){
-    const lira = numberWords(Number(String(intPart).replace(/\./gu, '')));
+    const n = Number(String(intPart).replace(/\./gu, '')), lira = numberWords(n);
     const k = kurus ? Number(String(kurus).padEnd(2, '0')) : 0;
-    return lira ? `${lira} Türk lirası${k ? ` ${numberWords(k)} kuruş` : ''}` : '';
+    if(!lira) return '';
+    // "0,50 TL" → "elli kuruş" (never "sıfır Türk lirası elli kuruş"); "0 TL" gets nothing.
+    if(n === 0) return k ? `${numberWords(k)} kuruş` : '';
+    return `${lira} Türk lirası${k ? ` ${numberWords(k)} kuruş` : ''}`;
   }
+  // A comma inside a web or e-mail address is not punctuation.
+  const URLISH = /:\/\/|^www\.|@/iu;
+  const tokenAt = (text, i) => { let a = i, z = i; while(a > 0 && !/\s/u.test(text[a - 1])) a--; while(z < text.length && !/\s/u.test(text[z])) z++; return text.slice(a, z); };
+  const DATE_RE = '\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}';
   const CLEANUPS = Object.freeze({
     spaces: {label: 'sözcükler arasındaki fazla boşluklar teke indirildi', re: /(?<=\S) {2,}(?=\S)/gu, to: () => ' '},
     'punct-space': {label: 'noktalama işaretinden önceki boşluk kaldırıldı', re: /(?<=\S) +(?=[,.;!?)])|(?<=\() +/gu, to: () => ''},
-    'comma-space': {label: 'virgülden sonra boşluk eklendi', re: /,(?=\p{L})/gu, to: () => ', '},
-    // An amount without "(… Türk lirası)" after it gets its written form.
-    amounts: {label: 'tutarların yazıyla karşılığı eklendi', re: /(?<![\d.,/])(\d{1,3}(?:\.\d{3})+|\d{1,15})(?:,(\d{1,2}))?(?:\s?(?:TL|₺)|\s(?:Türk lirası|TÜRK LİRASI))(?![\p{L}\d'’])(?!\s*\()/gu,
-      to: m => { const w = amountWords(m[1], m[2]); return w ? `${m[0]} (${w})` : m[0]; }},
-    dates: {label: 'tarihler GG.AA.YYYY biçimine çevrildi', re: /(?<![\d./-])(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?![\d/-])/gu, to: m => okDate(m[1], m[2], m[3]) ? `${pad2(m[1])}.${pad2(m[2])}.${m[3]}` : m[0]}
+    'comma-space': {label: 'virgülden sonra boşluk eklendi', re: /,(?=\p{L})/gu, to: () => ', ', skip: (text, i) => URLISH.test(tokenAt(text, i))},
+    // An amount without "(… Türk lirası)" after it gets its written form: "10.000 TL",
+    // "10.000 Türk Lirası", "₺500". Skipped: an amount already inside parentheses
+    // ("on bin Türk lirası (10.000 TL)"), a space-grouped "1 000 TL" and "5 TL'nin".
+    amounts: {label: 'tutarların yazıyla karşılığı eklendi',
+      re: /(?<![\d.,/])(?<!\d\s)(?<!\(\s?)(?:(\d{1,3}(?:\.\d{3})+|\d{1,15})(?:,(\d{1,2}))?(?:\s?(?:TL|₺)|\s(?:Türk [lL]irası|TÜRK LİRASI))|₺\s?(\d{1,3}(?:\.\d{3})+|\d{1,15})(?:,(\d{1,2}))?(?![\d.,]))(?![\p{L}\d'’])(?!\s*[()])/gu,
+      to: m => { const w = amountWords(m[1] ?? m[3], m[2] ?? m[4]); return w ? `${m[0]} (${w})` : m[0]; }},
+    // Ranges ("12/05/2024-15/05/2024") convert on both sides; parts of longer numbers do not.
+    dates: {label: 'tarihler GG.AA.YYYY biçimine çevrildi',
+      re: new RegExp(`(?:(?<![\\d./-])|(?<=${DATE_RE}[-–]))(\\d{1,2})[/-](\\d{1,2})[/-](\\d{4})(?:(?![\\d/-])|(?=[-–]${DATE_RE}(?![\\d/])))`, 'gu'),
+      to: m => okDate(m[1], m[2], m[3]) ? `${pad2(m[1])}.${pad2(m[2])}.${m[3]}` : m[0]}
   });
   function cleanupMatches(text, id){
     const c = CLEANUPS[id]; if(!c) return [];
-    const out = [];
-    for(const m of String(text).matchAll(new RegExp(c.re.source, c.re.flags))){ const to = c.to(m); if(to !== m[0]) out.push({start: m.index, end: m.index + m[0].length, to}); }
+    const out = [], t = String(text);
+    for(const m of t.matchAll(new RegExp(c.re.source, c.re.flags))){
+      if(c.skip?.(t, m.index)) continue;
+      const to = c.to(m); if(to !== m[0]) out.push({start: m.index, end: m.index + m[0].length, from: m[0], to});
+    }
     return out;
   }
 
@@ -206,7 +227,31 @@
     if(!done && text) out.push({...(runs.at(-1) || {}), text});
     return out.filter(r => r.text !== '');
   }
-  // Join neighbouring runs that look the same (fewer UDF elements).
+  // Change only the part that differs, so untouched characters keep their own
+  // style: "10.000 TL" → "10.000 TL (on bin Türk lirası)" inserts after "TL"
+  // with the style of "L" instead of restyling the whole amount.
+  function insertAt(runs, pos, text){
+    let off = 0, done = false;
+    const out = runs.map(r => {
+      const t = String(r.text || ''), a = off, z = off + t.length;
+      off = z;
+      if(done || !t || pos <= a || pos > z) return r;
+      done = true; return {...r, text: t.slice(0, pos - a) + text + t.slice(pos - a)};
+    });
+    return done ? out : replaceRange(runs, pos, pos, text);
+  }
+  function replaceMinimal(runs, start, end, from, to){
+    let p = 0, q = 0;
+    while(p < from.length && p < to.length && from[p] === to[p]) p++;
+    while(q < from.length - p && q < to.length - p && from[from.length - 1 - q] === to[to.length - 1 - q]) q++;
+    const a = start + p, z = end - q, mid = to.slice(p, to.length - q);
+    if(a === z) return p > 0 ? insertAt(runs, a, mid) : replaceRange(runs, a, a + 1, mid + from[p]);
+    return replaceRange(runs, a, z, mid);
+  }
+  // Join neighbouring runs that look the same (fewer UDF elements). The list
+  // number run ("2.<TAB>") is never joined with the item text: renumbering and
+  // the panel's text box both rely on it being a run of its own.
+  const mergeBlockRuns = (b, runs) => markerLength(b) && runs[0]?.text === b.runs[0].text ? [runs[0], ...mergeRuns(runs.slice(1))] : mergeRuns(runs);
   function mergeRuns(runs){
     const out = [];
     for(const r of runs){
@@ -230,7 +275,7 @@
       const hit = hits.reduce((x, y) => Math.abs(y.start - at) < Math.abs(x.start - at) ? y : x);
       runs = styleRange(runs, base + hit.start, base + hit.end, patchOf(m));
     }
-    return {...b, runs: mergeRuns(runs)};
+    return {...b, runs: mergeBlockRuns(b, runs)};
   }
   // Document marks: every occurrence.
   function applyDocMarks(b, marks, stats){
@@ -242,7 +287,7 @@
       for(const f of found) runs = styleRange(runs, base + f.start, base + f.end, patchOf(m));
       if(found.length){ hit = true; stats.marks[i] = (stats.marks[i] || 0) + found.length; }
     });
-    return hit ? {...b, runs: mergeRuns(runs)} : b;
+    return hit ? {...b, runs: mergeBlockRuns(b, runs)} : b;
   }
   function applyDocReplace(b, rules, stats){
     if(!rules?.length || b.kind !== 'paragraph') return b;
@@ -255,7 +300,7 @@
       for(const f of [...found].reverse()) runs = replaceRange(runs, base + f.start, base + f.end, r.to);
       if(found.length){ changed = true; stats.replace[i] = (stats.replace[i] || 0) + found.length; }
     });
-    return changed ? {...b, runs: mergeRuns(runs)} : b;
+    return changed ? {...b, runs: mergeBlockRuns(b, runs)} : b;
   }
 
   function applyCleanups(b, ids, stats){
@@ -264,10 +309,10 @@
     const base = markerLength(b);
     for(const id of ids){
       const found = cleanupMatches(flatten({runs}).slice(base), id);
-      for(const f of [...found].reverse()) runs = replaceRange(runs, base + f.start, base + f.end, f.to);
+      for(const f of [...found].reverse()) runs = replaceMinimal(runs, base + f.start, base + f.end, f.from, f.to);
       if(found.length){ changed = true; stats.cleanups[id] = (stats.cleanups[id] || 0) + found.length; }
     }
-    return changed ? {...b, runs: mergeRuns(runs)} : b;
+    return changed ? {...b, runs: mergeBlockRuns(b, runs)} : b;
   }
   const countCleanup = (b, id) => b?.kind === 'paragraph' ? cleanupMatches(bodyText(b), id).length : 0;
 
@@ -364,7 +409,7 @@
   // New text for a paragraph. The parts the user did not change keep their
   // formatting (a bold word, an italic citation); the typed part takes the
   // style of the text it replaces (or continues the text before it).
-  function replaceText(b, text){
+  function replaceText(b, text, legal = true){
     const T = I();
     const marker = markerLength(b) ? b.runs[0] : null;
     const body = marker ? b.runs.slice(1) : b.runs;
@@ -383,9 +428,9 @@
     delete style.text;
     const mid = text.slice(p, text.length - q);
     const runs = [...T.sliceRuns(body, 0, p), ...(mid ? [T.plainRun(mid, style)] : []), ...T.sliceRuns(body, old.length - q)];
-    const nb = {...b, runs: mergeRuns([...(marker ? [marker] : []), ...runs])};
-    T.styleRegex(nb, T.LAW_RE, {italic: true});
-    T.styleRegex(nb, T.CASE_RE, {bold: true, italic: true});
+    const nb = {...b, runs: [...(marker ? [marker] : []), ...mergeRuns(runs)]};
+    // Citation styling belongs to the legal profile ("Word biçimini koru" keeps the text as typed).
+    if(legal){ T.styleRegex(nb, T.LAW_RE, {italic: true}); T.styleRegex(nb, T.CASE_RE, {bold: true, italic: true}); }
     return nb;
   }
 
@@ -405,7 +450,8 @@
     if(e.first !== undefined && !b.listMarker && !b.list) b.first = e.first * PT;
     if(e.left !== undefined){
       const extra = e.left * PT;
-      if(b.listMarker || b.list){ b.left = (b.listLevel ? 36 : 18) + extra; if(b.listMarker) b.tabStops = [{pos: b.left, align: 'left', leader: 'none'}]; }
+      // a), b) items are level 1 in both list modes (listLevel in text mode, list.level in auto mode).
+      if(b.listMarker || b.list){ b.left = ((b.listLevel ?? b.list?.level) ? 36 : 18) + extra; if(b.listMarker) b.tabStops = [{pos: b.left, align: 'left', leader: 'none'}]; }
       else b.left = extra;
     }
     if(e.right !== undefined) b.right = e.right * PT;
@@ -468,7 +514,7 @@
     if(e.blankAfter) out.push('arkasına boş satır');
     if(e.breakBefore) out.push('önüne sayfa sonu');
     if(e.addAfter?.length) out.push(`altına ${e.addAfter.length} yeni paragraf`);
-    if(e.move) out.push(`${Math.abs(e.move)} sıra ${e.move < 0 ? 'yukarı' : 'aşağı'} taşındı`);
+    if(e.move) out.push(e.move.before ? 'yukarı taşındı' : 'aşağı taşındı');
     if(e.remove) out.push('silindi');
     return out.join(', ');
   }
@@ -486,36 +532,56 @@
     return out;
   }
 
-  // Move whole paragraph units (with their blank lines / page breaks) among
-  // the visible paragraphs; a unit moved by -1 lands above the paragraph
-  // that was above it.
+  // Move whole paragraph units (with their blank lines / page breaks) to
+  // their anchors, in the order the moves were made (seq). A deleted anchor
+  // still holds its place (its unit is empty), so later deletions do not
+  // shift earlier moves. Paragraphs added under a moved one go with it
+  // unless they were moved themselves.
   function moveUnits(units){
     const arr = units.slice();
-    for(const u of units){
-      if(!u.move) continue;
-      const keyed = arr.filter(x => x.key && x.items.some(b => b.kind === 'paragraph'));
-      const k = keyed.indexOf(u); if(k < 0) continue;
-      const t = Math.max(0, Math.min(keyed.length - 1, k + u.move)); if(t === k) continue;
-      const target = keyed[t];
-      arr.splice(arr.indexOf(u), 1);
-      const ti = arr.indexOf(target);
-      arr.splice(u.move < 0 ? ti : ti + 1, 0, u);
+    const byKey = new Map(units.filter(u => u.key).map(u => [u.key, u]));
+    const moves = units.filter(u => u.move).sort((a, b) => a.move.seq - b.move.seq);
+    for(const u of moves){
+      const target = byKey.get(u.move.before || u.move.after);
+      if(!target || target === u) continue;
+      let at = arr.indexOf(u), n = 1;
+      while(at + n < arr.length && parentOf(arr[at + n].key) === u.key && !arr[at + n].move && arr[at + n] !== target) n++;
+      const group = arr.splice(at, n);
+      const ti = arr.indexOf(target); if(ti < 0){ arr.splice(at, 0, ...group); continue; }
+      arr.splice(u.move.before ? ti : ti + 1, 0, ...group);
     }
     return arr;
   }
 
+  // The experimental highlight is applied only while the user has it switched on.
+  const noHighlight = marks => marks?.map(m => { const {highlight, ...rest} = m; return MARK_STYLES.some(k => k in rest) ? rest : null; }).filter(Boolean);
+
   // edits: Map-like (key → edit) or plain object. Returns the edited blocks,
   // each editable paragraph tagged with `editKey` for the preview.
+  // opts.legal === false: "Word biçimini koru" (no citation styling on typed text);
+  // opts.highlight: the experimental highlight is allowed.
   function apply(blocks, edits, opts = {}){
     const map = typeof edits?.get === 'function' && typeof edits.size === 'number' ? edits : new Map(Object.entries(edits || {}));
     const doc = sanitizeDoc(map.get(DOC_KEY));
+    const hl = opts.highlight === true, legal = opts.legal !== false;
+    if(!hl && doc.marks){ doc.marks = noHighlight(doc.marks); if(!doc.marks.length) delete doc.marks; }
     const docStats = {replace: [], marks: [], cleanups: {}};
     const keys = blockKeys(blocks), units = [], log = [], lost = [];
     let applied = 0;
-    // Shared steps for an edited paragraph (original or added).
+    const edit = key => { const e = key ? sanitize(map.get(key)) : {}; if(!hl && e.marks){ e.marks = noHighlight(e.marks); if(!e.marks.length) delete e.marks; } return e; };
+    // Typeset text: tidy-ups first, then the document replacements, so that
+    // formatting and find/replace work on the text the preview shows.
+    const prep = (b, stats = docStats) => {
+      if(b?.kind !== 'paragraph') return b;
+      if(doc.cleanups) b = applyCleanups(b, doc.cleanups, stats);
+      if(doc.replace) b = applyDocReplace(b, doc.replace, stats);
+      return b;
+    };
+    // Shared steps for an edited paragraph (original or added). Tidy-ups also
+    // reach the user's own text (idempotent); replacements were written into it once.
     const finish = (b, e, key) => {
       if(e.role) b = applyRole(b, e.role, opts);
-      if(e.text !== undefined) b = replaceText(b, e.text);
+      if(e.text !== undefined){ b = replaceText(b, e.text, legal); if(doc.cleanups) b = applyCleanups(b, doc.cleanups, {cleanups: {}}); }
       b = fineTune(b, e);
       b = applyDocMarks(b, doc.marks, docStats);
       const before = lost.length;
@@ -523,13 +589,36 @@
       for(let n = before; n < lost.length; n++) lost[n].key = key;
       return b;
     };
+    // Paragraphs the user added after a paragraph: each is its own unit
+    // (movable, editable, removable) right after the parent.
+    const addChildren = (key, e, parentBlock) => {
+      for(const item of e.addAfter || []){
+        const ck = childKey(key, item.id), ce = edit(ck);
+        const cu = {key: ck, move: ce.move || null, items: []};
+        units.push(cu);
+        if(ce.remove) continue;
+        if(ce.breakBefore) cu.items.push({kind: 'page-break', inserted: true, insertedBy: ck});
+        if(ce.blankBefore) cu.items.push(blank(ck));
+        let c = newParagraph(parentBlock, item, opts);
+        if(doc.cleanups) c = applyCleanups(c, doc.cleanups, {cleanups: {}});
+        c = finish(c, ce, ck);
+        c.editKey = ck; c.edited = true; c.added = true;
+        cu.items.push(c);
+        if(ce.blankAfter) cu.items.push(blank(ck));
+        if(!isEmpty(ce)){ applied++; log.push({key: ck, excerpt: clean(item.text).slice(0, 60), summary: `eklenen paragraf: ${describe(ce)}`}); }
+      }
+    };
+    const merged = new Map(); // index of a paragraph joined into the one before it → that paragraph's key
     for(let i = 0; i < blocks.length; i++){
-      let src = blocks[i];
       const key = keys[i];
-      // Document replacements touch the typeset text, never the user's own typing.
-      if(doc.replace && src.kind === 'paragraph') src = applyDocReplace(src, doc.replace, docStats);
-      const e = key ? sanitize(map.get(key)) : {};
-      const unit = {key, move: e.move || 0, items: []};
+      const src = prep(blocks[i]);
+      const e = edit(key);
+      if(merged.has(i)){
+        // Its text now lives in the paragraph above; its added paragraphs stay.
+        addChildren(key, e, src);
+        continue;
+      }
+      const unit = {key, move: e.move || null, items: []};
       units.push(unit);
       if(!key || isEmpty(e)){
         const b = applyDocMarks(src, doc.marks, docStats);
@@ -545,15 +634,24 @@
         if(e.blankBefore) unit.items.push(blank(key));
         let b = I().cloneBlock(src);
         if(e.mergeNext){
-          // Join with the next paragraph (e.g. a line Word broke in two).
+          // Join with the next paragraph (e.g. a line Word broke in two) as it
+          // is shown: its own text edit and word formats included; a deleted
+          // next paragraph adds nothing.
           let j = i + 1;
           while(j < blocks.length && blocks[j].kind === 'paragraph' && !clean(flatten(blocks[j]))) j++;
-          const next = blocks[j];
-          if(next?.kind === 'paragraph'){
-            const n = stripMarker(I().cloneBlock(doc.replace ? applyDocReplace(next, doc.replace, {replace: [], marks: [], cleanups: {}}) : next));
-            const tail = I().trimRuns(n.runs);
-            if(tail.length){ b.runs = [...I().trimRuns(b.runs.map(r => ({...r}))), I().plainRun(' ', tail[0]), ...tail]; }
-            i = j; // the merged paragraph (and blank lines before it) are consumed
+          if(blocks[j]?.kind === 'paragraph' && keys[j]){
+            const ne = edit(keys[j]);
+            for(let k = i + 1; k < j; k++) merged.set(k, keys[k]);
+            merged.set(j, keys[j]);
+            if(!ne.remove){
+              let n = prep(blocks[j], {replace: [], marks: [], cleanups: {}});
+              if(ne.text !== undefined) n = replaceText(n, ne.text, legal);
+              const before = lost.length;
+              n = applyMarks(n, ne.marks, lost);
+              for(let x = before; x < lost.length; x++) lost[x].key = keys[j];
+              const tail = I().trimRuns(stripMarker(I().cloneBlock(n)).runs);
+              if(tail.length){ b.runs = [...I().trimRuns(b.runs.map(r => ({...r}))), I().plainRun(' ', tail[0]), ...tail]; }
+            }
           }
         }
         b = finish(b, e, key);
@@ -561,26 +659,9 @@
         unit.items.push(b);
         if(e.blankAfter) unit.items.push(blank(key));
       }
-      // Paragraphs the user added after this one: each is its own unit
-      // (movable, editable, removable) right after the parent.
-      for(const item of e.addAfter || []){
-        const ck = childKey(key, item.id), ce = sanitize(map.get(ck));
-        const cu = {key: ck, move: ce.move || 0, items: []};
-        units.push(cu);
-        if(ce.remove) continue;
-        if(ce.breakBefore) cu.items.push({kind: 'page-break', inserted: true, insertedBy: ck});
-        if(ce.blankBefore) cu.items.push(blank(ck));
-        let c = newParagraph(unit.items.findLast?.(x => x.kind === 'paragraph' && !x.inserted) || src, item, opts);
-        c = finish(c, ce, ck);
-        c.editKey = ck; c.edited = true; c.added = true;
-        cu.items.push(c);
-        if(ce.blankAfter) cu.items.push(blank(ck));
-        if(!isEmpty(ce)){ applied++; log.push({key: ck, excerpt: clean(item.text).slice(0, 60), summary: `eklenen paragraf: ${describe(ce)}`}); }
-      }
+      addChildren(key, e, unit.items.findLast?.(x => x.kind === 'paragraph' && !x.inserted) || src);
     }
-    let out = renumber(moveUnits(units).flatMap(u => u.items));
-    // Tidy-ups apply to every paragraph, the user's own text included (idempotent).
-    if(doc.cleanups) out = out.map(b => applyCleanups(b, doc.cleanups, docStats));
+    const out = renumber(moveUnits(units).flatMap(u => u.items));
     const docLog = describeDoc(doc, docStats);
     if(docLog.length) log.push({key: DOC_KEY, excerpt: 'Belgenin tamamı', summary: docLog.join('; ')});
     return {blocks: out, applied, log, lost, doc: docStats};

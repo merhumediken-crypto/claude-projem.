@@ -401,7 +401,7 @@ test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
 test('WTU-072 manifest izinleri, CSP ve sürüm',()=>{
   const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
   assert.equal(m.manifest_version,3);assert.deepEqual(m.permissions,[]);assert.deepEqual(m.host_permissions,[]);
-  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.10.0');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
+  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.10.1');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
   // sw.js (PWA offline cache) may fetch, but only its own origin.
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(/url\.origin !== location\.origin\) return/u.test(sw));
   for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')&&f!=='sw.js'))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);
@@ -485,6 +485,7 @@ test('v1.5 ayarlar: varsayılan vekil settings.js içinde, temizleme ve içe/dı
   assert.deepEqual(arr(settingsApi.registry(s).map(o=>o.name)),['Av. Su Ak'],'UETS boş vekil kayda girmez');
   const back=settingsApi.importJson(settingsApi.exportJson(s));assert.deepEqual(JSON.parse(JSON.stringify(back)),JSON.parse(JSON.stringify(s)));
   assert.throws(()=>settingsApi.importJson('{"application":"Başka"}'),/WordToUDF ayar/u);assert.throws(()=>settingsApi.importJson('bozuk'),/JSON/u);
+  for(const other of ['[1,2,3]','{}','{"name":"paket","version":"1.0.0"}','null'])assert.throws(()=>settingsApi.importJson(other),/WordToUDF ayar/u,`işaretsiz JSON ayarları sıfırlamaz: ${other}`);
   assert.deepEqual(arr(settingsApi.invalidUets({ownAttorney:{name:'Av. A B',uets:'123'}})),['kendi UETS']);
   assert.deepEqual(arr(settingsApi.signatureLines(d,{sifat:'Davalı',muvekkil:'İsa ÇİFTÇİ',avukat:'Av. Fatih NAKIŞLI'})),['Davalı İsa ÇİFTÇİ Vekili','Av. Fatih NAKIŞLI']);
 });
@@ -768,12 +769,62 @@ test('v1.8 yeni paragraf ekle, taşı: talep altına talep, numaralar ve sıra g
   const nb=edits.apply(r0,{[keys[bi]]:{addAfter:[{id:'b1',text:'Ayrıca belirtmek gerekir ki süre dolmamıştır.'}]}}).blocks.find(b=>b.editKey===edits.childKey(keys[bi],'b1'));
   assert.equal(nb.role,'edit-body');assert.equal(nb.alignment,'justify');assert(nb.first>30);
   // 3. talebi bir yukarı taşı → 2. olur, numaralar sıralı.
-  const mv=edits.apply(r0,{[keys[items[2]]]:{move:-1}}).blocks.filter(b=>b.listId==='1');
+  const mv=edits.apply(r0,{[keys[items[2]]]:{move:{before:keys[items[1]],seq:1}}}).blocks.filter(b=>b.listId==='1');
   assert(/^2\.\t06\.10\.2026/u.test(text(mv[1])),text(mv[1]));assert.deepEqual(arr(mv.map(b=>b.runs[0].text)),['1.\t','2.\t','3.\t','4.\t','5.\t']);
-  const down=edits.apply(r0,{[keys[items[0]]]:{move:2}}).blocks.filter(b=>b.listId==='1');assert(/^3\.\t14\.10\.2026/u.test(text(down[2])));
-  const top=edits.apply(r0,{[keys[items[1]]]:{move:-500}}).blocks;assert.equal(top[0].editKey,keys[items[1]],'en başa kadar taşınır, taşmaz');
-  assert(/1 sıra yukarı taşındı/u.test(edits.apply(r0,{[keys[items[2]]]:{move:-1}}).log[0].summary));
+  const down=edits.apply(r0,{[keys[items[0]]]:{move:{after:keys[items[2]],seq:1}}}).blocks.filter(b=>b.listId==='1');assert(/^3\.\t14\.10\.2026/u.test(text(down[2])));
+  const top=edits.apply(r0,{[keys[items[1]]]:{move:{before:keys[0],seq:1}}}).blocks;assert.equal(top[0].editKey,keys[items[1]],'en başa taşınır');
+  assert.equal(edits.apply(r0,{[keys[items[1]]]:{move:{before:'yok|böyle',seq:1}}}).blocks.filter(b=>b.listId==='1').length,5,'bilinmeyen çapa: yer değişmez');
+  assert(/yukarı taşındı/u.test(edits.apply(r0,{[keys[items[2]]]:{move:{before:keys[items[1]],seq:1}}}).log[0].summary));
   const w=writer.write(add.blocks,{});assert(w.xml.includes('Yargılama giderlerinin karşı tarafa yükletilmesine,'));
+});
+test('v1.10.1 düzenleyici denetimi: numara metne yapışmaz, taşımalar birleşir, birleştirme, düzeltme sırası, korunan biçim, alt madde girintisi, vurgu kapalı',()=>{
+  // 1) Yapıştırılan (açıkça bold:false) taleplerde bir sözcüğü kalın yapıp 1. maddeyi silmek: numaralar 1., 2.
+  const plain=t=>({kind:'paragraph',runs:[{text:t,bold:false,italic:false,underline:false}]});
+  const r1=runText(['AÇIKLAMALAR','Metin.','SONUÇ VE İSTEM',plain('1. Mazeretimizin kabulüne,'),plain('2. Duruşmanın ertelenmesine,'),plain('3. Giderlerin yükletilmesine,')]).blocks;
+  const k1=edits.blockKeys(r1),it=r1.map((b,i)=>b.role==='result-item'?i:-1).filter(i=>i>=0);
+  const o1=edits.apply(r1,{[k1[it[1]]]:{marks:[{text:'ertelenmesine',at:10,bold:true}]},[k1[it[0]]]:{remove:true}},{legal:true}).blocks.filter(b=>b.role==='result-item');
+  assert.deepEqual(arr(o1.map(b=>b.runs[0].text)),['1.\t','2.\t'],o1.map(text).join(' | '));
+  assert(o1[0].runs.some(r=>r.text==='ertelenmesine'&&r.bold));
+  // Metin düzenlemesi ve düzeltme de numarayı metne katmaz.
+  const o1b=edits.apply(r1,{[k1[it[1]]]:{text:'Duruşmanın ileri bir tarihe ertelenmesine,'},[edits.DOC_KEY]:{cleanups:['spaces']}}).blocks.filter(b=>b.role==='result-item');
+  assert(o1b.every(b=>/^\d\.\t$/u.test(b.runs[0].text)),o1b.map(b=>JSON.stringify(b.runs[0].text)).join());
+  // 2) Taşımalar yapılış sırasıyla: C yukarı, sonra B yukarı → A B C D; D iki kez yukarı, sonra B silinir → A D C.
+  const body=['AÇIKLAMALAR','Paragraf A metni.','Paragraf B metni.','Paragraf C metni.','Paragraf D metni.'];
+  const r2=runText(body).blocks,k2=edits.blockKeys(r2),ix=t=>r2.findIndex(b=>text(b)===`Paragraf ${t} metni.`),K=t=>k2[ix(t)];
+  const order=o=>o.blocks.filter(b=>/^Paragraf/u.test(text(b))).map(b=>text(b)[9]).join('');
+  assert.equal(order(edits.apply(r2,{[K('C')]:{move:{before:K('B'),seq:1}},[K('B')]:{move:{before:K('C'),seq:2}}})),'ABCD');
+  assert.equal(order(edits.apply(r2,{[K('D')]:{move:{before:K('B'),seq:2}},[K('B')]:{remove:true}})),'ADC');
+  // 3) Taşınan paragrafın altına eklenen paragraf onunla gider.
+  const o3=edits.apply(r2,{[K('B')]:{move:{after:K('D'),seq:1},addAfter:[{id:'n1',text:'Yeni paragraf.'}]}});
+  assert.deepEqual(arr(o3.blocks.filter(b=>/^(Paragraf|Yeni)/u.test(text(b))).map(b=>text(b).slice(0,10))),['Paragraf A','Paragraf C','Paragraf D','Paragraf B','Yeni parag']);
+  // 4) Sonrakiyle birleştir: sonraki paragrafın düzenlenmiş metni ve eklenen paragrafları korunur; silinmişse eklenmez.
+  const m1=edits.apply(r2,{[K('B')]:{mergeNext:true},[K('C')]:{text:'Düzeltilmiş C.',addAfter:[{id:'c1',text:'C altı.'}]}}).blocks.map(text);
+  assert(m1.includes('Paragraf B metni. Düzeltilmiş C.')&&m1.includes('C altı.')&&!m1.includes('Paragraf C metni.'),m1.join(' | '));
+  const m2=edits.apply(r2,{[K('B')]:{mergeNext:true},[K('C')]:{remove:true}}).blocks.map(text);
+  assert(m2.includes('Paragraf B metni.')&&!m2.some(t=>t.includes('Paragraf C')),m2.join(' | '));
+  // 5) Düzeltmeler önce uygulanır: düzeltilmiş tarih biçimlenir ve bul/değiştir onu bulur.
+  const r5=runText(['AÇIKLAMALAR','Duruşma 14/10/2026 tarihindedir.']).blocks,k5=edits.blockKeys(r5),i5=r5.findIndex(b=>/Duruşma/u.test(text(b)));
+  const o5=edits.apply(r5,{[edits.DOC_KEY]:{cleanups:['dates'],replace:[{from:'14.10.2026',to:'15.10.2026'}]},[k5[i5]]:{marks:[{text:'tarihindedir',at:20,bold:true}]}});
+  assert.equal(text(o5.blocks[i5]),'Duruşma 15.10.2026 tarihindedir.');assert.equal(o5.lost.length,0);assert.equal(o5.doc.replace[0],1);
+  const o5b=edits.apply(r5,{[edits.DOC_KEY]:{cleanups:['dates']},[k5[i5]]:{marks:[{text:'14.10.2026',at:8,bold:true}]}});
+  assert.equal(o5b.lost.length,0,'düzeltilmiş metin biçimlenir');assert(o5b.blocks[i5].runs.some(r=>r.text==='14.10.2026'&&r.bold));
+  // Tutar düzeltmesi var olan biçimi değiştirmez: yalnız eklenen kısım sondaki karakterin biçimini alır.
+  const r6=runText([para('AÇIKLAMALAR'),{kind:'paragraph',runs:[{text:'Toplam '},{text:'10.000,00',bold:true},{text:' TL ödenmelidir.'}]}]).blocks;
+  const b6=edits.apply(r6,{[edits.DOC_KEY]:{cleanups:['amounts']}}).blocks.find(b=>/Toplam/u.test(text(b)));
+  assert.equal(text(b6),'Toplam 10.000,00 TL (on bin Türk lirası) ödenmelidir.');
+  assert(b6.runs.some(r=>r.text==='10.000,00'&&r.bold)&&!b6.runs.some(r=>r.bold&&/TL/u.test(r.text)),JSON.stringify(b6.runs));
+  // 6) "Word biçimini koru": elle metin değişikliği atıfları italik yapmaz.
+  // Kaynak, tipografisi uygulanmamış (Word biçimini koru) paragraf.
+  const r7=[para('HMK m. 127 uyarınca süre verilmiştir.',{alignment:'left'})],k7=edits.blockKeys(r7),i7=0;
+  assert(!edits.apply(r7,{[k7[i7]]:{text:'HMK m. 127 uyarınca ek süre verilmiştir.'}},{legal:false}).blocks[i7].runs.some(r=>r.italic));
+  assert(edits.apply(r7,{[k7[i7]]:{text:'HMK m. 127 uyarınca ek süre verilmiştir.'}},{legal:true}).blocks[i7].runs.some(r=>r.italic&&/HMK/u.test(r.text)));
+  // 7) Otomatik listede a) maddesinin sol girintisi ikinci düzeyden hesaplanır.
+  const r8=run(['AÇIKLAMALAR','Metin.','SONUÇ VE İSTEM','1. Davanın kabulüne,','a) birinci alt,','2. Giderler,'],{listMode:'auto'}).blocks,k8=edits.blockKeys(r8),i8=r8.findIndex(b=>/birinci alt/u.test(text(b)));
+  assert.equal(edits.apply(r8,{[k8[i8]]:{left:0.5}}).blocks[i8].left,36+0.5*72/2.54);
+  // 8) Deneysel vurgu kapalıyken UDF'ye girmez, açıkken girer.
+  const hlE={[k7[i7]]:{marks:[{text:'uyarınca',at:11,highlight:true}]},[edits.DOC_KEY]:{marks:[{text:'süre',highlight:true,bold:true}]}};
+  const off=edits.apply(r7,hlE,{highlight:false}).blocks[i7].runs,on=edits.apply(r7,hlE,{highlight:true}).blocks[i7].runs;
+  assert(!off.some(r=>r.highlight)&&off.some(r=>r.text==='süre'&&r.bold),JSON.stringify(off));assert(on.some(r=>r.highlight&&r.text==='uyarınca'));
 });
 /* ----------------------------- v1.9.0 kütüphane, düzeltme önerileri ----------------------------- */
 test('v1.9 öneriler ve düzeltmeler: fazla boşluk, noktalama, virgül, tarih; biçim korunur, tekrar uygulanınca değişmez',()=>{
@@ -803,8 +854,58 @@ test('v1.9 dosya kartı: dilekçeden çıkarılır (vekilimizin müvekkili), tek
   lib.saveCase({court:'Ankara 1. İş Mahkemesi',caseNo:'2026/5',client:'Ali VELİ'});assert.equal(lib.cases().length,2);
   assert.throws(()=>lib.saveCase({note:'yalnız not'}),/en az mahkeme/u);
   const data=JSON.parse(JSON.stringify(lib.exportData()));store.clear();
-  assert.deepEqual(JSON.parse(JSON.stringify(lib.importData({cases:[...data.cases,{evil:1},null],templates:[{title:'',body:'x'}]}))),{cases:2,templates:0});
+  assert.deepEqual(JSON.parse(JSON.stringify(lib.importData({cases:[...data.cases,{evil:1},null],templates:[{title:'',body:'x'}]}))),{cases:2,templates:0,skipped:3,kept:0});
   assert.equal(lib.cases().length,2);assert(lib.cases().some(x=>lib.caseLabel(x).includes('2026/1929 Esas')));
+});
+test('v1.10.1 kütüphane sınırı: dolunca yenisi reddedilir, mevcut şablon/kart sessizce silinmez',()=>{
+  store.clear();
+  lib.saveTemplate({title:'Aaa ilk şablon',body:'x'});
+  for(let i=1;i<100;i++)lib.saveTemplate({title:`Şablon ${String(i).padStart(3,'0')}`,body:'x'});
+  assert.equal(lib.templates().length,100);
+  assert.throws(()=>lib.saveTemplate({title:'Yeni',body:'y'}),/En fazla 100/u);
+  assert(lib.templates().some(t=>t.title==='Aaa ilk şablon'),'alfabede ilk şablon yerinde');
+  lib.saveTemplate({title:'Aaa ilk şablon',body:'güncel'});assert.equal(lib.templates().find(t=>t.title==='Aaa ilk şablon').body,'güncel','dolu iken güncelleme çalışır');
+  const res=lib.importData({templates:[{title:'Dışarıdan',body:'z'}]});assert.equal(res.templates,0);assert.equal(res.skipped,1);
+  store.clear();
+  for(let i=0;i<300;i++)lib.saveCase({caseNo:`2026/${i}`,client:'A'});
+  assert.throws(()=>lib.saveCase({caseNo:'2027/1',client:'B'}),/En fazla 300/u);assert.equal(lib.cases().length,300);
+  store.clear();
+});
+test('v1.10.1 kütüphane denetimi: alan adı katlama, sözcük sınırı, mahkeme eki, yeni kaydın korunması, eksik alanların korunması',()=>{
+  store.clear();
+  // {TARIH}/{MUVEKKIL} standart alandır; {iban} ile {IBAN} tek alan; boş süslü ayraç alan değildir.
+  const ph=lib.placeholders({body:'{TARIH} {MUVEKKIL} {iban} {IBAN} { } {Müvekkil}'});
+  assert.deepEqual(arr(ph.map(p=>[p.key,p.standard])).map(x=>arr(x)),[['TARIH','today'],['MUVEKKIL','client'],['İBAN',null]]);
+  assert.equal(lib.fill('{muvekkil} / {MÜVEKKİL} / {IBAN}',{'MÜVEKKİL':'Ali VELİ',iban:'TR00'}),'Ali VELİ / Ali VELİ / TR00');
+  // Sözcük içinde değiştirmez; büyük/küçük harf farkını tanır; var olan alanın içine girmez.
+  const info={client:'Ali VELİ',other:'Karşı Taraf A.Ş.',court:'Şanlıurfa 8. Asliye Hukuk Mahkemesi'};
+  assert.equal(lib.generalize('Alikaya ile Ali Veli ve ALİ VELİ; Halil.',info),'Alikaya ile {MÜVEKKİL} ve {MÜVEKKİL}; Halil.');
+  assert.equal(lib.generalize('{KARŞI TARAF VEKİLİ} ve karşı taraf a.ş.',{other:'Karşı Taraf A.Ş.',client:'KARŞI TARAF'}),'{KARŞI TARAF VEKİLİ} ve {KARŞI TARAF}');
+  assert.equal(lib.generalize('5.000 TL ödendi',{}, [['5.000','ALACAK TUTARI']]),'{ALACAK TUTARI} TL ödendi');
+  // Mahkeme adı kesme işaretsiz -NE ekinden de arınır; esas no yazımı farklı olsa da aynı dosya.
+  const src=run(['İSTANBUL 22. ASLİYE TİCARET MAHKEMESİNE','DOSYA NO: 2026/713 E.','DAVACI: Ali VELİ','VEKİLİ: Av. Fatih NAKIŞLI','DAVALI: Veli ALİ','KONU: Deneme.','AÇIKLAMALAR','Metin.']).blocks;
+  const c=lib.caseFromBlocks(src,'Av. Fatih NAKIŞLI');assert.equal(c.court,'İSTANBUL 22. ASLİYE TİCARET MAHKEMESİ');
+  const a=lib.saveCase({...c,otherAttorney:'Av. Ali KAYA',note:'önemli'});
+  lib.saveCase({court:'İstanbul 22. Asliye Ticaret Mahkemesine',caseNo:'2026/713',client:'ali veli',other:'Veli ALİ'});
+  assert.equal(lib.cases().length,1,'aynı dosya iki kart olmaz');
+  assert.equal(lib.cases()[0].otherAttorney,'Av. Ali KAYA','gönderilmeyen alan korunur');assert.equal(lib.cases()[0].note,'önemli');
+  // Eski yedek yeni kaydın üzerine yazmaz.
+  const old={...lib.cases()[0],otherAttorney:'Av. Eski',updated:'2020-01-01T00:00:00.000Z'};
+  const res=lib.importData({cases:[old],templates:[]});assert.equal(res.kept,1);assert.equal(lib.cases()[0].otherAttorney,'Av. Ali KAYA');
+  const newer={...lib.cases()[0],otherAttorney:'Av. Yeni',updated:'2099-01-01T00:00:00.000Z'};
+  lib.importData({cases:[newer]});assert.equal(lib.cases()[0].otherAttorney,'Av. Yeni');assert.equal(lib.cases()[0].updated,'2099-01-01T00:00:00.000Z','yedeğin zamanı korunur');
+  // Kendi vekil satırı bir tarafa bağlanamıyorsa müvekkil uydurulmaz.
+  const orphan=run(['ANKARA 1. ASLİYE HUKUK MAHKEMESİNE','KARŞI TARAF: Ahmet YILMAZ','VEKİLİ: Av. Ali KAYA','VEKİLİ: Av. Fatih NAKIŞLI','KONU: Deneme.','AÇIKLAMALAR','Metin.']).blocks;
+  const oc=lib.caseFromBlocks(orphan,'Av. Fatih NAKIŞLI');assert.equal(oc.client,'');assert.equal(oc.other,'Ahmet YILMAZ');
+  // Üç sözcüklü "… EDEN" etiketi taraf satırıdır.
+  const three=run(['ANKARA 1. ASLİYE HUKUK MAHKEMESİNE','İHTİYATİ TEDBİRE İTİRAZ EDEN: Mehmet DEMİR','VEKİLİ: Av. Fatih NAKIŞLI','KONU: Deneme.','AÇIKLAMALAR','Metin.']).blocks;
+  assert.equal(lib.caseFromBlocks(three,'Av. Fatih NAKIŞLI').client,'Mehmet DEMİR');
+  // Yalnız CR satır sonu korunur.
+  assert.equal(lib.sanitizeTemplate({title:'x',body:'a\rb'}).body,'a\nb');
+  // Dilekçeden şablon: HUKUKİ SEBEPLER / DELİLLER kaybolmaz.
+  const sec=run(['ANKARA 1. ASLİYE HUKUK MAHKEMESİNE','DAVACI: Ali VELİ','KONU: Deneme.','AÇIKLAMALAR:','Açıklama.','HUKUKİ SEBEPLER: İİK m. 50.','HUKUKİ DELİLLER:','Çek.','SONUÇ VE İSTEM:','1. Kabulüne,']).blocks;
+  assert.equal(lib.partsFromBlocks(sec).body,'Açıklama.\nHUKUKİ SEBEPLER: İİK m. 50.\nHUKUKİ DELİLLER: Çek.');
+  store.clear();
 });
 test('v1.9 kendi şablonu: adlar alana çevrilir, alanlar bulunur ve doldurulur, boş alan uydurulmaz',()=>{
   store.clear();
@@ -858,11 +959,43 @@ test('v1.10 süre hesabı: hafta, ay sonu, bayram, Cumartesi, adli tatil, arife,
   assert(ics.includes('DTSTART;VALUE=DATE:20260907')&&ics.includes('DTEND;VALUE=DATE:20260908')&&ics.includes('SUMMARY:Son gün: Cevap\\; 2026/1929')&&ics.includes('DESCRIPTION:a\\,b\\nc')&&ics.includes('TRIGGER:-P2D'));
   assert.equal(dl.PRESETS.flatMap(g=>g.items).length,15);assert.equal(dl.preset('temyiz').law,'HMK m. 361');
 });
+test('v1.10.1 süre hesabı denetimi: tatil sonrası adli tatil, sınırlar, ICS katlama, İYUK dayanağı',()=>{
+  const d=s=>new Date(s+'T00:00:00Z'),day=r=>r.end.toISOString().slice(0,10);
+  // 30 Ağustos 2025 Cumartesi (Zafer Bayramı) → Pazar → 1 Eylül: süre adli tatilde bitmiştir, 7 Eylül Pazar → 8 Eylül.
+  const r=dl.compute(d('2025-08-16'),2,'hafta');assert.equal(day(r),'2025-09-08',r.steps.join(' | '));
+  assert.equal(day(dl.compute(d('2025-08-17'),2,'hafta',{saturday:false})),'2025-09-08');
+  assert.equal(day(dl.compute(d('2025-08-16'),2,'hafta',{recess:false})),'2025-09-01','adli tatil kapalıyken yalnız tatil ertelemesi');
+  // İdari yargıda dayanak İYUK m. 8/3.
+  assert(dl.compute(d('2026-07-10'),30,'gun',{recessBasis:'İYUK m. 8/3'}).steps.some(s=>/İYUK m\. 8\/3/u.test(s)));
+  // Birime göre sınır, tam sayı, makul yıl aralığı.
+  assert.throws(()=>dl.compute(d('2026-01-01'),11,'yil'),/1 ile 10 yıl/u);
+  assert.throws(()=>dl.compute(d('2026-01-01'),121,'ay'),/1 ile 120 ay/u);
+  assert.throws(()=>dl.compute(d('2026-01-01'),1.5,'ay'),/tam sayı/u,'kesirli süre sessizce kesilmez');
+  assert.throws(()=>dl.compute(d('2026-01-01'),NaN,'gun'),/tam sayı/u);
+  assert.throws(()=>dl.compute(d('9999-12-31'),1,'gun'),/1950 ile 2100/u);
+  assert.throws(()=>dl.compute(d('2026-01-01'),1,'saat'),/birimi/u);
+  // Bilinmeyen yıl uyarısı yalnız son günün yılı için.
+  assert.equal(dl.compute(d('2024-12-20'),2,'hafta').warnings.length,0,'başlangıç yılı tabloda olmasa da son gün 2025');
+  // RFC 5545: satırlar 75 baytı aşmaz, UTF-8 karakteri bölünmez, katlama açılınca metin aynen geri gelir.
+  const title='Son gün: İstinaf başvurusu – 2026/1929 E. ğüşıöç ĞÜŞİÖÇ çok uzun bir başlık ve açıklama';
+  const ics=dl.ics({end:d('2026-10-20'),title,description:'Ş'.repeat(120)});
+  const lines=ics.split('\r\n');assert(lines.every(l=>Buffer.byteLength(l)<=75),lines.map(l=>Buffer.byteLength(l)).join(','));
+  assert(!ics.includes('\uFFFD')&&ics.endsWith('\r\n'));
+  const unfolded=ics.replace(/\r\n /gu,'');assert(unfolded.includes(`SUMMARY:${title}`)&&unfolded.includes(`DESCRIPTION:${'Ş'.repeat(120)}`));
+});
 test('v1.10 dosya adı kalıbı ve ayarlar',()=>{
   assert.equal(pipe.fileName('{TARİH}_{MÜVEKKİL}_{TÜR}',{date:'14.10.2026',client:'İsa ÇİFTÇİ',type:'Mazeret dilekçesi',source:'x'}),'14.10.2026_İsa ÇİFTÇİ_Mazeret dilekçesi');
   assert.equal(pipe.fileName('',{source:'Isa_Ciftci.docx'}),'Isa_Ciftci');
   assert.equal(pipe.fileName('{ESAS}',{caseNo:'2026/1929 Esas'}),'2026-1929 Esas');
   assert.equal(pipe.fileName('{MÜVEKKİL}',{source:'kaynak'}),'kaynak','boş kalırsa kaynak adı');
+  // 1.10.1: alan adı her klavyeyle; boş alan ayırıcısını da götürür; Windows aygıt adları ve emoji kesilmez.
+  for(const k of ['{muvekkil}','{Müvekkil}','{MUVEKKIL}','{müvekkil}','{MÜVEKKİL}'])assert.equal(pipe.fileName(k,{client:'Ali VELİ'}),'Ali VELİ',k);
+  assert.equal(pipe.fileName('{tarih}_{tür}',{date:'14.10.2026',type:'Mazeret'}),'14.10.2026_Mazeret');
+  assert.equal(pipe.fileName('{TARİH} - {MÜVEKKİL} - {ESAS}',{date:'14.10.2026',caseNo:'2026/1929 E'}),'14.10.2026 - 2026-1929 E');
+  assert.equal(pipe.fileName('{MÜVEKKİL}_{TARİH}',{date:'14.10.2026'}),'14.10.2026');
+  assert.equal(pipe.fileName('{TARİH}_{MÜVEKKİL}',{date:'14.10.2026'}),'14.10.2026');
+  assert.equal(pipe.safeName('CON'),'CON_');assert.equal(pipe.safeName('nul.docx'),'nul_');assert.equal(pipe.safeName('COM1 dilekçe'),'COM1 dilekçe');
+  const emo=pipe.safeName('a'.repeat(89)+'😀😀');assert.equal([...emo].length,90);assert(!/[\uD800-\uDBFF]$/u.test(emo),'yarım emoji kalmaz');
   const st=settingsApi.sanitize({fileName:'  {TARİH}  ',experimental:'evet'});assert.equal(st.fileName,'{TARİH}');assert.equal(st.experimental,false);
   assert.equal(settingsApi.sanitize({experimental:true}).experimental,true);
   // Deneysel vurgu UDF'de background olarak yazılır.

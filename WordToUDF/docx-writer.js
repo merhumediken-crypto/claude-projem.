@@ -7,17 +7,20 @@
   const twips=(val)=>Math.round(val*20);
   const t=(name,val)=>`<w:${name} w:val="${esc(val)}"/>`;
   const color=(value)=>/^[a-fA-F0-9]{6}$/.test(value||'')?value:'000000';
+  // Elements in the order the OOXML schema (CT_RPr) requires: rFonts, b, i,
+  // strike, color, sz, highlight, u, shd. Word tolerates other orders; strict
+  // validators do not.
   const style=run=>{
     const attrs=[];
     if(run.font)attrs.push(`<w:rFonts w:ascii="${esc(run.font)}" w:hAnsi="${esc(run.font)}" w:cs="${esc(run.font)}" w:eastAsia="${esc(run.font)}"/>`);
-    if(Number.isFinite(run.size))attrs.push(t('sz',Math.round(run.size*2)),t('szCs',Math.round(run.size*2)));
     if(run.bold!==undefined)attrs.push(t('b',run.bold?1:0),t('bCs',run.bold?1:0));
     if(run.italic!==undefined)attrs.push(t('i',run.italic?1:0),t('iCs',run.italic?1:0));
-    if(run.underline!==undefined)attrs.push(`<w:u w:val="${run.underline?'single':'none'}"/>`);
     if(run.strike!==undefined)attrs.push(t('strike',run.strike?1:0));
     if(run.color)attrs.push(`<w:color w:val="${color(run.color)}"/>`);
+    if(Number.isFinite(run.size))attrs.push(t('sz',Math.round(run.size*2)),t('szCs',Math.round(run.size*2)));
+    if(!run.background&&run.highlight===true)attrs.push('<w:highlight w:val="yellow"/>');
+    if(run.underline!==undefined)attrs.push(`<w:u w:val="${run.underline?'single':'none'}"/>`);
     if(run.background)attrs.push(`<w:shd w:val="clear" w:color="auto" w:fill="${color(run.background)}"/>`);
-    else if(run.highlight===true)attrs.push('<w:highlight w:val="yellow"/>');
     return attrs.length?`<w:rPr>${attrs.join('')}</w:rPr>`:'';
   };
   function runs(source){
@@ -110,6 +113,9 @@
       if(group)ppr.push(`<w:numPr><w:ilvl w:val="${Math.max(0,Math.min(8,(b.list.level||0)-(Number.isFinite(group.min)?group.min:0)))}"/><w:numId w:val="${group.numId}"/></w:numPr>`);
     }
     if(hasBreak)ppr.push('<w:pageBreakBefore/>');
+    // CT_PPr schema order: pageBreakBefore, numPr, tabs, spacing, ind, jc.
+    const RANK={pageBreakBefore:0,numPr:1,tabs:2,spacing:3,ind:4,jc:5};
+    ppr.sort((x,y)=>RANK[/^<w:(\w+)/.exec(x)[1]]-RANK[/^<w:(\w+)/.exec(y)[1]]);
     return `<w:p>${ppr.length?`<w:pPr>${ppr.join('')}</w:pPr>`:''}${runs(b.runs)}</w:p>`;
   }
   function table(block,numbering){

@@ -24,7 +24,7 @@
     {re: /^(?:MÜDAFİİ|MÜDAFİ|MÜDAFİLERİ)$/u, kind: 'defender'},
     {re: /^(?:DAVACI|DAVALI|DAVACILAR|DAVALILAR|KARŞI\s+DAVACI|KARŞI\s+DAVALI|SANIK|SANIKLAR|ŞÜPHELİ|ŞÜPHELİLER|MÜŞTEKİ|MÜŞTEKİLER|MÜŞTEKİ\s+ŞÜPHELİ|KATILAN|KATILANLAR|BORÇLU|BORÇLULAR|ALACAKLI|ALACAKLILAR|MÜDAHİL|İHBAR\s+OLUNAN|KARŞI\s+TARAF|BAŞVURUCU|ŞİKAYETÇİ|ŞİKÂYETÇİ|SUÇTAN\s+ZARAR\s+GÖREN|MAĞDUR)$/u, kind: 'party'},
     {re: /^KARŞI\s+TARAF(?:\s+(?:DAVACI|DAVALI|SANIK|ŞÜPHELİ|KATILAN|BORÇLU|ALACAKLI|MÜŞTEKİ))?$/u, kind: 'party'},
-    {re: /^(?:[A-ZÇĞİÖŞÜ]+\s+){0,2}(?:EDEN|OLUNAN)(?:\s+(?:SANIK|DAVACI|DAVALI|KATILAN|ŞÜPHELİ|BORÇLU|ALACAKLI))?$/u, kind: 'party'},
+    {re: /^(?:[A-ZÇĞİÖŞÜ]+\s+){0,3}(?:EDEN|OLUNAN)(?:\s+(?:SANIK|DAVACI|DAVALI|KATILAN|ŞÜPHELİ|BORÇLU|ALACAKLI))?$/u, kind: 'party'},
     {re: /^KONU$/u, kind: 'topic'},
     {re: /^(?:VERGİ\s+NO|VERGİ\s+NUMARASI|VERGİ\s+DAİRESİ|VERGİ\s+DAİRESİ\s+VE\s+NO|TCKN|T\.C\.\s+KİMLİK\s+NO|TC\s+KİMLİK\s+NO|MERSİS\s+NO|TİCARET\s+SİCİL\s+NO|SORUŞTURMA\s+NO|TAKİP\s+DAYANAĞI|TEBLİĞ\s+TARİHİ|ÖDEME\s+EMRİNİN\s+TEBLİĞ\s+TARİHİ|SUÇ|SUÇ\s+TARİHİ|KARAR\s+TARİHİ|TUTUKLAMA\s+T\.?|TUTUKLAMA\s+TARİHİ|DAVA\s+DEĞERİ|HARCA\s+ESAS\s+DEĞER|İTİRAZ\s+EDİLEN\s+KARAR|İSTİNAF\s+EDİLEN\s+KARAR|KARARI\s+VEREN\s+MAHKEME|KARAR\s+VEREN\s+MAHKEME)$/u, kind: 'other'}
   ];

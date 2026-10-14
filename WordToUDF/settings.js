@@ -73,7 +73,9 @@
   function importJson(text){
     let data;
     try{ data = JSON.parse(String(text)); }catch{ throw new Error('Ayar dosyası okunamadı (geçerli JSON değil).'); }
-    if(!data || typeof data !== 'object' || (data.application && data.application !== 'WordToUDF')) throw new Error('Bu dosya WordToUDF ayar dosyası değil.');
+    // Every export since 1.5 carries the marker; anything else (an array, another
+    // program's JSON) would silently reset the attorney name and UETS to defaults.
+    if(!data || typeof data !== 'object' || Array.isArray(data) || data.application !== 'WordToUDF') throw new Error('Bu dosya WordToUDF ayar dosyası değil.');
     return sanitize(data);
   }
   // Registry entries handed to the typography layer: only complete pairs.
@@ -91,5 +93,5 @@
     const s = sanitize(settings);
     return s.signature.lines.map(l => l.replace(/\{(\w+)\}/gu, (_, k) => str(vars?.[k] ?? '', 160)).replace(/\s+/gu, ' ').trim()).filter(Boolean);
   }
-  globalThis.WordToUDFSettings = {DEFAULTS, UETS_RE, sanitize, load, save, exportJson, importJson, registry, invalidUets, signatureLines};
+  globalThis.WordToUDFSettings = {KEY, DEFAULTS, UETS_RE, sanitize, load, save, exportJson, importJson, registry, invalidUets, signatureLines};
 })();

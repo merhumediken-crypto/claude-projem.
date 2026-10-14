@@ -1,4 +1,4 @@
-# WordToUDF 1.10.0 güvenlik notları
+# WordToUDF 1.10.1 güvenlik notları
 
 - Manifest V3; host izni ve genişletilmiş tarayıcı izni yoktur.
 - Ağ erişimi kapalıdır (`connect-src 'none'`); uzaktan script/kod kullanılmaz.
@@ -11,7 +11,9 @@
 - İndirilen dosya adlarında kontrol, bidi ve görünmez yönlendirme karakterleri temizlenir.
 - Elektronik imza kriptografik olarak başka formata taşınmaz.
 - 1.4.0'daki isteğe bağlı vekil UETS listesi yalnız uzantı sayfasının yerel `localStorage` alanında tutulur; Chrome izni gerektirmez, hiçbir yere gönderilmez ve otomatik doldurulmaz.
-- 1.5.0 ayarları (vekil profili, başka vekiller, seçenekler) ve şablon taslağı yalnız sayfanın yerel `localStorage` alanındadır. Dışa aktarma kullanıcının kendi indirdiği bir JSON dosyasıdır; içe aktarma 256 KB ile sınırlıdır ve yalnız bilinen alanlar (`settings.sanitize`) kabul edilir.
+- 1.5.0 ayarları (vekil profili, başka vekiller, seçenekler) ve şablon taslağı yalnız sayfanın yerel `localStorage` alanındadır. Dışa aktarma kullanıcının kendi indirdiği bir JSON dosyasıdır; içe aktarma 8 MB ile sınırlıdır (1.10.1'den beri dosya kartlarını ve şablonları da taşır), yalnız `application: "WordToUDF"` işaretli dosyalar ve bilinen alanlar (`settings.sanitize`, `library.sanitizeCase/sanitizeTemplate`) kabul edilir; yedekteki eski bir kayıt bu tarayıcıdaki daha yeni kaydın üzerine yazılmaz.
+- 1.9–1.10.1: dosya kartları (`wordtoudf.cases.v1`: mahkeme, esas no, taraf ve müvekkil adları), kendi şablonlar (`wordtoudf.userTemplates.v1`) ve şablon taslağı (`wordtoudf.templateDraft.v1`) da yalnız yerel `localStorage` alanındadır; süresiz durur, hiçbir yere gönderilmez. Word → UDF sayfasındaki “kartları, şablonları ve taslağı sil” düğmesi üçünü birden siler (ayarlar kalır). Sınırda (300 kart / 100 şablon) yeni kayıt reddedilir; eski kayıt sessizce silinmez.
+- Paket (`tools/build.js`) izin listesiyle oluşturulur: klasöre yanlışlıkla bırakılmış bir müvekkil belgesi sürüm ZIP'ine girmez.
 - Elle düzeltme menüsü ve denetim mesajları `textContent` ile yazılır.
 - Toplu dönüşüm en fazla 100 dosya alır; her dosya tek dosyadaki sınır ve doğrulamalardan geçer.
 - Web uygulaması (PWA) kipinde `sw.js` yalnız **aynı kaynaktaki** uygulama dosyalarını önbelleğe alır (`url.origin !== location.origin` ise karışmaz); belge içeriği ağ üzerinden hiçbir yere gönderilmez. Sayfaların CSP'si (`connect-src 'none'`) değişmedi. Chrome uzantısı service worker'ı kaydetmez.

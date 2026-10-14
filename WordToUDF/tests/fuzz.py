@@ -53,7 +53,8 @@ async ([iterations, seed]) => {
         // v1.8: word/sentence marks (also at impossible offsets / missing text), new paragraphs, moves.
         marks: rnd() < .4 ? Array.from({length: 1 + Math.floor(rnd() * 4)}, () => { const src = pick(LINES); const a = Math.floor(rnd() * src.length); return {text: rnd() < .8 ? src.slice(a, a + 1 + Math.floor(rnd() * 25)) : 'yok-böyle-metin', at: Math.floor(rnd() * 400), [pick(E.MARK_STYLES)]: rnd() < .8}; }) : undefined,
         addAfter: rnd() < .15 ? [{id: 'f' + it, text: pick(LINES) || 'Yeni paragraf.', role: pick([...Object.keys(E.ROLES), undefined])}] : undefined,
-        move: rnd() < .15 ? pick([-3, -1, 1, 2, 999, -999]) : undefined}));
+        // 1.10.1: a move is an anchor (above / below another paragraph) replayed in seq order; also unknown anchors.
+        move: rnd() < .15 ? {[pick(['before', 'after'])]: rnd() < .9 ? pick(keys) : 'yok|böyle', seq: 1 + Math.floor(rnd() * 20)} : undefined}));
       if(rnd() < .3) edits.set(E.DOC_KEY, E.sanitizeDoc({marks: [{text: pick(['ve', 'karar', 'İ', 'ı', 'Talep', ' ']), bold: true, caseSensitive: rnd() < .5, wholeWord: rnd() < .5}],
         replace: rnd() < .5 ? [{from: pick(['a', 've', 'İ', '.', 'karar']), to: pick(['', 'x', 'VE', 'çok uzun bir değiştirme metni']), wholeWord: rnd() < .5}] : [],
         cleanups: Object.keys(E.CLEANUPS).filter(() => rnd() < .5)}));
@@ -64,6 +65,10 @@ async ([iterations, seed]) => {
       // Text-mode list numbers must be consecutive per list.
       const counters = {};
       for(const b of t.blocks){ if(!b.listMarker || b.listLevel) continue; counters[b.listId] = (counters[b.listId] || 0) + 1; if(b.listMarker !== `${counters[b.listId]}.`) throw new Error(`liste numarası sırası bozuk: ${b.listMarker}`); }
+      // The number run is never joined with the item text; no paragraph appears twice.
+      for(const b of t.blocks) if(b.listMarker && b.runs[0]?.text !== `${b.listMarker}\t`) throw new Error(`liste numarası metne karıştı: ${JSON.stringify(b.runs[0]?.text)}`);
+      const seenKeys = new Set();
+      for(const b of t.blocks) if(b.editKey){ if(seenKeys.has(b.editKey)) throw new Error(`paragraf iki kez: ${b.editKey}`); seenKeys.add(b.editKey); }
       if(!Array.isArray(t.checks)) throw new Error('denetim sonucu yok');
     }catch(err){ if(String(err && err.message).startsWith('Belgede yazdırılacak paragraf kalmadı')) continue; fails.push({kind: 'petition', it, err: String(err && err.stack || err).slice(0, 400), lines: blocks.map(b => (b.runs || []).map(r => r.text).join('')).slice(0, 12)}); }
   }

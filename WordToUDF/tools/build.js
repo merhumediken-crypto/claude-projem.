@@ -1,16 +1,24 @@
 /* Release packager: node tools/build.js [outDir]
  * Writes dist/WordToUDF-<version>.zip (folder WordToUDF-<version>/ inside, the
  * layout Chrome's "Load unpacked" expects) and a .sha256 file. No
- * dependencies: ZIP entries are deflated with node:zlib. Tests and tools are
- * not shipped; README/ARCHITECTURE/SECURITY are. */
+ * dependencies: ZIP entries are deflated with node:zlib. Only allowlisted
+ * files are shipped (see ALLOW); tests and tools are not. */
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib'),crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const {version}=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
 const outDir=path.resolve(process.argv[2]||path.join(root,'dist'));
-const SKIP=new Set(['tests','tools','dist','node_modules','package.json','.git']);
-const files=fs.readdirSync(root).filter(f=>!SKIP.has(f)&&!f.startsWith('.')&&fs.statSync(path.join(root,f)).isFile()).sort();
-for(const need of ['manifest.json','workspace.html','legal-typography.js','sw.js'])if(!files.includes(need))throw new Error(`eksik dosya: ${need}`);
+// Allowlist, never "everything in the folder": a client's DOCX or a stray
+// note left next to the sources must not end up in a release. Shipped =
+// the offline app (sw.js FILES), the extension popup and manifest, the docs.
+const swFiles=JSON.parse(/const FILES = (\[[^\]]*\])/u.exec(fs.readFileSync(path.join(root,'sw.js'),'utf8'))[1].replace(/'/gu,'"'));
+const ALLOW=new Set([...swFiles.filter(f=>f!=='./'),'sw.js','manifest.json','popup.html','popup.js','popup.css','README.md','ARCHITECTURE.md','SECURITY.md','CHANGELOG.md','KABUL_TESTLERI.md']);
+const present=fs.readdirSync(root).filter(f=>!f.startsWith('.')&&fs.statSync(path.join(root,f)).isFile());
+const files=[...ALLOW].sort();
+for(const f of files)if(!present.includes(f))throw new Error(`eksik dosya: ${f}`);
+const NOT_SHIPPED=new Set(['package.json']);
+const left=present.filter(f=>!ALLOW.has(f)&&!NOT_SHIPPED.has(f));
+if(left.length)console.warn(`Pakete alınmadı (izin listesinde yok): ${left.join(', ')}`);
 const table=new Uint32Array(256);for(let i=0;i<256;i++){let c=i;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;table[i]=c>>>0;}
 const crc32=b=>{let c=0xffffffff;for(const x of b)c=table[(c^x)&255]^(c>>>8);return (c^0xffffffff)>>>0;};
 const prefix=`WordToUDF-${version}/`,locals=[],central=[];let offset=0;
