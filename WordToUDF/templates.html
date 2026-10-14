@@ -18,7 +18,7 @@
 <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
 <symbol id="i-stack" viewBox="0 0 24 24"><rect x="4" y="8" width="13" height="13" rx="2"/><path d="M8 4h10a2 2 0 0 1 2 2v10"/></symbol>
 <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></symbol>
-</svg><header class="appbar"><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">§</span><span class="brand-text"><strong>Word ↔ UDF</strong><small>Hukuk dilekçesi araçları</small></span></a><nav class="appnav" aria-label="Bölümler"><a href="workspace.html"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>Dönüştür</a><a href="templates.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>Şablonlar</a><a href="reverse.html"><svg class="icon" aria-hidden="true"><use href="#i-swap"/></svg><span class="l-long">UDF → Word / PDF</span><span class="l-short">UDF → Word</span></a></nav><div class="appbar-end"><span class="offline-badge" title="Bütün işlemler bu cihazda yapılır; dosyalar hiçbir sunucuya gönderilmez.">Çevrimdışı</span><button type="button" class="theme-toggle" id="themeToggle" aria-label="Tema"><svg class="icon t-auto" aria-hidden="true"><use href="#i-auto"/></svg><svg class="icon t-light" aria-hidden="true"><use href="#i-sun"/></svg><svg class="icon t-dark" aria-hidden="true"><use href="#i-moon"/></svg></button><span class="version" title="Sürüm">v1.8.0</span></div></header><main id="main">
+</svg><header class="appbar"><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">§</span><span class="brand-text"><strong>Word ↔ UDF</strong><small>Hukuk dilekçesi araçları</small></span></a><nav class="appnav" aria-label="Bölümler"><a href="workspace.html"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>Dönüştür</a><a href="templates.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>Şablonlar</a><a href="reverse.html"><svg class="icon" aria-hidden="true"><use href="#i-swap"/></svg><span class="l-long">UDF → Word / PDF</span><span class="l-short">UDF → Word</span></a></nav><div class="appbar-end"><span class="offline-badge" title="Bütün işlemler bu cihazda yapılır; dosyalar hiçbir sunucuya gönderilmez.">Çevrimdışı</span><button type="button" class="theme-toggle" id="themeToggle" aria-label="Tema"><svg class="icon t-auto" aria-hidden="true"><use href="#i-auto"/></svg><svg class="icon t-light" aria-hidden="true"><use href="#i-sun"/></svg><svg class="icon t-dark" aria-hidden="true"><use href="#i-moon"/></svg></button><span class="version" title="Sürüm">v1.9.0</span></div></header><main id="main">
 <div class="page-head">
   <div><span class="eyebrow">Şablonlar</span><h1>Sık yazılan dilekçeleri birkaç alanla oluşturun</h1>
   <p>Şablon metni bir başlangıç taslağıdır; açıklama, talepler ve ekler sayfada düzenlenebilir. Dilekçe, Word'den dönüştürülenlerle aynı hukuk dilekçesi kurallarından ve denetimden geçer.</p></div>
@@ -34,9 +34,12 @@
     <h2><span class="step" aria-hidden="true"></span>Şablon</h2>
     <label for="tpl" class="setting-label">Dilekçe türü</label>
     <select id="tpl" class="profile-select"></select>
+    <p class="note small" id="tplNote" hidden></p>
+    <button type="button" id="tplDelete" class="secondary tool-btn danger-text" hidden>Bu şablonu sil</button>
   </div>
   <div class="panel form-panel">
     <h2><span class="step" aria-hidden="true"></span>Dosya ve taraflar</h2>
+    <div class="case-picker" id="casePicker"></div>
     <label for="court" class="setting-label">Mahkeme</label><input type="text" id="court" placeholder="ör. Şanlıurfa 8. Asliye Hukuk Mahkemesi" autocomplete="off">
     <label for="caseNo" class="setting-label">Esas no</label><input type="text" id="caseNo" placeholder="ör. 2026/1929" autocomplete="off" inputmode="numeric">
     <div class="two">
@@ -61,6 +64,11 @@
     <label for="requests" class="setting-label">Talepler (her talep ayrı satırda, numarasız)</label><textarea id="requests" rows="5"></textarea>
     <label for="closing" class="setting-label">Kapanış cümlesi (tarih otomatik eklenir)</label><input type="text" id="closing" autocomplete="off">
     <label for="attachments" class="setting-label">Ekler (her ek ayrı satırda; boşsa EKLER bölümü yazılmaz)</label><textarea id="attachments" rows="2"></textarea>
+    <div class="save-tpl">
+      <label for="tplName" class="setting-label">Bu metni kendi şablonum olarak kaydet</label>
+      <div class="inline-form"><input type="text" id="tplName" placeholder="Şablon adı, ör. Kira tespiti – cevap" autocomplete="off" maxlength="120"><button type="button" id="tplSave" class="secondary tool-btn">Kaydet</button></div>
+      <p class="note small">Mahkeme, esas no ve taraf adları kayıtta {MAHKEME}, {ESAS NO}, {MÜVEKKİL}, {KARŞI TARAF} alanlarına çevrilir. Metne kendiniz de {ALACAK TUTARI} gibi alanlar yazabilirsiniz; şablonu açınca her biri için bir kutu çıkar.</p>
+    </div>
   </div>
   <div class="panel checks" id="checksPanel" hidden>
     <div class="panel-heading"><h2><span class="step" aria-hidden="true"></span>Denetim</h2><span class="pill" id="checkStats"></span></div>
@@ -92,4 +100,4 @@
   <button type="button" class="btn btn-secondary" id="mbPreview"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg>Önizleme</button>
   <button type="button" class="btn btn-primary" id="mbDownload"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>UDF indir</button>
 </div>
-<script src="zip.js"></script><script src="normalize.js"></script><script src="settings.js"></script><script src="legal-rules.js"></script><script src="legal-typography.js"></script><script src="edits.js"></script><script src="checks.js"></script><script src="udf.js"></script><script src="docx-writer.js"></script><script src="pipeline.js"></script><script src="preview.js"></script><script src="editor-ui.js"></script><script src="templates.js"></script><script src="templates-page.js"></script></body></html>
+<script src="zip.js"></script><script src="normalize.js"></script><script src="settings.js"></script><script src="legal-rules.js"></script><script src="legal-typography.js"></script><script src="edits.js"></script><script src="checks.js"></script><script src="udf.js"></script><script src="docx-writer.js"></script><script src="pipeline.js"></script><script src="preview.js"></script><script src="editor-ui.js"></script><script src="templates.js"></script><script src="library.js"></script><script src="templates-page.js"></script></body></html>

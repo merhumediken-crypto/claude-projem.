@@ -263,6 +263,8 @@ button:disabled, .btn:disabled{ opacity: .48; cursor: not-allowed; box-shadow: n
 .check-warn::before{ content: "!"; background: var(--warn); }
 .check-info{ background: var(--info-soft); border-color: var(--info-line) !important; color: var(--info); }
 .check-info::before{ content: "i"; background: var(--info); font-family: var(--font-doc); font-style: italic; }
+.check-suggest{ background: var(--surface-2); border-color: var(--line-2) !important; color: var(--ink-2); }
+.check-suggest::before{ content: "✓"; background: var(--ok); }
 .checks-list li strong{ font-weight: 750; }
 .report ul{ margin: 6px 0 12px; padding-left: 18px; max-height: 230px; overflow: auto; }
 .report li{ padding: 4px 0; color: var(--warn); font-size: 12.5px; }
@@ -372,6 +374,28 @@ button:disabled, .btn:disabled{ opacity: .48; cursor: not-allowed; box-shadow: n
 .add-form{ display: grid; gap: 8px; margin-top: 10px; padding: 10px; border: 1px dashed var(--accent-soft-2); border-radius: var(--r); background: var(--surface-2); }
 .add-form textarea{ min-height: 72px; font: 14px/1.5 var(--font-doc); }
 .add-form .row{ align-items: flex-end; }
+/* Find / replace (v1.9) */
+.find-box{ flex-basis: 100%; display: grid; gap: 8px; padding: 12px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.find-box[hidden]{ display: none; }
+.find-row{ display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.find-row input[type="search"], .find-row input[type="text"]{ flex: 1 1 200px; min-width: 0; }
+.find-opts .check{ margin: 0; font-size: 12.5px; }
+.find-count{ margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--accent-text); }
+.find-box .note{ margin: 0; }
+.rule-list{ list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.rule-list[hidden]{ display: none; }
+.rule-list li{ display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; padding: 4px 4px 4px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+::highlight(wtu-find){ background-color: rgba(255, 205, 64, .6); color: inherit; }
+/* Library: case cards and own templates (v1.9) */
+.case-picker{ display: grid; gap: 6px; margin: 4px 0 12px; padding: 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); }
+.case-picker:empty{ display: none; }
+.case-actions{ display: flex; gap: 6px; flex-wrap: wrap; }
+.danger-text{ color: var(--danger) !important; }
+.inline-form{ display: flex; gap: 6px; align-items: stretch; }
+.inline-form input{ flex: 1 1 auto; min-width: 0; }
+.save-tpl{ margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line-2); }
+.library-panel .tool-btn{ margin: 8px 0 4px; }
+#tplDelete{ margin-top: 8px; }
 /* Format bar for a selection in the preview */
 .mark-pop{ position: fixed; z-index: 70; display: flex; align-items: center; gap: 2px; padding: 4px; background: var(--surface); border: 1px solid var(--line-2);
   border-radius: 12px; box-shadow: var(--shadow-3); }

@@ -1,6 +1,6 @@
 """Run: python tests/e2e.py. Requires installed Chromium, Playwright and python-docx."""
 from pathlib import Path
-import io, os, tempfile, zipfile, re
+import io, os, tempfile, zipfile, re, json
 from lxml import etree
 from docx import Document
 from docx.shared import Cm, Pt
@@ -10,7 +10,20 @@ ROOT=Path(__file__).resolve().parent.parent
 def page_scripts(name):
     return re.findall(r'<script\s+src="([^"]+)"\s*></script>',(ROOT/name).read_text(encoding='utf-8'))
 
-def load_page(page,name,scripts=None):
+STORAGE_SHIM="""(init)=>{
+  // set_content pages have an opaque origin without localStorage; this keeps
+  // the app's own storage code testable (dump_storage carries it to the next page).
+  try{localStorage.getItem('x');return;}catch{}
+  const data=new Map(Object.entries(init||{}));
+  const api={getItem:k=>data.has(String(k))?data.get(String(k)):null,setItem:(k,v)=>{data.set(String(k),String(v));},removeItem:k=>{data.delete(String(k));},
+    clear:()=>data.clear(),key:i=>[...data.keys()][i]??null,get length(){return data.size;},dump:()=>Object.fromEntries(data)};
+  Object.defineProperty(window,'localStorage',{value:api,configurable:true});
+}"""
+
+def dump_storage(page):
+    return page.evaluate("()=>localStorage.dump?localStorage.dump():Object.fromEntries(Object.keys(localStorage).map(k=>[k,localStorage.getItem(k)]))")
+
+def load_page(page,name,scripts=None,storage=None):
     # Scripts are taken from the page itself so the test never drifts from
     # the shipped HTML (an explicit list is still accepted).
     scripts=scripts or page_scripts(name)
@@ -22,6 +35,7 @@ def load_page(page,name,scripts=None):
     html=re.sub(r'<script\s+src="[^"]+"\s*></script>', '', html)
     html=re.sub(r'<link\s+rel="stylesheet"[^>]*>', '', html)
     page.set_content(html,wait_until='load')
+    page.evaluate(STORAGE_SHIM,storage or {})
     for css_name in (['workspace.css','reverse.css'] if name=='reverse.html' else ['workspace.css']):
         page.add_style_tag(content=(ROOT/css_name).read_text(encoding='utf-8'))
     for script in scripts:page.add_script_tag(content=(ROOT/script).read_text(encoding='utf-8'))
@@ -295,6 +309,7 @@ def main():
         v16_paste(browser,tmp)
         v17_no_jump(browser,petition)
         v18_marks(browser,tmp,petition)
+        v19_library(browser,tmp)
         csp_check(browser)
         browser.close()
 
@@ -681,6 +696,90 @@ def v18_marks(browser,tmp,petition):
     assert all(t.startswith('Bilgi:') for t in page.locator('#warningList li').all_text_contents() if 'aralığı' in t or 'small caps' in t)
     ctx.close()
     print('PASS kelime/cümle biçimi: seçim çubuğu, Ctrl+B/I/U, cümle, tüm belgede, geri al/yinele, panel cümleleri, yeni talep + taşı, telefon, UDF ve rapor; Word büyük harf efektleri')
+
+V19_TEXT=("ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİNE\nDOSYA NO: 2026/1929 Esas\nDAVALI: İsa ÇİFTÇİ\nDAVACI: Yapı ve Kredi Bankası A.Ş.\n"
+  "KONU: Mazeret.\nAÇIKLAMALAR\nMüvekkil İsa ÇİFTÇİ 20/10/2026 tarihli duruşmaya mazereti nedeniyle katılamayacaktır ,mazeret belgesi ektedir.\n"
+  "SONUÇ VE İSTEM\n1. Mazeretimizin kabulüne,\nKarar verilmesini saygıyla talep ederiz.")
+
+def v19_library(browser,tmp):
+    """1.9: format suggestions with "Düzelt", find/replace (Ctrl+F, highlight,
+    bold all, rules list), case cards and own templates across pages, export."""
+    ctx=browser.new_context(accept_downloads=True,viewport={'width':1440,'height':900})
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html');paste_into(page,'',V19_TEXT);page.wait_for_timeout(300)
+    checks=page.locator('#checkList li').all_text_contents()
+    assert any(t.startswith('Öneri:') and 'GG/AA/YYYY' in t for t in checks),checks
+    assert 'öneri' in page.locator('#checkStats').text_content()
+    page.locator('#checkList li',has_text='GG/AA/YYYY').locator('button',has_text='Düzelt').click();page.wait_for_timeout(250)
+    page.locator('#checkList li',has_text='önce boşluk').locator('button',has_text='Düzelt').click();page.wait_for_timeout(250)
+    page.locator('#checkList li',has_text='virgülden sonra').locator('button',has_text='Düzelt').click();page.wait_for_timeout(250)
+    paper=page.locator('#paper').text_content()
+    assert '20.10.2026 tarihli' in paper and 'katılamayacaktır, mazeret belgesi' in paper,paper
+    assert not any('GG/AA/YYYY' in t for t in page.locator('#checkList li').all_text_contents())
+    # Bul / değiştir.
+    page.locator('#paper').click(position={'x':5,'y':5});page.keyboard.press('Escape')
+    page.keyboard.press('Control+f');page.wait_for_timeout(150)
+    assert page.locator('.find-box').is_visible()
+    page.locator('.find-in').fill('mazeret');page.wait_for_timeout(150)
+    assert page.locator('.find-count').text_content().startswith('4 eşleşme'),page.locator('.find-count').text_content()
+    assert page.evaluate("CSS.highlights?CSS.highlights.has('wtu-find'):true")
+    page.locator('.find-box .find-bold').click();page.wait_for_timeout(200)
+    bold=page.evaluate("[...document.querySelectorAll('#paper span')].filter(s=>s.style.fontWeight==='700').map(s=>s.textContent)")
+    assert sum(1 for t in bold if t.lower()=='mazeret')>=3,bold
+    page.locator('.find-in').fill('İsa ÇİFTÇİ');page.locator('.find-to').fill('İsa ÇİFTÇİ (müvekkil)');page.wait_for_timeout(100)
+    page.locator('.find-box .find-replace').click();page.wait_for_timeout(250)
+    assert page.locator('#paper').text_content().count('İsa ÇİFTÇİ (müvekkil)')>=2
+    rules=page.locator('.rule-list li').all_text_contents()
+    assert len(rules)==5 and any('İsa ÇİFTÇİ (müvekkil)' in r for r in rules),rules
+    page.locator('.rule-list li',has_text='(müvekkil)').locator('button').click();page.wait_for_timeout(200)
+    assert '(müvekkil)' not in page.locator('#paper').text_content(),'kural kaldırılınca metin geri döner'
+    page.keyboard.press('Control+z');page.wait_for_timeout(200)
+    assert '(müvekkil)' in page.locator('#paper').text_content(),'geri al kuralı geri getirir'
+    page.locator('.find-box .find-close').click()
+    # Dosya kartı ve şablon kaydet.
+    page.locator('#libraryPanel summary').click()
+    page.locator('#saveCaseFromDoc').click();page.wait_for_timeout(150)
+    assert 'Dosya kartı kaydedildi: 2026/1929 Esas İsa ÇİFTÇİ' in page.locator('#status').text_content(),page.locator('#status').text_content()
+    page.locator('#docTplName').fill('Mazeret – deneme');page.locator('#saveTplFromDoc').click();page.wait_for_timeout(150)
+    assert 'şablon olarak kaydedildi' in page.locator('#status').text_content()
+    assert 'Bu tarayıcıda 1 dosya kartı ve 1 kendi şablonunuz var.'==page.locator('#libraryStats').text_content()
+    with page.expect_download() as info: page.locator('#exportSettings').click()
+    exported=json.loads(Path(info.value.path()).read_text(encoding='utf-8'))
+    assert exported['library']['cases'][0]['client'].startswith('İsa ÇİFTÇİ') and exported['library']['templates'][0]['title']=='Mazeret – deneme',exported['library']
+    tpl=exported['library']['templates'][0]
+    assert '{MÜVEKKİL}' in tpl['body'] and 'İsa ÇİFTÇİ' not in tpl['body'],tpl
+    store=dump_storage(page);ctx.close()
+    # Kayıtlı dosya kartı, yapıştırılan metindeki eksik künyeyi doldurur.
+    ctx=browser.new_context(accept_downloads=True);page=ctx.new_page();load_page(page,'workspace.html',storage=store)
+    paste_into(page,'','Duruşmaya katılamayacağız.\nYukarıda açıklanan nedenlerle mazeretimizin kabulüne karar verilmesini saygıyla talep ederiz.');page.wait_for_timeout(300)
+    opts=page.locator('#pasteCasePicker select option').all_text_contents()
+    assert len(opts)==2 and '2026/1929 Esas' in opts[1],opts
+    page.locator('#pasteCasePicker select').select_option(index=1);page.wait_for_timeout(300)
+    assert page.locator('#pc_caseNo').input_value()=='2026/1929 Esas' and page.locator('#pc_client').input_value().startswith('İsa ÇİFTÇİ')
+    paper=page.locator('#paper').text_content()
+    assert 'DOSYA NO: 2026/1929 Esas' in paper and 'DAVALI: İsa ÇİFTÇİ' in paper,paper[:300]
+    ctx.close()
+    # Şablonlar sayfası: kendi şablonu, alanlar, kayıt, silme.
+    ctx=browser.new_context(accept_downloads=True);page=ctx.new_page();load_page(page,'templates.html',storage=store);page.wait_for_timeout(300)
+    assert page.locator('#tpl optgroup').nth(1).get_attribute('label')=='Kendi şablonlarım (1)'
+    page.locator('#tpl').select_option(label='Mazeret – deneme');page.wait_for_timeout(300)
+    assert not page.locator('#tplDelete').is_hidden()
+    page.locator('#casePicker select').select_option(index=1);page.wait_for_timeout(300)
+    assert page.locator('#client').input_value().startswith('İsa ÇİFTÇİ')
+    assert 'Müvekkil …' in page.locator('#body').input_value() or 'Müvekkil İsa' in page.locator('#body').input_value(),page.locator('#body').input_value()
+    page.locator('#regen').click();page.wait_for_timeout(300)
+    assert page.locator('#body').input_value().startswith('Müvekkil İsa ÇİFTÇİ'),page.locator('#body').input_value()
+    page.locator('#body').fill('Davacıya {TUTAR} TL ödenmiştir.');page.locator('#tplName').fill('Ödeme beyanı');page.locator('#tplSave').click();page.wait_for_timeout(300)
+    assert page.locator('#tpl').input_value().startswith('u:') and page.locator('#tplFields input').count()==1
+    page.locator('#tplFields input').fill('5.000');page.wait_for_timeout(300)
+    assert page.locator('#body').input_value()=='Davacıya 5.000 TL ödenmiştir.',page.locator('#body').input_value()
+    assert 'Davacıya 5.000 TL ödenmiştir.' in page.locator('#paper').text_content()
+    page.locator('#tplDelete').click();assert 'tekrar' in page.locator('#tplDelete').text_content()
+    page.locator('#tplDelete').click();page.wait_for_timeout(300)
+    assert page.locator('#tpl optgroup').nth(1).get_attribute('label')=='Kendi şablonlarım (1)','yalnız seçili şablon silinir'
+    assert not errors,errors
+    ctx.close()
+    print('PASS kütüphane ve öneriler: Düzelt düğmeleri, Ctrl+F bul/değiştir ve vurgu, hepsi kalın, kural kaldır/geri al, dosya kartı ve kendi şablonu, sayfalar arası kullanım, dışa aktarma')
 
 def csp_check(browser):
     """The other tests strip the pages' CSP; here the real pages are served

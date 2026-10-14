@@ -1,6 +1,6 @@
-# Word ↔ UDF / PDF — WordToUDF 1.8.0
+# Word ↔ UDF / PDF — WordToUDF 1.9.0
 
-**Sürüm:** 1.8.0 · **Çalışma biçimi:** Chrome uzantısı (Manifest V3) ve çevrimdışı web uygulaması (PWA) · sunucusuz · Chrome izni yok · internete bağlanmaz
+**Sürüm:** 1.9.0 · **Çalışma biçimi:** Chrome uzantısı (Manifest V3) ve çevrimdışı web uygulaması (PWA) · sunucusuz · Chrome izni yok · internete bağlanmaz
 
 Hukuk dilekçelerini UYAP Doküman Editörü'nün UDF biçimine çeviren, gönderimden önce denetleyen ve UDF'yi Word/PDF'ye geri çeviren araç. Bütün işlemler cihazda yapılır; dosyalar hiçbir sunucuya gönderilmez.
 
@@ -20,15 +20,17 @@ Sürüm geçmişi: [CHANGELOG.md](CHANGELOG.md) · UYAP kabul kontrol listesi: [
 - **Dilekçe denetimi:** mahkeme başlığı, DOSYA NO, UETS, imza–künye uyumu, KONU/SONUÇ, geçersiz veya geçmiş tarih, sözcük kaybı… Belgeyi değiştirmez; hatalar önce listelenir ve rapora yazılır.
 - **Paragraf düzenleyici:** önizlemede paragrafa dokunun → tür, hizalama, yazı, girinti, aralık, metin; altına yeni paragraf ekle, yukarı/aşağı taşı, boş satır, sayfa sonu, birleştir, sil. Çoklu seçim, geri al (Ctrl+Z) ve yinele (Ctrl+Y); numaralar kendiliğinden düzelir.
 - **Kelime ve cümle biçimi:** önizlemede bir sözcüğü ya da cümleyi seçin → kalın, italik, altı / üstü çizili, düz; Ctrl+B / I / U; “Cümle” ile cümlenin tamamı, “Tüm belgede” ile her geçişi. Telefonda paneldeki cümle düğmeleriyle.
+- **Dosya kartları ve kendi şablonlarınız:** mahkeme, esas no ve tarafları bir kez kaydedin, şablon ve yapıştırma formunu tek seçimle doldurun. Herhangi bir dilekçeyi {MÜVEKKİL}, {ESAS NO}, {ALACAK TUTARI} gibi alanlı şablon olarak kaydedin.
+- **Bul / değiştir ve öneriler:** Ctrl+F ile belgede arayın (Türkçe harf duyarlı), hepsini değiştirin ya da kalın / italik yapın. Fazla boşluk, noktalama ve tarih biçimi gibi hatalar “Öneri” olarak listelenir, tek tıkla düzelir.
 - **Vekil profili:** VEKİLİ satırı ayarlardaki vekilden yazılır (varsayılan `Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)`). “Başka vekil var” kutucuğuyla ek vekil ve UETS; UETS boş bırakılırsa numara yazılmaz.
 - **Arayüz:** açık / koyu / otomatik tema (üst çubuktaki düğme), adım adım kartlar, telefonda alt işlem çubuğu ve alttan açılan düzenleme paneli. Ayar veya panel değiştirince sayfa yerinden oynamaz.
 
 ## Kurulum (Chrome uzantısı)
 
-1. `WordToUDF-1.8.0.zip` paketini **klasörün tamamını koruyarak** çıkarın.
+1. `WordToUDF-1.9.0.zip` paketini **klasörün tamamını koruyarak** çıkarın.
 2. Masaüstü Chrome adres çubuğuna `chrome://extensions` yazın.
 3. **Geliştirici modu**nu açın → **Paketlenmemiş öğe yükle**yi seçin.
-4. ZIP'ten çıkan `WordToUDF-1.8.0` klasörünü seçin (içinde `manifest.json` bulunan klasör). Önceki sürüm yüklüyse önce onu kaldırın ya da aynı klasörün içeriğini değiştirip uzantı kartında **Yeniden yükle**'ye basın; ayarlarınız (vekil, UETS) korunur.
+4. ZIP'ten çıkan `WordToUDF-1.9.0` klasörünü seçin (içinde `manifest.json` bulunan klasör). Önceki sürüm yüklüyse önce onu kaldırın ya da aynı klasörün içeriğini değiştirip uzantı kartında **Yeniden yükle**'ye basın; ayarlarınız (vekil, UETS) korunur.
 5. Araç çubuğundaki **Word ↔ UDF** simgesine tıklayın → bölümü seçin.
 
 Kurumsal Chrome politikaları paketlenmemiş eklenti yüklemeyi engelliyorsa eklenti yönetici izni olmadan yüklenemeyebilir.

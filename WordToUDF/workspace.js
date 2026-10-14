@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $=id=>document.getElementById(id);
-  const P=WordToUDFPipeline, S=WordToUDFSettings, L=WordToUDFLegalTypography;
+  const P=WordToUDFPipeline, S=WordToUDFSettings, L=WordToUDFLegalTypography, Lib=WordToUDFLibrary;
   const state={file:null,source:null,result:null,selection:{start:'auto',end:'auto'},profile:'legal',loadSerial:0,settings:S.load(),fit:true};
   const fileInput=$('fileInput'),drop=$('dropZone'),status=$('status');
   const download=$('download'),downloadDocx=$('downloadDocx'),reportDownload=$('reportDownload'),review=$('review'),profileSelect=$('typographyProfile');
@@ -15,6 +15,7 @@
     // Phone: quick actions at the bottom once a document is loaded.
     $('mobileBar').hidden=!state.source;$('mbDownload').disabled=blocked;
     $('overrideHint').hidden=!state.result;
+    $('saveCaseFromDoc').disabled=$('saveTplFromDoc').disabled=!state.result;
   }
   // The empty-state card shipped in the HTML comes back whenever no document is loaded.
   const emptyPaper=$('paper').firstElementChild?.cloneNode(true);
@@ -94,11 +95,11 @@
     const bad=S.invalidUets(state.settings);
     $('uetsInfo').textContent=bad.length?`Geçersiz UETS (${bad.join(', ')}) yok sayıldı. Biçim: 12345-12345-12345`:'';
   }
-  const LEVEL_TEXT={error:'Hata',warn:'Uyarı',info:'Bilgi'};
+  const LEVEL_TEXT={error:'Hata',warn:'Uyarı',info:'Bilgi',suggest:'Öneri'};
   function showChecks(checks){
     const list=$('checkList');list.replaceChildren();
     $('checksPanel').hidden=!state.result;
-    const counts={error:0,warn:0,info:0};
+    const counts={error:0,warn:0,info:0,suggest:0};
     for(const c of checks){
       counts[c.level]++;
       const li=document.createElement('li');li.className=`check-${c.level}`;li.dataset.code=c.code;
@@ -107,9 +108,14 @@
         const btn=document.createElement('button');btn.type='button';btn.className='secondary inline-btn';btn.textContent='Maddelere ayır';
         btn.addEventListener('click',()=>{$('splitRequests').checked=true;settingsChanged();});li.append(' ',btn);
       }
+      if(c.fix){
+        // Format suggestion: one press fixes it everywhere (undoable).
+        const btn=document.createElement('button');btn.type='button';btn.className='secondary inline-btn';btn.textContent='Düzelt';
+        btn.addEventListener('click',()=>holdPosition(()=>editor.applyFix(c.fix)));li.append(' ',btn);
+      }
       list.append(li);
     }
-    $('checkStats').textContent=`${counts.error} hata · ${counts.warn} uyarı`;
+    $('checkStats').textContent=`${counts.error} hata · ${counts.warn} uyarı${counts.suggest?` · ${counts.suggest} öneri`:''}`;
     $('checkStats').className='pill'+(counts.error?' pill-error':counts.warn?' pill-warn':' pill-ok');
   }
 
@@ -321,15 +327,19 @@
   });
   $('addAttorney').addEventListener('click',()=>{addOtherRow().querySelector('.o-name').focus();settingsChanged();});
   $('exportSettings').addEventListener('click',()=>{
-    downloadBlob(new TextEncoder().encode(S.exportJson(readForm())),'wordtoudf-ayarlar.json','application/json');
-    message('Ayarlar dışa aktarıldı. Dosyayı diğer cihazda "Ayarları içe aktar" ile açın.','success');
+    // The settings file also carries the case cards and the user's templates.
+    const data=JSON.parse(S.exportJson(readForm()));data.library=Lib.exportData();
+    downloadBlob(new TextEncoder().encode(JSON.stringify(data,null,2)),'wordtoudf-ayarlar.json','application/json');
+    message(`Ayarlar dışa aktarıldı (${data.library.cases.length} dosya kartı, ${data.library.templates.length} şablon dahil). Dosyayı diğer cihazda "İçe aktar" ile açın.`,'success');
   });
   $('importSettings').addEventListener('change',async e=>{
     const f=e.target.files?.[0];if(!f)return;
     try{
       if(f.size>256*1024)throw new Error('Ayar dosyası çok büyük.');
-      state.settings=S.importJson(await f.text());S.save(state.settings);writeForm(state.settings);render();
-      message('Ayarlar içe aktarıldı.','success');
+      const text=await f.text();
+      state.settings=S.importJson(text);S.save(state.settings);writeForm(state.settings);render();
+      const lib=Lib.importData(JSON.parse(text).library);refreshLibrary();
+      message(`Ayarlar içe aktarıldı${lib.cases||lib.templates?` (${lib.cases} dosya kartı, ${lib.templates} şablon eklendi/güncellendi)`:''}.`,'success');
     }catch(err){message(err.message,'error');}
     finally{e.target.value='';}
   });
@@ -402,6 +412,40 @@
     }catch(err){message(`Word oluşturulamadı: ${err.message}`,'error');}
     finally{setReady();}
   });
+
+  /* ------------------------------ library (case cards, own templates) ------------------------------ */
+  const pastePicker=Lib.picker($('pasteCasePicker'),{
+    read:()=>({court:$('pc_court').value,caseNo:$('pc_caseNo').value,role:$('pc_role').value,client:$('pc_client').value,otherRole:$('pc_otherRole').value,other:$('pc_other').value}),
+    apply:c=>{
+      $('pc_court').value=c.court;$('pc_caseNo').value=c.caseNo;$('pc_client').value=c.client;$('pc_other').value=c.other;
+      if([...$('pc_role').options].some(o=>o.value===c.role))$('pc_role').value=c.role;
+      if(c.otherRole)$('pc_otherRole').value=c.otherRole;
+      holdPosition(()=>buildFromPaste(false));
+    },
+    onMessage:(m,kind)=>message(m,kind||'success')});
+  function refreshLibrary(){
+    pastePicker.refresh();
+    const c=Lib.cases().length,t=Lib.templates().length;
+    $('libraryStats').textContent=`Bu tarayıcıda ${c} dosya kartı ve ${t} kendi şablonunuz var.`;
+  }
+  $('saveCaseFromDoc').addEventListener('click',()=>{
+    if(!state.result)return;
+    try{const card=Lib.saveCase(Lib.caseFromBlocks(state.result.blocks,state.settings.ownAttorney?.name)||{});refreshLibrary();message(`Dosya kartı kaydedildi: ${Lib.caseLabel(card)}`,'success');}
+    catch(err){message(err.message,'error');}
+  });
+  $('saveTplFromDoc').addEventListener('click',()=>{
+    if(!state.result)return;
+    const title=$('docTplName').value.trim();
+    if(!title){message('Şablona bir ad verin.','error');$('docTplName').focus();return;}
+    const info=Lib.caseFromBlocks(state.result.blocks,state.settings.ownAttorney?.name)||{};
+    const parts=Lib.partsFromBlocks(state.result.blocks);
+    try{
+      const tpl=Lib.saveTemplate({title,role:info.role,otherRole:info.otherRole,...Object.fromEntries(Object.entries(parts).map(([k,v])=>[k,Lib.generalize(v,info)]))});
+      $('docTplName').value='';refreshLibrary();
+      message(`“${tpl.title}” şablon olarak kaydedildi; Şablonlar sayfasında “Kendi şablonlarım” altında.`,'success');
+    }catch(err){message(err.message,'error');}
+  });
+  refreshLibrary();
 
   $('mbDownload').addEventListener('click',()=>download.click());
   $('mbPreview').addEventListener('click',()=>$('previewSection').scrollIntoView({behavior:'smooth',block:'start'}));

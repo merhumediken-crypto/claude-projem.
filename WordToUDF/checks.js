@@ -141,8 +141,36 @@
     if(odd.length) add('warn', 'integrity', `Çıktıda azalan sözcükler: ${odd.slice(0, 12).join(', ')}${odd.length > 12 ? '…' : ''}. Dönüşüm raporundaki değişikliklerle karşılaştırın.`);
 
     if(!out.some(f => f.level !== 'info')) add('info', 'ok', 'Belirgin bir tutarsızlık bulunmadı.');
-    const order = {error: 0, warn: 1, info: 2};
+    out.push(...suggestions(blocks));
+    const order = {error: 0, warn: 1, info: 2, suggest: 3};
     return out.sort((a, b) => order[a.level] - order[b.level]);
   }
-  globalThis.WordToUDFChecks = {run};
+  /* Format suggestions (v1.9): level 'suggest', never errors. A suggestion
+   * with `fix` gets a "Düzelt" button; the fix is a document-wide cleanup
+   * the user can undo. */
+  const SUGGEST_TEXT = {
+    spaces: n => `${n} yerde sözcükler arasında birden fazla boşluk var.`,
+    'punct-space': n => `${n} yerde noktalama işaretinden (virgül, nokta, parantez) önce boşluk var.`,
+    'comma-space': n => `${n} yerde virgülden sonra boşluk yok.`,
+    dates: n => `${n} tarih GG/AA/YYYY ya da GG-AA-YYYY biçiminde; dilekçede GG.AA.YYYY kullanılır.`
+  };
+  // Repeated full law names: the abbreviation after the first mention is enough.
+  const LAWS = [['Hukuk Muhakemeleri Kanunu', 'HMK'], ['Türk Borçlar Kanunu', 'TBK'], ['Türk Medeni Kanunu', 'TMK'], ['İcra ve İflas Kanunu', 'İİK'],
+    ['Türk Ceza Kanunu', 'TCK'], ['Ceza Muhakemesi Kanunu', 'CMK'], ['Türk Ticaret Kanunu', 'TTK'], ['İdari Yargılama Usulü Kanunu', 'İYUK']];
+  function suggestions(blocks){
+    const E = globalThis.WordToUDFEdits, out = [];
+    if(E?.CLEANUPS){
+      for(const id of Object.keys(E.CLEANUPS)){
+        const n = (blocks || []).reduce((sum, b) => sum + E.countCleanup(b, id), 0);
+        if(n) out.push({level: 'suggest', code: `fix-${id}`, message: SUGGEST_TEXT[id](n), fix: {cleanup: id}});
+      }
+    }
+    const all = (blocks || []).filter(b => b.kind === 'paragraph').map(flatten).join('\n').toLocaleLowerCase('tr-TR');
+    for(const [name, abbr] of LAWS){
+      const n = all.split(name.toLocaleLowerCase('tr-TR')).length - 1;
+      if(n >= 2) out.push({level: 'suggest', code: 'law-name', message: `“${name}” ${n} kez tam adıyla yazılmış; ilk geçişte “${name} (${abbr})” yazıp sonrasında “${abbr}” kullanmak metni kısaltır.`});
+    }
+    return out;
+  }
+  globalThis.WordToUDFChecks = {run, suggestions};
 })();

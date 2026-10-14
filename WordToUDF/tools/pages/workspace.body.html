@@ -44,6 +44,7 @@
     <h2>Dilekçenin parçaları</h2>
     <p class="note">Yapıştırılan metinde bulunanlar ✓, eklenenler +, eksikler ✗. Eksik bilgileri yazarsanız dilekçeye eklenir; boş bırakılanlar uydurulmaz.</p>
     <ul id="partList" class="part-list"></ul>
+    <div class="case-picker" id="pasteCasePicker"></div>
     <div id="completeFields">
       <div class="cf" data-part="court"><label for="pc_court" class="setting-label">Mahkeme</label><input type="text" id="pc_court" placeholder="ör. Şanlıurfa 8. Asliye Hukuk Mahkemesi" autocomplete="off"></div>
       <div class="cf" data-part="caseNo"><label for="pc_caseNo" class="setting-label">Esas no</label><input type="text" id="pc_caseNo" placeholder="ör. 2026/1929" autocomplete="off" inputmode="numeric"></div>
@@ -112,8 +113,17 @@
 
     <h3 class="subhead">Ayarları taşı</h3>
     <div class="settings-io"><button type="button" id="exportSettings" class="secondary small-btn">Dışa aktar</button><label for="importSettings" class="secondary small-btn file-btn">İçe aktar</label><input type="file" id="importSettings" accept=".json,application/json" class="visually-hidden"></div>
-    <p class="note small">Ayarlar yalnız bu tarayıcıda saklanır; JSON dosyasıyla başka cihaza taşıyabilirsiniz.</p>
+    <p class="note small">Ayarlar yalnız bu tarayıcıda saklanır; JSON dosyasıyla başka cihaza taşıyabilirsiniz (dosya kartları ve kendi şablonlarınız da dahil).</p>
   </div>
+
+  <details class="panel library-panel" id="libraryPanel">
+    <summary><span class="summary-text">Dosya kartları ve şablonlar<small>Bu dilekçeyi kaydedin, sonra tek dokunuşla kullanın</small></span></summary>
+    <p class="note small" id="libraryStats"></p>
+    <button type="button" id="saveCaseFromDoc" class="secondary tool-btn" disabled>Bu dilekçeden dosya kartı kaydet</button>
+    <label for="docTplName" class="setting-label">Bu dilekçeyi kendi şablonum olarak kaydet</label>
+    <div class="inline-form"><input type="text" id="docTplName" placeholder="Şablon adı, ör. Mazeret – şehir dışı" maxlength="120" autocomplete="off"><button type="button" id="saveTplFromDoc" class="secondary tool-btn" disabled>Kaydet</button></div>
+    <p class="note small">Dosya kartı; mahkemeyi, esas noyu ve tarafları saklar: Şablonlar sayfasında ve “Metni yapıştır”daki eksik bilgi formunda tek seçimle doldurur. Şablon; KONU, açıklamalar, talepler, kapanış ve ekleri saklar ve <a href="templates.html">Şablonlar</a> sayfasında “Kendi şablonlarım” altında görünür.</p>
+  </details>
 
   <details class="panel">
     <summary><span class="summary-text">Belge düzeni ölçüleri<small>Kenar boşlukları, girinti, sekme ve yazı tipi</small></span></summary>
@@ -158,4 +168,4 @@
   <button type="button" class="btn btn-secondary" id="mbPreview"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg>Önizleme</button>
   <button type="button" class="btn btn-primary" id="mbDownload" disabled><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>UDF indir</button>
 </div>
-<script src="zip.js"></script><script src="docx.js"></script><script src="normalize.js"></script><script src="settings.js"></script><script src="legal-rules.js"></script><script src="legal-typography.js"></script><script src="edits.js"></script><script src="checks.js"></script><script src="udf.js"></script><script src="docx-writer.js"></script><script src="templates.js"></script><script src="paste.js"></script><script src="pipeline.js"></script><script src="preview.js"></script><script src="editor-ui.js"></script><script src="workspace.js"></script>
+<script src="zip.js"></script><script src="docx.js"></script><script src="normalize.js"></script><script src="settings.js"></script><script src="legal-rules.js"></script><script src="legal-typography.js"></script><script src="edits.js"></script><script src="checks.js"></script><script src="udf.js"></script><script src="docx-writer.js"></script><script src="templates.js"></script><script src="library.js"></script><script src="paste.js"></script><script src="pipeline.js"></script><script src="preview.js"></script><script src="editor-ui.js"></script><script src="workspace.js"></script>

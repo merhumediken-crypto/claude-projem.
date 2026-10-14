@@ -50,12 +50,15 @@
     const undoBtn = el('button', {type: 'button', class: 'secondary tool-btn', text: 'Geri al', disabled: true, title: 'Son düzenlemeyi geri al (Ctrl+Z)'});
     const redoBtn = el('button', {type: 'button', class: 'secondary tool-btn', text: 'Yinele', disabled: true, title: 'Geri alınan düzenlemeyi yeniden uygula (Ctrl+Y)'});
     const resetBtn = el('button', {type: 'button', class: 'secondary tool-btn', text: 'Düzenlemeleri sıfırla', disabled: true});
+    const findBtn = el('button', {type: 'button', class: 'secondary tool-btn', 'aria-pressed': 'false', 'aria-expanded': 'false', text: 'Bul / değiştir', title: 'Belgede ara; hepsini değiştir ya da kalın / italik / altı çizili yap (Ctrl+F)'});
     const bar = el('div', {class: 'select-bar', hidden: true},
       el('span', {class: 'select-count'}),
       el('button', {type: 'button', class: 'tool-btn primary-btn', text: 'Seçilenleri düzenle', onclick: () => openSheet()}),
       el('button', {type: 'button', class: 'secondary tool-btn', text: 'Seçimi temizle', onclick: () => { selected.clear(); decorate(); }}));
-    toolbar.prepend(multiBtn, undoBtn, redoBtn, resetBtn);
+    toolbar.prepend(multiBtn, undoBtn, redoBtn, findBtn, resetBtn);
     toolbar.after(bar);
+    const findBox = buildFindBox();
+    bar.after(findBox);
     multiBtn.addEventListener('click', () => {
       multi = !multi; multiBtn.setAttribute('aria-pressed', String(multi)); multiBtn.classList.toggle('on', multi);
       if(!multi) selected.clear();
@@ -92,7 +95,9 @@
     function decorate(){
       // Nothing to edit yet: keep the toolbar out of the way.
       const on = enabled();
-      for(const b of [multiBtn, undoBtn, redoBtn, resetBtn]) b.hidden = !on;
+      for(const b of [multiBtn, undoBtn, redoBtn, findBtn, resetBtn]) b.hidden = !on;
+      if(!on && !findBox.hidden) toggleFind(false);
+      if(!findBox.hidden) updateFind();
       undoBtn.disabled = !history.length;
       redoBtn.disabled = !future.length;
       resetBtn.disabled = !edits.size;
@@ -283,6 +288,126 @@
     let popTimer = 0;
     document.addEventListener('selectionchange', () => { clearTimeout(popTimer); popTimer = setTimeout(showPop, 120); });
     window.addEventListener('scroll', () => { if(!pop.hidden && !pop.classList.contains('docked')) showPop(); }, {passive: true});
+
+    /* ---------- find / replace (whole document) ---------- */
+    function buildFindBox(){
+      const box = el('div', {class: 'find-box', role: 'search', 'aria-label': 'Bul ve değiştir', hidden: true});
+      const q = el('input', {type: 'search', class: 'find-in', placeholder: 'Bul', 'aria-label': 'Aranacak metin', autocomplete: 'off', spellcheck: 'false'});
+      const to = el('input', {type: 'text', class: 'find-to', placeholder: 'Yerine (isteğe bağlı)', 'aria-label': 'Yerine yazılacak metin', autocomplete: 'off', spellcheck: 'false'});
+      const cs = el('input', {type: 'checkbox', class: 'find-case'}), ww = el('input', {type: 'checkbox', class: 'find-word'});
+      const count = el('span', {class: 'find-count', 'aria-live': 'polite'});
+      const rules = el('ul', {class: 'rule-list', 'aria-label': 'Belge geneli kurallar'});
+      box.append(
+        el('div', {class: 'find-row'}, q, to),
+        el('div', {class: 'find-row find-opts'}, el('label', {class: 'check small'}, cs, el('span', {text: 'Büyük/küçük harf duyarlı'})), el('label', {class: 'check small'}, ww, el('span', {text: 'Tam sözcük'})), count),
+        el('div', {class: 'find-row'},
+          el('button', {type: 'button', class: 'tool-btn primary-btn find-replace', text: 'Tümünü değiştir', onclick: replaceAll}),
+          ...[['bold', 'Hepsi kalın'], ['italic', 'Hepsi italik'], ['underline', 'Hepsinin altı çizili']].map(([k, label]) => el('button', {type: 'button', class: `secondary tool-btn find-${k}`, text: label, onclick: () => markAll(k)})),
+          el('button', {type: 'button', class: 'secondary tool-btn find-close', text: 'Kapat', onclick: () => toggleFind(false)})),
+        el('p', {class: 'note small', text: 'Arama Türkçe harfleri doğru eşleştirir (İ/i, I/ı). Değiştirme ve biçim, belgenin tamamına uygulanır ve tek adımda geri alınır.'}),
+        rules);
+      for(const n of [q, to, cs, ww]) n.addEventListener('input', updateFind);
+      q.addEventListener('keydown', ev => { if(ev.key === 'Enter'){ ev.preventDefault(); (to.value ? replaceAll : () => {})(); } });
+      return box;
+    }
+    const fq = () => findBox.querySelector('.find-in').value;
+    const fopts = () => ({caseSensitive: findBox.querySelector('.find-case').checked, wholeWord: findBox.querySelector('.find-word').checked});
+    function toggleFind(open = findBox.hidden){
+      findBox.hidden = !open; findBtn.setAttribute('aria-pressed', String(open)); findBtn.setAttribute('aria-expanded', String(open)); findBtn.classList.toggle('on', open);
+      if(open){ updateFind(); findBox.querySelector('.find-in').focus({preventScroll: true}); }
+      else globalThis.CSS?.highlights?.delete('wtu-find');
+    }
+    findBtn.addEventListener('click', () => toggleFind());
+    // Every match in the current (edited) document: [{block, index, start, end}] in body offsets.
+    function findAll(){
+      const needle = fq(); if(!needle) return [];
+      const out = [];
+      (getBlocks() || []).forEach((b, index) => {
+        if(b.kind !== 'paragraph') return;
+        for(const m of E().findMatches(E().bodyText(b), needle, fopts())) out.push({block: b, index, ...m});
+      });
+      return out;
+    }
+    function updateFind(){
+      const hits = findAll();
+      const paras = new Set(hits.map(h => h.index)).size;
+      findBox.querySelector('.find-count').textContent = fq() ? (hits.length ? `${hits.length} eşleşme · ${paras} paragraf` : 'Eşleşme yok') : '';
+      for(const b of findBox.querySelectorAll('.find-row button:not(.find-close)')) b.disabled = !hits.length;
+      // Highlight in the preview (CSS Custom Highlight API; ignored where missing).
+      if(globalThis.CSS?.highlights && globalThis.Highlight){
+        const ranges = [];
+        for(const h of hits.slice(0, 2000)){
+          const p = paper.querySelector(`.paragraph[data-index="${h.index}"]`); if(!p) continue;
+          const base = E().markerLength(h.block), a = domPoint(p, base + h.start), z = domPoint(p, base + h.end);
+          const r = new Range(); r.setStart(a.node, a.offset); r.setEnd(z.node, z.offset); ranges.push(r);
+        }
+        CSS.highlights.set('wtu-find', new Highlight(...ranges));
+      }
+      // Active document-wide rules, each removable.
+      const doc = E().sanitizeDoc(edits.get(DOC)), list = findBox.querySelector('.rule-list');
+      const row = (text, remove) => el('li', {}, el('span', {text}), el('button', {type: 'button', class: 'icon-btn small', 'aria-label': `Kaldır: ${text}`, text: '×', onclick: remove}));
+      list.replaceChildren(
+        ...(doc.replace || []).map((r, i) => row(`“${clip(r.from, 30)}” → “${clip(r.to, 30)}”`, () => dropRule('replace', i))),
+        ...(doc.marks || []).map((m, i) => row(`her “${clip(m.text, 30)}”: ${E().describeStyle(m)}`, () => dropRule('marks', i))),
+        ...(doc.cleanups || []).map((id, i) => row(E().CLEANUPS[id].label, () => dropRule('cleanups', i))));
+      list.hidden = !list.children.length;
+    }
+    function setDoc(next, msg){
+      snapshot();
+      const d = E().sanitizeDoc(next);
+      if(Object.keys(d).length) edits.set(DOC, d); else edits.delete(DOC);
+      changed(msg);
+      refreshSheet();
+    }
+    function dropRule(kind, i){
+      const d = E().sanitizeDoc(edits.get(DOC));
+      d[kind] = (d[kind] || []).filter((_, j) => j !== i);
+      setDoc(d, 'Kural kaldırıldı.');
+    }
+    // One string → all matches replaced (used for the user's own typed text).
+    function replaceIn(text, from, to, opts){
+      let out = String(text);
+      for(const m of E().findMatches(out, from, opts).reverse()) out = out.slice(0, m.start) + to + out.slice(m.end);
+      return out;
+    }
+    function replaceAll(){
+      const from = fq(), to = findBox.querySelector('.find-to').value.replace(/\s*\n\s*/gu, ' '), opts = fopts();
+      const n = findAll().length;
+      if(!from || !n){ onMessage('Değiştirilecek eşleşme yok.'); return; }
+      if(to === from){ onMessage('Aranan ve yerine yazılacak metin aynı.'); return; }
+      const d = E().sanitizeDoc(edits.get(DOC));
+      // Rule for the converted text; the user's own typed paragraphs are updated once.
+      d.replace = [...(d.replace || []), {from, to, ...opts}];
+      snapshot();
+      for(const [k, e] of [...edits]){
+        if(k === DOC) continue;
+        const ne = {...e};
+        if(typeof e.text === 'string') ne.text = replaceIn(e.text, from, to, opts);
+        if(e.addAfter) ne.addAfter = e.addAfter.map(it => ({...it, text: replaceIn(it.text, from, to, opts)}));
+        edits.set(k, E().sanitize(ne));
+      }
+      const dd = E().sanitizeDoc(d);
+      edits.set(DOC, dd);
+      changed(`“${clip(from, 30)}” → “${clip(to, 30)}”: ${n} yerde değiştirildi. Geri almak için "Geri al".`);
+      refreshSheet();
+    }
+    function markAll(k){
+      const hits = findAll(); if(!hits.length) return;
+      const on = !hits.every(h => E().rangeHas(h.block, h.start, h.end, k));
+      const d = E().sanitizeDoc(edits.get(DOC));
+      const text = fq(), o = fopts();
+      const prev = (d.marks || []).find(m => m.text === text && !!m.caseSensitive === o.caseSensitive && !!m.wholeWord === o.wholeWord);
+      d.marks = [...(d.marks || []).filter(m => m !== prev), {...(prev || {}), text, ...o, [k]: on}];
+      setDoc(d, `Her “${clip(text, 30)}” ${E().describeStyle({[k]: on})} yapıldı (${hits.length} yerde).`);
+    }
+    // Suggestions from checks.js ("Düzelt"): a document-wide cleanup.
+    function applyFix(fix){
+      if(!fix?.cleanup || !E().CLEANUPS[fix.cleanup]) return;
+      const d = E().sanitizeDoc(edits.get(DOC));
+      if((d.cleanups || []).includes(fix.cleanup)) return;
+      d.cleanups = [...(d.cleanups || []), fix.cleanup];
+      setDoc(d, `Düzeltildi: ${E().CLEANUPS[fix.cleanup].label}. Geri almak için "Geri al".`);
+    }
 
     /* ---------- sheet ---------- */
     function closeSheet(){ sheet?.remove(); sheet = null; addOpen = false; document.body.classList.remove('sheet-open'); if(!multi) { selected.clear(); decorate(); } }
@@ -513,9 +638,11 @@
     document.addEventListener('keydown', ev => {
       if(ev.key === 'Escape' && !pop.hidden){ hidePop(); window.getSelection()?.removeAllRanges(); return; }
       if(ev.key === 'Escape' && sheet){ closeSheet(); return; }
+      if(ev.key === 'Escape' && !findBox.hidden && findBox.contains(document.activeElement)){ toggleFind(false); findBtn.focus(); return; }
       if(!(ev.ctrlKey || ev.metaKey) || ev.altKey) return;
       const k = ev.key.toLocaleLowerCase('en-US');
       const act = document.activeElement;
+      if(k === 'f' && enabled() && !ev.shiftKey){ ev.preventDefault(); toggleFind(true); return; }
       // Ctrl+B / I / U: a selection in the preview, or in the panel's text box.
       const style = {b: 'bold', i: 'italic', u: 'underline'}[k];
       if(style && enabled()){
@@ -539,6 +666,8 @@
       get count(){ return edits.size; },
       decorate,
       reset(){ edits.clear(); history.length = 0; future.length = 0; selected.clear(); closeSheet(); hidePop(); decorate(); },
+      applyFix,
+      openFind: () => toggleFind(true),
       close: closeSheet
     };
   }

@@ -55,7 +55,8 @@ async ([iterations, seed]) => {
         addAfter: rnd() < .15 ? [{id: 'f' + it, text: pick(LINES) || 'Yeni paragraf.', role: pick([...Object.keys(E.ROLES), undefined])}] : undefined,
         move: rnd() < .15 ? pick([-3, -1, 1, 2, 999, -999]) : undefined}));
       if(rnd() < .3) edits.set(E.DOC_KEY, E.sanitizeDoc({marks: [{text: pick(['ve', 'karar', 'İ', 'ı', 'Talep', ' ']), bold: true, caseSensitive: rnd() < .5, wholeWord: rnd() < .5}],
-        replace: rnd() < .5 ? [{from: pick(['a', 've', 'İ', '.', 'karar']), to: pick(['', 'x', 'VE', 'çok uzun bir değiştirme metni']), wholeWord: rnd() < .5}] : []}));
+        replace: rnd() < .5 ? [{from: pick(['a', 've', 'İ', '.', 'karar']), to: pick(['', 'x', 'VE', 'çok uzun bir değiştirme metni']), wholeWord: rnd() < .5}] : [],
+        cleanups: Object.keys(E.CLEANUPS).filter(() => rnd() < .5)}));
       // Edits are keyed on the typeset text, so apply them through a second typeset.
       t = P.typeset(blocks, {profile, settings: opt, now: new Date('2026-10-14T09:00:00Z'), edits});
       const udf = await P.toUdf(t.blocks, {margins: t.norm.margins});

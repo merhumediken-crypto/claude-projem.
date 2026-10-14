@@ -2,6 +2,32 @@
 
 WordToUDF'nin bütün sürümleri, yeniden eskiye. Kullanım kılavuzu: [README.md](README.md).
 
+## 1.9.0 — Dosya kartları, kendi şablonlarınız, bul / değiştir, düzeltme önerileri
+
+### Dosya kartları
+- Mahkeme, esas no, müvekkil ve karşı taraf (sıfatlarıyla) ve karşı taraf vekili bir **dosya kartı** olarak saklanır.
+- **Nereden:** Dönüştür sayfasında “Dosya kartları ve şablonlar” kartı → “Bu dilekçeden dosya kartı kaydet” (künyeden okunur; müvekkil, ayarlardaki vekilin temsil ettiği taraftır) ya da Şablonlar sayfasında “Dosya ve taraflar” → “Dosya kartı olarak kaydet”.
+- **Nerede kullanılır:** Şablonlar sayfasında ve “Metni yapıştır”daki eksik bilgi formunda “Kayıtlı dosyadan doldur…” seçimiyle. Aynı dosya (mahkeme + esas no + müvekkil) ikinci kez eklenmez, güncellenir. Silmek için iki kez basılır.
+
+### Kendi şablonlarınız
+- Şablonlar sayfasında 4. adımdaki metni ya da Dönüştür sayfasındaki herhangi bir dilekçeyi (KONU, açıklamalar, talepler, kapanış, ekler) ad vererek kaydedin.
+- Kayıtta mahkeme, esas no ve taraf adları **{MAHKEME}**, **{ESAS NO}**, **{MÜVEKKİL}**, **{KARŞI TARAF}** alanlarına çevrilir; şablon başka dosyada tekrar kullanılır. Metne kendiniz **{ALACAK TUTARI}** gibi alanlar yazabilirsiniz: şablonu seçince her biri için bir kutu çıkar. Boş alan “…” kalır, uydurulmaz.
+- Şablonlar listesinde “Kendi şablonlarım” grubunda görünür; müvekkilin sıfatı da hatırlanır.
+
+### Bul / değiştir
+- Önizleme araç çubuğunda **Bul / değiştir** (Ctrl+F): eşleşmeler önizlemede sarıyla vurgulanır, sayısı yazılır. Türkçe harfler doğru eşleşir (İ/i, I/ı); büyük/küçük harf duyarlı ve tam sözcük seçenekleri.
+- **Tümünü değiştir** (biçim korunur), **Hepsi kalın / italik / altı çizili**. Etkin kurallar listelenir, her biri × ile kaldırılır; hepsi geri alınabilir.
+
+### Düzeltme önerileri
+- Denetim kartında yeni **Öneri** satırları: sözcükler arasında fazla boşluk, noktalama işaretinden önce boşluk, virgülden sonra eksik boşluk, GG/AA/YYYY veya GG-AA-YYYY tarih. Her birinin **Düzelt** düğmesi belgenin tamamında düzeltir (biçim korunur, geri alınabilir). Ondalık sayı (1,5), esas no (2026/1929) ve geçersiz tarih (31/02/2026) değiştirilmez.
+- Aynı kanunun adı birden çok kez tam yazılmışsa (ör. “Hukuk Muhakemeleri Kanunu”) kısaltma önerilir (yalnız bilgi; ek değişikliğe dikkat edilmesi gerektiği için otomatik değiştirilmez).
+
+### Taşıma
+- “Ayarları taşı” dosyası artık dosya kartlarını ve kendi şablonlarınızı da içerir; içe aktarınca mevcut kayıtlar silinmez, birleştirilir.
+
+### Testler
+- 99 mantık testi (öneri ve düzeltmeler, dosya kartı çıkarma / güncelleme / içe aktarma, şablon alanları ve doldurma), yeni tarayıcı testi `v19_library` (sayfalar arası kullanım dahil), zorlama testine düzeltme kuralları.
+
 ## 1.8.0 — Kelime ve cümle biçimi, yeni paragraf, taşıma
 
 ### Kelime / cümle biçimlendirme

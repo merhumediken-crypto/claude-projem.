@@ -1,4 +1,4 @@
-# WordToUDF 1.8.0 – Mimari
+# WordToUDF 1.9.0 – Mimari
 
 ## Dönüşüm hattı
 
@@ -102,3 +102,10 @@ tools/pages.py ─► workspace.html · templates.html · reverse.html · index.
 - `sentences()` Türkçe hukuk metni için cümle sınırlarını verir (kısaltma listesi, iki basamaklı sıra sayısı, baş harf, tırnak).
 - **preview.js** her metin parçasına `data-o` (paragraf metnindeki ofset) yazar; **editor-ui.js** tarayıcı seçimini bu ofsetlerle paragraf metnine çevirir ve biçimden sonra aynı metni yeniden seçer.
 - **docx.js** uyarılarına `minor` alanı eklendi: yalnız görünümü etkileyenler (karakter aralığı, efektler, A4 dışı kâğıt, küçük büyük harf) indirme onayı istemez.
+
+## 1.9.0 — kütüphane, bul / değiştir, öneriler
+
+- **library.js** — dosya kartları (`wordtoudf.cases.v1`) ve kendi şablonları (`wordtoudf.userTemplates.v1`); her kayıt yüklemede, kayıtta ve içe aktarmada `sanitizeCase` / `sanitizeTemplate` ile bilinen alanlara indirgenir. `caseFromBlocks()` künye satırlarının `fieldKind` / `fieldLabel` bilgisinden kart çıkarır; `partsFromBlocks()` dizgi rollerinden şablon parçalarını; `generalize()` adları {ALAN}a, `fill()` alanları değere çevirir (boş alan “…”). `picker()` her iki sayfada aynı kart seçicisini kurar.
+- **edits.js** `'*doc'` kurallarına `cleanups` eklendi (`spaces`, `punct-space`, `comma-space`, `dates`): idempotent, biçimi koruyan düzeltmeler; kullanıcının yazdığı metin dahil bütün paragraflara uygulanır. Bul-değiştir kuralı dizgi metnine uygulanır; kullanıcının elle yazdığı metinler (paragraf metni, eklenen paragraflar) “Tümünü değiştir” anında bir kez güncellenir — böylece aynı metin iki kez değişmez.
+- **checks.js** `suggestions()` → `{level: 'suggest', code, message, fix?}`; `fix` varsa sayfa “Düzelt” düğmesi gösterir ve `editor.applyFix()` belge kuralını ekler.
+- **editor-ui.js** bul kutusu: eşleşmeleri `findMatches()` ile sayar, CSS Custom Highlight API ile vurgular (`::highlight(wtu-find)`; desteklenmeyen tarayıcıda vurgu olmadan çalışır).

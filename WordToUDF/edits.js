@@ -99,9 +99,11 @@
     const replace = (Array.isArray(src.replace) ? src.replace : []).slice(-100)
       .filter(r => r && typeof r.from === 'string' && r.from.trim() && typeof r.to === 'string')
       .map(r => ({from: r.from.slice(0, 500), to: r.to.slice(0, 2000).replace(/\r\n?|\n/gu, ' '), ...opts(r)}));
+    const cleanups = [...new Set((Array.isArray(src.cleanups) ? src.cleanups : []).filter(id => typeof id === 'string' && CLEANUPS[id]))];
     const out = {};
     if(marks.length) out.marks = marks;
     if(replace.length) out.replace = replace;
+    if(cleanups.length) out.cleanups = cleanups;
     return out;
   }
 
@@ -124,6 +126,23 @@
       if(ok){ out.push({start: i, end}); i = hay.indexOf(pin, end); }
       else i = hay.indexOf(pin, i + 1);
     }
+    return out;
+  }
+
+  // Mechanical tidy-ups offered as suggestions (checks.js) and applied only
+  // when the user presses "Düzelt". Each is idempotent and keeps run styles.
+  const pad2 = v => String(v).padStart(2, '0');
+  const okDate = (d, m, y) => { const t = new Date(Date.UTC(+y, +m - 1, +d)); return t.getUTCMonth() === +m - 1 && t.getUTCDate() === +d; };
+  const CLEANUPS = Object.freeze({
+    spaces: {label: 'sözcükler arasındaki fazla boşluklar teke indirildi', re: /(?<=\S) {2,}(?=\S)/gu, to: () => ' '},
+    'punct-space': {label: 'noktalama işaretinden önceki boşluk kaldırıldı', re: /(?<=\S) +(?=[,.;!?)])|(?<=\() +/gu, to: () => ''},
+    'comma-space': {label: 'virgülden sonra boşluk eklendi', re: /,(?=\p{L})/gu, to: () => ', '},
+    dates: {label: 'tarihler GG.AA.YYYY biçimine çevrildi', re: /(?<![\d./-])(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?![\d/-])/gu, to: m => okDate(m[1], m[2], m[3]) ? `${pad2(m[1])}.${pad2(m[2])}.${m[3]}` : m[0]}
+  });
+  function cleanupMatches(text, id){
+    const c = CLEANUPS[id]; if(!c) return [];
+    const out = [];
+    for(const m of String(text).matchAll(new RegExp(c.re.source, c.re.flags))){ const to = c.to(m); if(to !== m[0]) out.push({start: m.index, end: m.index + m[0].length, to}); }
     return out;
   }
 
@@ -210,6 +229,19 @@
     });
     return changed ? {...b, runs: mergeRuns(runs)} : b;
   }
+
+  function applyCleanups(b, ids, stats){
+    if(!ids?.length || b.kind !== 'paragraph') return b;
+    let runs = b.runs, changed = false;
+    const base = markerLength(b);
+    for(const id of ids){
+      const found = cleanupMatches(flatten({runs}).slice(base), id);
+      for(const f of [...found].reverse()) runs = replaceRange(runs, base + f.start, base + f.end, f.to);
+      if(found.length){ changed = true; stats.cleanups[id] = (stats.cleanups[id] || 0) + found.length; }
+    }
+    return changed ? {...b, runs: mergeRuns(runs)} : b;
+  }
+  const countCleanup = (b, id) => b?.kind === 'paragraph' ? cleanupMatches(bodyText(b), id).length : 0;
 
   /* ------------------------------ sentences ------------------------------ */
   // Abbreviations that end with a dot but do not end a sentence (lower case).
@@ -422,6 +454,7 @@
     const out = [];
     (doc.replace || []).forEach((r, i) => out.push(`“${r.from}” → “${r.to}” (${stats.replace[i] || 0} yerde)`));
     (doc.marks || []).forEach((m, i) => out.push(`her “${m.text}” ${describeStyle(m)} (${stats.marks[i] || 0} yerde)`));
+    for(const id of doc.cleanups || []) out.push(`${CLEANUPS[id].label} (${stats.cleanups[id] || 0} yerde)`);
     return out;
   }
 
@@ -448,7 +481,7 @@
   function apply(blocks, edits, opts = {}){
     const map = typeof edits?.get === 'function' && typeof edits.size === 'number' ? edits : new Map(Object.entries(edits || {}));
     const doc = sanitizeDoc(map.get(DOC_KEY));
-    const docStats = {replace: [], marks: []};
+    const docStats = {replace: [], marks: [], cleanups: {}};
     const keys = blockKeys(blocks), units = [], log = [], lost = [];
     let applied = 0;
     // Shared steps for an edited paragraph (original or added).
@@ -489,7 +522,7 @@
           while(j < blocks.length && blocks[j].kind === 'paragraph' && !clean(flatten(blocks[j]))) j++;
           const next = blocks[j];
           if(next?.kind === 'paragraph'){
-            const n = stripMarker(I().cloneBlock(doc.replace ? applyDocReplace(next, doc.replace, {replace: [], marks: []}) : next));
+            const n = stripMarker(I().cloneBlock(doc.replace ? applyDocReplace(next, doc.replace, {replace: [], marks: [], cleanups: {}}) : next));
             const tail = I().trimRuns(n.runs);
             if(tail.length){ b.runs = [...I().trimRuns(b.runs.map(r => ({...r}))), I().plainRun(' ', tail[0]), ...tail]; }
             i = j; // the merged paragraph (and blank lines before it) are consumed
@@ -517,7 +550,9 @@
         if(!isEmpty(ce)){ applied++; log.push({key: ck, excerpt: clean(item.text).slice(0, 60), summary: `eklenen paragraf: ${describe(ce)}`}); }
       }
     }
-    const out = renumber(moveUnits(units).flatMap(u => u.items));
+    let out = renumber(moveUnits(units).flatMap(u => u.items));
+    // Tidy-ups apply to every paragraph, the user's own text included (idempotent).
+    if(doc.cleanups) out = out.map(b => applyCleanups(b, doc.cleanups, docStats));
     const docLog = describeDoc(doc, docStats);
     if(docLog.length) log.push({key: DOC_KEY, excerpt: 'Belgenin tamamı', summary: docLog.join('; ')});
     return {blocks: out, applied, log, lost, doc: docStats};
@@ -545,5 +580,5 @@
   }
 
   globalThis.WordToUDFEdits = {ROLES, ALIGN, SIZES, LINES, SPACES, INDENTS, MARK_STYLES, MARK_TEXT, DOC_KEY, sanitize, sanitizeDoc, blockKeys, apply, describe, describeStyle, state,
-    renumber, sentences, findMatches, bodyText, markerLength, rangeHas, childKey, parentOf, styleRange, replaceRange};
+    renumber, sentences, findMatches, bodyText, markerLength, rangeHas, childKey, parentOf, styleRange, replaceRange, CLEANUPS, cleanupMatches, countCleanup};
 })();
