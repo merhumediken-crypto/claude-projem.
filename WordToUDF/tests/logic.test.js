@@ -115,7 +115,7 @@ test('dosya no + karar no tek DOSYA NO etiketi (REVİZE WTU-022: ikinci KARAR NO
   assert.equal(r.statistics.caseNumberPairs,1);assert.equal(r.blocks.length,2);
   assert.equal(text(r.blocks[0]),'DOSYA NO\t: 2026/713 D. İş 2026/708 K.');
   assert.equal(r.blocks[0].role,'case-number');
-  assert.equal(r.blocks[0].runs.filter(x=>x.bold).map(x=>x.text).join('|'),'DOSYA NO|:');
+  assert.equal(r.blocks[0].runs.filter(x=>x.bold).map(x=>x.text).join('|'),'DOSYA NO|\t|:');
 });
 test('zaten aynı satırdaki dosya karar çifti tek etikete iner',()=>{
   const r=legal.apply([para('DOSYA NO: 2026/713 D. İş KARAR NO: 2026/708'),para('AÇIKLAMALAR')]);
@@ -188,11 +188,12 @@ test('WTU-024/025 bütün iki noktalar tek ortak sekme durağında, tek gerçek 
     assert(!/ {2,}/u.test(text(b)),'boşlukla hizalama yok');
   }
 });
-test('WTU-026 etiket, sekme ve iki nokta kesintisiz altı çizili (REVİZE v1.4.1); değer altı çizgisiz/normal',()=>{
+test('WTU-026 etiket, sekme ve iki nokta kesintisiz altı çizili, üçü aynı biçimde (REVİZE v1.10.2); değer altı çizgisiz/normal',()=>{
   for(const b of fields){
     const [label,tab,colon,...value]=b.runs;
     assert(label.bold&&label.underline,b.fieldLabel);assert(colon.bold&&colon.underline);
-    assert.equal(tab.text,'\t');assert.equal(tab.underline,true);assert.equal(tab.bold,false);
+    // Aynı biçim: UDF'de tek "ETİKET<TAB>:" metin öğesi olur (UYAP'ın kendi yazımı).
+    assert.equal(tab.text,'\t');assert.equal(tab.underline,true);assert.equal(tab.bold,true);
     for(const v of value){assert.equal(v.underline,false);if(!v.italic)assert.equal(v.bold,false,text(b));}
   }
 });
@@ -388,10 +389,17 @@ test('WTU-017 metin bütünlüğü raporu yalnız açıklanan sözcük farkları
   for(const w of added)assert(/^(?:dosya|adresi|uets|2026|14|10)(?: ×\d+)?$/u.test(w),w);
   assert(full.statistics.changes.length>=10);
 });
-test('WTU-018 tab ayrı <tab> öğesi; liste maddesindeki satır sonu yeni madde açmaz',()=>{
+test('WTU-018 (REVİZE v1.10.2) sekme UYAP gibi metin öğesinin içinde: "DOSYA NO<TAB>:" tek <content>, <tab> öğesi yok; liste maddesindeki satır sonu yeni madde açmaz',()=>{
   const item={kind:'paragraph',runs:[{text:'Birinci\nikinci satır'}],list:{kind:'number',id:'1',level:0,raw:'NUMBER_TYPE_NUMBER_DOT'}};
   const w=writer.write([B.find(b=>b.role==='case-number'),item],{});
-  assert(/<tab [^>]*length="1"/u.test(w.xml));
+  assert(!/<tab\b/u.test(w.xml),'ayrı <tab> öğesi yazılmaz (UYAP editöründe siliniyordu)');
+  const first=/<paragraph[^>]*>(.*?)<\/paragraph>/su.exec(w.xml)[1];
+  const els=[...first.matchAll(/<content ([^>]*)\/>/gu)].map(m=>m[1]);
+  const at=a=>{const s=+/startOffset="(\d+)"/u.exec(a)[1],l=+/length="(\d+)"/u.exec(a)[1];return w.fullText.slice(s,s+l);};
+  assert.equal(at(els[0]),'DOSYA NO\t:','etiket, sekme ve iki nokta tek öğe');
+  assert(/bold="true"/u.test(els[0])&&/underline="true"/u.test(els[0]),els[0]);
+  assert(/underline="false"/u.test(els[1])&&at(els[1]).startsWith(' '),'değer ayrı, altı çizgisiz');
+  assert(/TabSet="170\.08:0:0"/u.test(w.xml),'ortak sekme durağı korunur');
   assert.equal((w.xml.match(/Numbered="true"/gu)||[]).length,1);assert.equal(w.paragraphs,3);
 });
 test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
@@ -401,7 +409,7 @@ test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
 test('WTU-072 manifest izinleri, CSP ve sürüm',()=>{
   const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
   assert.equal(m.manifest_version,3);assert.deepEqual(m.permissions,[]);assert.deepEqual(m.host_permissions,[]);
-  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.10.1');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
+  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.10.2');assert(m.description.length<=132,'Chrome açıklama sınırı 132 karakter');
   // sw.js (PWA offline cache) may fetch, but only its own origin.
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(/url\.origin !== location\.origin\) return/u.test(sw));
   for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')&&f!=='sw.js'))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);

@@ -8,8 +8,9 @@
  *
  * The petition contract implemented here:
  *  - Every künye and section label is "LABEL<TAB>: value". The label and the
- *    colon are bold + underlined, the tab run between them is underlined too
- *    (one continuous line from label to colon, v1.4.1), the value is normal. All colons sit on ONE shared tab stop (SCHEMA.colonTabCm).
+ *    colon are bold + underlined with the same style (one continuous line
+ *    from label to colon); the UDF writer joins them into one "LABEL<TAB>:"
+ *    content element, as UYAP writes it (v1.10.2). The value is normal. All colons sit on ONE shared tab stop (SCHEMA.colonTabCm).
  *  - Long values wrap naturally: left=0, first=0, no hanging indent and no
  *    second tab. Labels too wide for the column are split over two lines.
  *  - DOSYA NO + KARAR NO become one DOSYA NO row ("2026/713 E. 2026/708 K.").
@@ -280,7 +281,9 @@
       rows[0].fieldLabel = lab;
     }
     const value = trimRuns(valueRuns || []);
-    const runs = [plainRun(parts.at(-1), labelStyle), plainRun('\t', {...origin, bold: false, underline: true, italic: false}), plainRun(':', labelStyle)];
+    // Label, tab and colon share one style, so the UDF writer joins them into
+    // ONE content element "LABEL<TAB>:" (the UYAP editor's own form).
+    const runs = [plainRun(parts.at(-1), labelStyle), plainRun('\t', labelStyle), plainRun(':', labelStyle)];
     if(value.length){
       value[0] = {...value[0], text: ' ' + value[0].text};
       for(const r of value) runs.push(plainRun(r.text, {...r, bold: r.keepBold ? r.bold : false, underline: false, size: SCHEMA.bodySize}));

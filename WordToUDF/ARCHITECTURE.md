@@ -1,4 +1,4 @@
-# WordToUDF 1.10.1 – Mimari
+# WordToUDF 1.10.2 – Mimari
 
 ## Dönüşüm hattı
 
@@ -128,3 +128,10 @@ tools/pages.py ─► workspace.html · templates.html · reverse.html · sure.h
 - **library.js:** `saveCase/saveTemplate(x, {imported})` — içe aktarmada daha yeni yerel kayıt korunur, yedeğin zamanı saklanır; sınırda yeni kayıt reddedilir. `generalize(text, info, more)` Türkçe büyük / küçük harf katlamasıyla ve sözcük sınırıyla çalışır; yer tutucu anahtarları `phFold` ile katlanır ({MUVEKKIL} = {MÜVEKKİL}). `clearAll()` kartları, şablonları ve şablon taslağını siler.
 - **docx.js:** stil tanımlarındaki uyarılar, stil gerçekten kullanılana kadar bekletilir.
 - **tools/build.js:** izin listesi = `sw.js` FILES + açılır pencere + manifest + belgeler; listede olmayan dosya pakete girmez, adıyla bildirilir.
+
+## 1.10.2 — sekme yazımı
+
+- **udf.js** sekmeyi ayrı `<tab>` öğesi olarak yazmaz; sekme, `<content>` metninin içinde bir karakterdir. Bu, UYAP editörünün kendi yazımıdır (UYAP'ın ürettiği bir belgede 159 sekmenin 157'si `<content>` içinde; künye satırı `DOSYA NO⇥:` tek öğe). Aynı öznitelikli komşu koşular tek `<content>` öğesinde birleşir.
+- **legal-typography.js** künye / bölüm satırında etiket, sekme ve iki noktayı aynı biçimle (kalın + altı çizili) üretir; yazıcı üçünü `ETİKET⇥:` olarak tek öğeye birleştirir. Swing'in alt çizgisi sekme genişliğini kapsadığı için çizgi kesintisizdir.
+- **udf-reader.js** her iki yazımı da okur (`<tab>` öğesi ve metin içindeki sekme).
+

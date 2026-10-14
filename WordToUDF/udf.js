@@ -94,20 +94,24 @@
       const list=listAttrs(block.list);
       if(list)Object.assign(p,list);
       let inner='';
-      const visible=block.runs.filter(run=>run.text.length>0);
+      // Neighbouring runs with the same look become one <content>, and a tab
+      // stays a character INSIDE the text, exactly as the UYAP editor writes
+      // its own documents ("DOSYA NO<TAB>:" is one bold content element; 157
+      // of the 159 tabs in a UYAP-made tensip zaptı are inside <content>).
+      // Separate <tab> elements (used up to 1.10.1) were not kept by the
+      // editor: the tabs between labels and colons disappeared while editing.
+      // The content's underline covers the tab's width, so the label line
+      // stays one continuous line up to the colon.
+      const visible=[];
+      for(const run of block.runs){
+        if(!run.text.length)continue;
+        const attrs=styleAttrs(run),key=JSON.stringify(attrs),last=visible.at(-1);
+        if(last&&last.key===key)last.text+=run.text;else visible.push({text:run.text,attrs,key});
+      }
       if(!visible.length){
         inner=push('\n',{});
       }else{
-        visible.forEach((run,i)=>{
-          // A tab is an independent UDF element. Placing it inside a text
-          // <content> causes the UYAP editor to ignore Word's tab stops and
-          // sometimes its underline formatting on the preceding label.
-          const pieces=(run.text+(i===visible.length-1?'\n':'')).split('\t');
-          for(let j=0;j<pieces.length;j++){
-            if(pieces[j])inner+=push(pieces[j],styleAttrs(run));
-            if(j<pieces.length-1)inner+=push('\t',styleAttrs(run),'tab');
-          }
-        });
+        visible.forEach((run,i)=>{inner+=push(run.text+(i===visible.length-1?'\n':''),run.attrs);});
       }
       elements.push(`<paragraph${xmlAttrs(p)}>${inner}</paragraph>`);
     }

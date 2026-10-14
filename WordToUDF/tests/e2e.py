@@ -255,12 +255,13 @@ def main():
         assert len(field)==13
         stops={p.get('TabSet') for p in field};assert len(stops)==1,stops
         assert all(p.get('LeftIndent')=='0' and p.get('FirstLineIndent')=='0' for p in field)
+        # UYAP'ın kendi yazımı: "ETİKET<TAB>:" tek, kalın ve altı çizili <content>; ayrı <tab> öğesi yok.
+        assert not root_p.xpath('.//tab'),'ayrı <tab> öğesi yazılmaz'
         for p in field:
-            kids=list(p)
-            assert kids[1].tag=='tab' and kids[1].get('underline')=='true'
+            kids=list(p);seg=lambda k:txt[int(k.get('startOffset')):int(k.get('startOffset'))+int(k.get('length'))]
+            assert kids[0].tag=='content' and seg(kids[0]).rstrip('\n').endswith('\t:') and seg(kids[0]).count('\t')==1,seg(kids[0])
             assert kids[0].get('underline')=='true' and kids[0].get('bold')=='true'
-            assert kids[2].get('underline')=='true' and txt[int(kids[2].get('startOffset'))]==':'
-            for k in kids[3:]:assert k.get('underline')=='false'
+            for k in kids[1:]:assert k.get('underline')=='false'
         lists=[(p.get('ListId'),l) for p,l in zip(paras,lines) if p.get('Numbered')=='true']
         assert lists==[('1','Yetki itirazının kabulüne,'),('1','İhtiyati haciz kararının kaldırılmasına,'),('1','Yargılama giderlerinin karşı tarafa yükletilmesine,'),
                        ('2','İhtiyati haciz kararı örneği.'),('2','Çek örneği.')],lists
@@ -281,7 +282,8 @@ def main():
         assert not any(p.get('Numbered') for p in paras_t)
         items_t=[(p,l) for p,l in zip(paras_t,lines_t) if re.match(r'^\d+\.\t',l)]
         assert [l for _,l in items_t]==['1.\tYetki itirazının kabulüne,','2.\tİhtiyati haciz kararının kaldırılmasına,','3.\tYargılama giderlerinin karşı tarafa yükletilmesine,','1.\tİhtiyati haciz kararı örneği.','2.\tÇek örneği.'],items_t
-        assert all(p.get('LeftIndent')=='18' and p.get('FirstLineIndent')=='-18' and p.get('TabSet')=='18:0:0' and p[1].tag=='tab' for p,_ in items_t)
+        assert all(p.get('LeftIndent')=='18' and p.get('FirstLineIndent')=='-18' and p.get('TabSet')=='18:0:0' and txt_t[int(p[0].get('startOffset')):].split('\t')[0].endswith('.') for p,_ in items_t)
+        assert not root_t.xpath('.//tab'),'numaradan sonraki sekme de metnin içinde'
         print('PASS metin numaralı liste: 1.<TAB> asılı girinti, Numbered özniteliği yok')
         page.locator('#listMode').select_option('auto')
         # Word → UDF → Word: lists stay real Word lists with separate numbering.

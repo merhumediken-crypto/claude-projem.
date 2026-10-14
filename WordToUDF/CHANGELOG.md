@@ -2,6 +2,20 @@
 
 WordToUDF'nin bütün sürümleri, yeniden eskiye. Kullanım kılavuzu: [README.md](README.md).
 
+## 1.10.2 — Künye sekmeleri UYAP editöründe artık silinmiyor
+
+**Sorun:** UYAP Doküman Editörü'nde künye ve bölüm satırlarında (DOSYA NO, DAVACI, VEKİLİ, KONU, AÇIKLAMALAR…) etiket ile iki nokta arasındaki sekme, düzenleme sırasında siliniyordu; etiket ve iki nokta kalıyor, hiza bozuluyordu.
+
+**Neden:** Araç her sekmeyi metinden ayrı bir `<tab>` öğesi olarak (alt çizgiyle) yazıyordu. UYAP'ın kendi ürettiği bir belgede (tensip zaptı) 159 sekmenin 157'si metin öğesinin **içindedir**; künye satırı `DOSYA NO⇥:` tek, kalın bir metin öğesidir. Ayrı `<tab>` öğesi yalnız paragraf başında, istisnai olarak geçer. Editör, metinden ayrı yazılmış sekmeyi düzenlemede korumuyordu.
+
+**Düzeltme:**
+- Sekme artık UYAP'ın yazdığı gibi metnin içinde bir karakterdir; ayrı `<tab>` öğesi hiç yazılmaz (künye, bölüm etiketleri, numaralı talepler ve Word'den gelen bütün sekmeler).
+- Etiket, sekme ve iki nokta aynı biçimdedir ve tek parça yazılır: `DOSYA NO⇥:` (kalın, altı çizili). Alt çizgi sekmenin genişliği boyunca sürer, yani etiketten iki noktaya kesintisiz tek çizgi korunur. Değer ayrı ve altı çizgisizdir.
+- Yan yana aynı biçimdeki parçalar tek metin öğesinde birleştirilir (UYAP'taki gibi daha az öğe).
+- Ortak sekme durağı (6,0 cm) ve satır düzeni değişmedi.
+
+UYAP'ta kontrol için: künye satırında sekmenin olduğu yere tıklayıp yazı yazın ya da silin, sonra belgeyi kaydedip yeniden açın; iki noktalar yine aynı sütunda olmalı ve sekme kaybolmamalı ([KABUL_TESTLERI.md](KABUL_TESTLERI.md)).
+
 ## 1.10.1 — Ayrıntılı denetim: hatalar giderildi
 
 1.8–1.10'da eklenen her özellik tek tek denetlendi: dört alanda kod incelemesi; gerçek güvenlik kuralı (CSP) açıkken bütün sayfalarda ve düğmelerde masaüstü, telefon, 340 px dar ekran ve koyu temada tarayıcı taraması (sayfa hatası, konsol hatası, CSP ihlali, taşma, kontrast, dokunma hedefi); uç girdiler ve tohumlu zorlama testi. Bulunan her hata yeniden üretildi, düzeltildi ve teste bağlandı.

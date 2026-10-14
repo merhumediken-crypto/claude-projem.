@@ -1,4 +1,4 @@
-# WordToUDF 1.10.1 güvenlik notları
+# WordToUDF 1.10.2 güvenlik notları
 
 - Manifest V3; host izni ve genişletilmiş tarayıcı izni yoktur.
 - Ağ erişimi kapalıdır (`connect-src 'none'`); uzaktan script/kod kullanılmaz.
