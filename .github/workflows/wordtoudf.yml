@@ -1,0 +1,43 @@
+name: WordToUDF
+
+on:
+  push:
+    paths: ['WordToUDF/**', '.github/workflows/wordtoudf.yml']
+  pull_request:
+    paths: ['WordToUDF/**', '.github/workflows/wordtoudf.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: WordToUDF
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Mantık ve altın çıktı testleri
+        run: npm test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tarayıcı testleri için bağımlılıklar
+        run: |
+          pip install playwright==1.64.0 python-docx lxml
+          python -m playwright install --with-deps chromium
+      - name: Chromium uçtan uca testleri
+        run: |
+          export CHROMIUM="$(python -c 'from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()')"
+          python tests/e2e.py
+      - name: Sürüm paketi
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WordToUDF-zip
+          path: WordToUDF/dist/
+          if-no-files-found: error

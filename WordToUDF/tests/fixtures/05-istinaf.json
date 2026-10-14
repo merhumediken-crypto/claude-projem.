@@ -1,0 +1,73 @@
+{
+  "name": "İstinaf dilekçesi (uzun etiket bölünmesi, BAM başlığı, kapanışsız)",
+  "source": [
+    "ANKARA BÖLGE ADLİYE MAHKEMESİ 5. HUKUK DAİRESİ'NE",
+    "GÖNDERİLMEK ÜZERE",
+    "ANKARA 2. ASLİYE HUKUK MAHKEMESİNE",
+    "DOSYA NO: 2025/90 E. 2026/14 K.",
+    "İSTİNAF EDEN DAVACI: Ayşe Demir",
+    "VEKİLİ: Av. Fatih Nakışlı",
+    "KARŞI TARAF DAVALI: Ankara Büyükşehir Belediyesi",
+    "KONU: İlk derece mahkemesi kararına karşı istinaf başvurumuzdur.",
+    "AÇIKLAMALAR",
+    "İlk derece mahkemesi, Yargıtay 3. Hukuk Dairesi 2025/5112 E., 2026/3190 K. sayılı kararına aykırı karar vermiştir.",
+    "SONUÇ VE İSTEM",
+    "1. İstinaf başvurumuzun kabulü ile kararın kaldırılmasına,"
+  ],
+  "options": {},
+  "expected": [
+    {
+      "role": "court-heading",
+      "text": "ANKARA BÖLGE ADLİYE MAHKEMESİ 5. HUKUK DAİRESİ'NE"
+    },
+    {
+      "role": "body",
+      "text": "GÖNDERİLMEK ÜZERE"
+    },
+    {
+      "role": "court-heading",
+      "text": "ANKARA 2. ASLİYE HUKUK MAHKEMESİNE"
+    },
+    {
+      "role": "case-number",
+      "text": "DOSYA NO\t: 2025/90 E. 2026/14 K."
+    },
+    {
+      "role": "metadata",
+      "text": "İSTİNAF EDEN DAVACI\t: Ayşe DEMİR"
+    },
+    {
+      "role": "metadata",
+      "text": "VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)"
+    },
+    {
+      "role": "metadata",
+      "text": "KARŞI TARAF DAVALI\t: Ankara Büyükşehir Belediyesi"
+    },
+    {
+      "role": "topic",
+      "text": "KONU\t: İlk derece mahkemesi kararına karşı istinaf başvurumuzdur."
+    },
+    {
+      "role": "major-heading",
+      "text": "AÇIKLAMALAR\t:"
+    },
+    {
+      "role": "explanation-body",
+      "text": "İlk derece mahkemesi, Yargıtay 3. Hukuk Dairesi 2025/5112 E., 2026/3190 K. sayılı kararına aykırı karar vermiştir."
+    },
+    {
+      "role": "result-heading",
+      "text": "SONUÇ VE İSTEM\t: Yukarıda arz edilen sebeplerle;"
+    },
+    {
+      "role": "result-item",
+      "text": "1.\tİstinaf başvurumuzun kabulü ile kararın kaldırılmasına,"
+    },
+    {
+      "role": "result-closing",
+      "text": "Karar verilmesini vekâleten talep ederim. 14.10.2026"
+    }
+  ],
+  "expectedErrors": []
+}

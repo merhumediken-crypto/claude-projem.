@@ -1,0 +1,26 @@
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="only light"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'"><link rel="manifest" href="app.webmanifest"><meta name="theme-color" content="#284787"><title>Şablondan Dilekçe</title><link rel="stylesheet" href="workspace.css"></head>
+<body>
+<header class="top"><div class="identity"><div class="brand" aria-hidden="true">W<span>→</span>U</div><div><strong>Şablondan dilekçe</strong><small>Formu doldurun · UDF veya Word olarak indirin</small></div></div><div class="top-tags"><a class="pill" href="workspace.html">Word → UDF</a><span>v1.5.0</span></div></header>
+<main><div class="intro"><span class="eyebrow">DİLEKÇE ŞABLONLARI</span><h1>Sık yazılan dilekçeleri birkaç alanla oluşturun.</h1><p>Şablon metni bir başlangıç taslağıdır: açıklama, talepler ve ekler sayfada düzenlenebilir. Dilekçe, Word'den dönüştürülen belgelerle aynı hukuk dilekçesi kurallarından geçer. Hiçbir bilgi cihazınızdan çıkmaz.</p></div>
+<div class="layout"><section class="left">
+<div class="panel"><h2>Şablon</h2><label for="tpl" class="setting-label">Dilekçe türü</label><select id="tpl" class="profile-select"></select></div>
+<div class="panel form-panel"><h2>Dosya ve taraflar</h2>
+<label for="court" class="setting-label">Mahkeme</label><input type="text" id="court" placeholder="ör. Şanlıurfa 8. Asliye Hukuk Mahkemesi" autocomplete="off">
+<label for="caseNo" class="setting-label">Esas no</label><input type="text" id="caseNo" placeholder="ör. 2026/1929" autocomplete="off" inputmode="numeric">
+<div class="two"><div><label for="role" class="setting-label">Müvekkilin sıfatı</label><select id="role" class="profile-select"></select></div><div><label for="otherRole" class="setting-label">Karşı taraf sıfatı</label><input type="text" id="otherRole" autocomplete="off"></div></div>
+<label for="client" class="setting-label">Müvekkil</label><input type="text" id="client" placeholder="ör. İsa ÇİFTÇİ" autocomplete="off">
+<label for="other" class="setting-label">Karşı taraf</label><input type="text" id="other" placeholder="ör. Yapı ve Kredi Bankası Anonim Şirketi" autocomplete="off">
+<label for="otherAttorney" class="setting-label">Karşı taraf vekili (isteğe bağlı)</label><input type="text" id="otherAttorney" placeholder="ör. Av. Ali KAYA" autocomplete="off">
+<p class="note small" id="attorneyNote"></p></div>
+<div class="panel form-panel"><h2>Şablon alanları</h2><div id="tplFields"></div><button type="button" id="regen" class="secondary small-btn">Metni şablondan yeniden oluştur</button><p class="note small">Aşağıdaki metinleri düzenlediyseniz bu düğme düzenlemelerinizi şablon metniyle değiştirir.</p></div>
+<div class="panel form-panel"><h2>Metin</h2>
+<label for="topic" class="setting-label">KONU</label><textarea id="topic" rows="2"></textarea>
+<label for="body" class="setting-label">AÇIKLAMALAR (her paragraf ayrı satırda)</label><textarea id="body" rows="7"></textarea>
+<label for="requests" class="setting-label">Talepler (her talep ayrı satırda, numarasız)</label><textarea id="requests" rows="5"></textarea>
+<label for="closing" class="setting-label">Kapanış cümlesi (tarih otomatik eklenir)</label><input type="text" id="closing" autocomplete="off">
+<label for="attachments" class="setting-label">Ekler (her ek ayrı satırda; boşsa EKLER bölümü yazılmaz)</label><textarea id="attachments" rows="2"></textarea></div>
+<div class="panel checks" id="checksPanel" hidden><div class="panel-heading"><h2>Dilekçe denetimi</h2><span class="pill" id="checkStats"></span></div><ul id="checkList" class="checks-list"></ul></div>
+<div class="controls"><button type="button" id="download">UDF oluştur ve indir</button><button type="button" id="downloadDocx" class="secondary">Word (DOCX) indir</button><p class="status" id="status" role="status" aria-live="polite"></p></div>
+</section><section class="right"><div class="preview-head"><div><span class="eyebrow">ÖNİZLEME</span><h2>Dilekçe</h2></div><div class="preview-tools"><button type="button" id="zoomToggle" class="secondary zoom-btn" aria-pressed="true">Sığdır</button></div></div><div class="preview-viewport" id="previewViewport"><div class="paper-scale" id="paperScale"><article class="paper" id="paper"></article></div></div><p class="preview-foot">Önizleme yaklaşık yerleşimi gösterir. UYAP Doküman Editörü'nde açarak son kontrolleri yapın.</p></section></div></main>
+<script src="zip.js"></script><script src="normalize.js"></script><script src="settings.js"></script><script src="legal-rules.js"></script><script src="legal-typography.js"></script><script src="checks.js"></script><script src="udf.js"></script><script src="docx-writer.js"></script><script src="pipeline.js"></script><script src="preview.js"></script><script src="templates.js"></script><script src="templates-page.js"></script>
+</body></html>

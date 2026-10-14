@@ -7,7 +7,13 @@ from docx.shared import Cm, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parent.parent
-def load_page(page,name,scripts):
+def page_scripts(name):
+    return re.findall(r'<script\s+src="([^"]+)"\s*></script>',(ROOT/name).read_text(encoding='utf-8'))
+
+def load_page(page,name,scripts=None):
+    # Scripts are taken from the page itself so the test never drifts from
+    # the shipped HTML (an explicit list is still accepted).
+    scripts=scripts or page_scripts(name)
     # Browser administration policy blocks URL navigation in this environment.
     # The actual extension HTML and JS are nevertheless executed in Chromium
     # after removing only external script tags and CSP (opaque test origin).
@@ -100,7 +106,7 @@ def main():
         context=browser.new_context(accept_downloads=True,viewport={'width':1500,'height':1000})
         page=context.new_page();errors=[]
         page.on('pageerror',lambda e:errors.append(str(e)))
-        load_page(page,'workspace.html',['zip.js','docx.js','normalize.js','legal-typography.js','udf.js','workspace.js'])
+        load_page(page,'workspace.html')
         fetch_data(page,source)
         assert page.locator('[data-role="court-heading"]').count()==1
         assert page.locator('[data-role="signature"]').count()==1
@@ -285,6 +291,101 @@ def main():
         print('PASS Word→UDF→Word: talepler ve ekler iki ayrı gerçek Word listesi, düzey 0')
         assert not errors,errors
         print('PASS tarayıcı JS konsolu: hata yok')
+        v15_checks(browser,tmp,petition,source)
         browser.close()
+
+def udf_lines(path):
+    root=data_xml(path);txt=udf_text(root)
+    return root,[''.join(txt[int(r.get('startOffset')):int(r.get('startOffset'))+int(r.get('length'))] for r in p).rstrip('\n') for p in root.xpath('./elements/paragraph')]
+
+def v15_checks(browser,tmp,petition,sample):
+    import datetime,zoneinfo
+    today=datetime.datetime.now(zoneinfo.ZoneInfo('Europe/Istanbul')).strftime('%d.%m.%Y')
+    # --- Telefon: 390 px, karanlık mod; kağıt beyaz ve ekrana sığıyor.
+    ctx=browser.new_context(accept_downloads=True,viewport={'width':390,'height':844},color_scheme='dark')
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html')
+    fetch_data(page,petition)
+    sw=page.evaluate("()=>[document.getElementById('previewViewport').scrollWidth,document.getElementById('previewViewport').clientWidth,document.documentElement.scrollWidth,innerWidth]")
+    assert sw[0]<=sw[1]+1 and sw[2]<=sw[3]+1,sw
+    bg=page.evaluate("()=>getComputedStyle(document.getElementById('paper')).backgroundColor")
+    assert bg in ('rgb(255, 255, 255)','rgba(255, 255, 255, 1)'),bg
+    assert 'Sığdır' in page.locator('#zoomToggle').text_content()
+    print('PASS telefon görünümü: önizleme ekrana sığıyor, kağıt karanlık modda da beyaz')
+    # --- Denetim paneli görünür ve hata sayısı yazılı.
+    assert page.locator('#checksPanel').is_visible() and page.locator('#checkList li').count()>=1
+    assert 'hata' in page.locator('#checkStats').text_content()
+    # --- Elle düzeltme: imzaya dokun → düz paragraf → UDF'de sola yaslı.
+    page.locator('#paper .paragraph[data-role="signature"]').last.click()
+    page.locator('.override-menu button',has_text='Düz paragraf').click()
+    assert page.locator('#paper [data-role="override-plain"]').count()==1
+    out=tmp/'override.udf';save_download(page,'#download',out)
+    root,lines=udf_lines(out)
+    paras=root.xpath('./elements/paragraph')
+    sig=[p for p,l in zip(paras,lines) if l=='Av. Ayşe Nur GEYİK ÖZTÜRKMEN']
+    assert len(sig)==1 and sig[0].get('Alignment')=='0',[(p.attrib,l) for p,l in zip(paras,lines)][-6:]
+    print('PASS elle düzeltme: menüden seçilen düzen UDF\'ye yazıldı, metin aynı')
+    # --- Düzenlenmiş DOCX indir.
+    dx=tmp/'duzenlenmis.docx';save_download(page,'#downloadDocx',dx)
+    d=Document(str(dx));texts=[p.text for p in d.paragraphs]
+    assert 'VEKİLİ\t: Av. Ayşe Nur GEYİK ÖZTÜRKMEN (UETS: 16615-16448-62422)' in texts,texts[:12]
+    assert any(t.startswith('Karar verilmesini vekâleten talep ederim. '+today) for t in texts)
+    print('PASS düzenlenmiş Word (DOCX) indirme: UDF ile aynı metin')
+    # --- Ayarlar dışa/içe aktarma.
+    st=tmp/'ayarlar.json';save_download(page,'#exportSettings',st)
+    import json
+    data=json.loads(st.read_text(encoding='utf-8'));assert data['application']=='WordToUDF' and data['ownAttorney']['uets']=='16615-16448-62422'
+    data['ownAttorney']={'name':'Av. Ayşe Nur GEYİK ÖZTÜRKMEN','uets':'99999-88888-77777'};st.write_text(json.dumps(data),encoding='utf-8')
+    page.locator('#importSettings').set_input_files(str(st))
+    page.wait_for_function("document.getElementById('ownUets').value==='99999-88888-77777'")
+    assert page.locator('#paper .paragraph',has_text='UETS: 99999-88888-77777').count()==1
+    print('PASS ayarlar dışa/içe aktarma: içe aktarılan vekil profili önizlemeye uygulandı')
+    # --- Toplu dönüşüm: 2 geçerli + 1 hatalı dosya → ZIP + rapor.
+    bad=tmp/'bozuk.docx';bad.write_bytes(b'PK'+b'0'*400)
+    with page.expect_download(timeout=30000) as info:page.locator('#batchInput').set_input_files([str(petition),str(sample),str(bad)])
+    zp=tmp/'toplu.zip';info.value.save_as(str(zp))
+    with zipfile.ZipFile(zp) as z:
+        names=sorted(z.namelist());assert names==['petition.udf','sample.udf','toplu-donusum-raporu.txt'],names
+        rep=z.read('toplu-donusum-raporu.txt').decode('utf-8');assert '✘ bozuk.docx' in rep and '✔ petition.docx' in rep,rep
+        inner=tmp/'p.udf';inner.write_bytes(z.read('petition.udf'));_,pl=udf_lines(inner);assert 'SONUÇ VE İSTEM\t: Yukarıda arz edilen sebeplerle;' in pl
+    page.wait_for_function("document.getElementById('status').textContent.includes('2/3')")
+    print('PASS toplu dönüşüm: 2/3 dosya UDF, hatalı dosya raporda, ZIP doğrulandı')
+    assert not errors,errors
+    ctx.close()
+    # --- Şablon sayfası: mazeret dilekçesi.
+    ctx=browser.new_context(accept_downloads=True,viewport={'width':1400,'height':1000})
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'templates.html')
+    page.locator('#court').fill('Şanlıurfa 8. Asliye Hukuk Mahkemesi');page.locator('#caseNo').fill('2026/1929')
+    page.locator('#client').fill('İsa ÇİFTÇİ');page.locator('#other').fill('Yapı ve Kredi Bankası Anonim Şirketi')
+    page.locator('#f_hearingDate').fill('2026-10-20');page.locator('#f_reason').select_option('sehir')
+    page.wait_for_timeout(400)
+    assert page.locator('#paper [data-role="court-heading"]').text_content()=="ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ'NE"
+    tu=tmp/'sablon.udf';save_download(page,'#download',tu)
+    root,lines=udf_lines(tu)
+    for exp in ['DOSYA NO\t: 2026/1929 Esas','DAVALI\t: İsa ÇİFTÇİ','VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)','DAVACI\t: Yapı ve Kredi Bankası Anonim Şirketi',
+                'KONU\t: 20.10.2026 tarihli duruşmaya ilişkin mesleki mazeretimizin sunulması ve kabulü talebidir.','SONUÇ VE İSTEM\t: Yukarıda arz edilen sebeplerle;',
+                '1.\t20.10.2026 tarihli duruşmaya ilişkin mesleki mazeretimizin kabulüne,',f'Karar verilmesini saygıyla talep ederiz. {today}','Davalı İsa ÇİFTÇİ Vekili','Av. Fatih NAKIŞLI']:
+        assert exp in lines,(exp,lines)
+    assert not any('…' in l for l in lines),lines
+    # Kullanıcı düzenlemesi korunur ve şablon değişince sıfırlanır.
+    page.locator('#requests').fill('Mazeretimizin kabulüne,\nDuruşmanın ertelenmesine,')
+    page.wait_for_timeout(300)
+    assert page.locator('#paper [data-role="result-item"]').count()==2
+    page.locator('#tpl').select_option('tedbir');page.wait_for_timeout(300)
+    assert 'HMK m. 394' in page.locator('#body').input_value()
+    td=tmp/'sablon.docx';save_download(page,'#downloadDocx',td)
+    assert any('ihtiyati tedbir kararının kaldırılmasına' in p.text for p in Document(str(td)).paragraphs)
+    assert not errors,errors
+    print('PASS şablon sayfası: mazeret ve tedbir itirazı → UDF/DOCX, boş alan kalmadı, düzenleme korunuyor')
+    ctx.close()
+    # --- Başlangıç sayfası ve PWA dosyaları.
+    import json as _j
+    m=_j.loads((ROOT/'app.webmanifest').read_text(encoding='utf-8'));assert m['start_url']=='workspace.html'
+    swsrc=(ROOT/'sw.js').read_text(encoding='utf-8')
+    for f in re.findall(r"'([\w.-]+\.(?:js|html|css|png|webmanifest))'",swsrc):assert (ROOT/f).exists(),f
+    for html in ['workspace.html','templates.html']:
+        for src in page_scripts(html):assert src in swsrc,(html,src)
+    print('PASS çevrimdışı web uygulaması: manifest ve önbellek listesi bütün dosyaları kapsıyor')
 
 if __name__=='__main__':main()

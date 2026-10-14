@@ -13,8 +13,8 @@ const vm=require('node:vm');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const ctx=vm.createContext({Intl,Date});
-for(const name of ['normalize.js','legal-typography.js','udf.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
-const normal=ctx.WordToUDFNormalize, legal=ctx.WordToUDFLegalTypography, writer=ctx.WordToUDFWriter;
+for(const name of ['normalize.js','settings.js','legal-rules.js','legal-typography.js','checks.js','udf.js','templates.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),ctx,{filename:name});
+const normal=ctx.WordToUDFNormalize, legal=ctx.WordToUDFLegalTypography, writer=ctx.WordToUDFWriter, checks=ctx.WordToUDFChecks, settingsApi=ctx.WordToUDFSettings, tpl=ctx.WordToUDFTemplates;
 const para=(text,attributes={})=>({kind:'paragraph',runs:[{text}],...attributes});
 const text=b=>b.runs.map(r=>r.text).join('');
 const arr=x=>[...x];
@@ -398,8 +398,10 @@ test('WTU-070 12.001 paragraf sessizce kırpılmaz, hata verir',()=>{
 test('WTU-072 manifest izinleri, CSP ve sürüm',()=>{
   const m=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
   assert.equal(m.manifest_version,3);assert.deepEqual(m.permissions,[]);assert.deepEqual(m.host_permissions,[]);
-  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.4.1');
-  for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);
+  assert(/connect-src 'none'/u.test(m.content_security_policy.extension_pages));assert.equal(m.version,'1.5.0');
+  // sw.js (PWA offline cache) may fetch, but only its own origin.
+  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert(/url\.origin !== location\.origin\) return/u.test(sw));
+  for(const f of fs.readdirSync(root).filter(f=>f.endsWith('.js')&&f!=='sw.js'))assert(!/\bfetch\(|XMLHttpRequest|WebSocket|eval\(|new Function/u.test(fs.readFileSync(path.join(root,f),'utf8')),f);
 });
 test('WTU-078 tek kaynak: sekme durağı ve satır aralığı normalize.RULES içinde tanımlı',()=>{
   assert.equal(normal.RULES.colonTabCm,6);assert.equal(full.statistics.colonTabPt,COLON);
@@ -456,6 +458,92 @@ test('v1.4.1 başka vekil: UETS girilirse eklenir, girilmezse boş bırakılır'
   assert.equal(text(two[0]),'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422), Av. Ali KAYA');
   const off=legal.apply([para('VEKİLİ: Av. Fatih Nakışlı'),para('AÇIKLAMALAR')],{ownAttorney:null}).blocks;
   assert.equal(text(off[0]),'VEKİLİ\t: Av. Fatih NAKIŞLI');
+});
+
+/* ----------------------------- v1.5.0 ----------------------------- */
+const ISA_TEXT=ISA.slice();
+test('v1.5 kesme işaretli mahkeme başlığı (MAHKEMESİ\'NE / ’NE) tanınır',()=>{
+  assert(legal.isCourtHeading("ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ'NE",0));
+  assert(legal.isCourtHeading('ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ’NE',0));
+  assert(legal.isCourtHeading('ANKARA CUMHURİYET BAŞSAVCILIĞI\'NA',0));
+  assert.equal(IB[0].role,'court-heading');assert.equal(IB[0].alignment,'center');
+});
+test('v1.5 kural verisi legal-rules.js içinde, tipografi motorunda kopyası yok',()=>{
+  const src=fs.readFileSync(path.join(root,'legal-typography.js'),'utf8');
+  assert(!/const FIELD_RULES = \[/u.test(src));assert(!/const GIVEN_NAMES = new Set/u.test(src));
+  assert(ctx.WordToUDFLegalRules.FIELD_RULES.length>10);
+});
+test('v1.5 ayarlar: varsayılan vekil settings.js içinde, temizleme ve içe/dışa aktarma',()=>{
+  const d=settingsApi.sanitize({});
+  assert.equal(d.ownAttorney.name,'Av. Fatih NAKIŞLI');assert.equal(d.ownAttorney.uets,'16615-16448-62422');assert.equal(d.listMode,'text');
+  assert.equal(legal.SCHEMA.ownAttorney.uets,'16615-16448-62422');
+  const s=settingsApi.sanitize({ownAttorney:{name:' Av. Ali KAYA ',uets:'11111 -22222-33333'},otherEnabled:true,others:[{name:'Av. Can Er',uets:''},{name:'Av. Su Ak',uets:'12345-12345-12345'}],listMode:'auto',lineSpacing:1,evil:'x'});
+  assert.equal(s.ownAttorney.name,'Av. Ali KAYA');assert.equal(s.ownAttorney.uets,'11111-22222-33333');assert.equal(s.evil,undefined);assert.equal(s.lineSpacing,1);
+  assert.deepEqual(arr(settingsApi.registry(s).map(o=>o.name)),['Av. Su Ak'],'UETS boş vekil kayda girmez');
+  const back=settingsApi.importJson(settingsApi.exportJson(s));assert.deepEqual(JSON.parse(JSON.stringify(back)),JSON.parse(JSON.stringify(s)));
+  assert.throws(()=>settingsApi.importJson('{"application":"Başka"}'),/WordToUDF ayar/u);assert.throws(()=>settingsApi.importJson('bozuk'),/JSON/u);
+  assert.deepEqual(arr(settingsApi.invalidUets({ownAttorney:{name:'Av. A B',uets:'123'}})),['kendi UETS']);
+  assert.deepEqual(arr(settingsApi.signatureLines(d,{sifat:'Davalı',muvekkil:'İsa ÇİFTÇİ',avukat:'Av. Fatih NAKIŞLI'})),['Davalı İsa ÇİFTÇİ Vekili','Av. Fatih NAKIŞLI']);
+});
+test('v1.5 talepleri maddelere ayırma: öneri sayısı ve onaylı bölme',()=>{
+  assert.equal(ISA_R.statistics.splittableRequests,5);
+  const r=runText(ISA,{splitRequests:true,now:new Date('2026-10-14T09:00:00Z')});
+  const items=r.blocks.filter(b=>b.role==='result-item').map(text);
+  assert.deepEqual(arr(items),['1.\t14.10.2026 tarihli duruşmaya ilişkin mesleki mazeretimizin kabulüne,','2.\tMüvekkil yönünden cevap süresi henüz sona ermediğinden ön inceleme duruşmasının dilekçeler aşamasının tamamlanmasından sonraki bir tarihe bırakılmasına,',
+    '3.\t06.10.2026 tarihli dilekçemizde ileri sürdüğümüz ihtiyati tedbire yönelik itirazlarımızın kabulüyle tedbir kararının kaldırılmasına,','4.\tAksi hâlde tedbirin kapsamı ve teminat yönünden taleplerimizin değerlendirilmesine,','5.\tYeni duruşma gününün UYAP üzerinden öğrenilmesine,']);
+  assert.equal(text(r.blocks.find(b=>b.role==='result-closing')),'Karar verilmesini saygıyla talep ederiz. 14.10.2026');
+  assert(r.statistics.changes.some(c=>c.type==='request-split'));assert.equal(r.statistics.splittableRequests,0);
+  // Kısa, tek talepli maddeler bölünmez; "kabulüne, reddine" gibi kısa sıralar korunur.
+  assert.deepEqual(arr(legal.requestCuts('Davanın kabulüne, karşı davanın reddine,')),[]);
+  const one=runText(['SONUÇ VE İSTEM','1. Davanın kabulüne,','2. Yargılama giderlerinin davalıya yükletilmesine,','Karar verilmesini talep ederim.'],{splitRequests:true});
+  assert.equal(one.blocks.filter(b=>b.role==='result-item').length,2);
+});
+test('v1.5 elle düzeltme: yalnız düzen değişir, metin değişmez; anahtar metne bağlı',()=>{
+  const keys=legal.blockKeys(IB);const i=IB.findIndex(b=>b.role==='signature');
+  const r=legal.applyOverrides(IB,new Map([[keys[i],'plain']]));
+  assert.equal(r.applied,1);assert.equal(r.blocks[i].alignment,'left');assert(r.blocks[i].runs.every(x=>!x.bold));assert.equal(text(r.blocks[i]),text(IB[i]));
+  const item=IB.findIndex(b=>b.role==='result-item');
+  const h=legal.applyOverrides(IB,{[keys[item]]:'heading'}).blocks[item];
+  assert(!/^1\.\t/u.test(text(h)),'liste numarası kaldırılır');assert(h.runs.every(x=>x.bold&&x.underline));
+  assert.equal(legal.applyOverrides(IB,{[keys[i]]:'yok'}).applied,0,'bilinmeyen rol yok sayılır');
+});
+test('v1.5 denetim: temiz dilekçede hata yok; hatalı dilekçede somut uyarılar',()=>{
+  const now=new Date('2026-10-14T09:00:00Z');
+  const ok=checks.run(IB,ISA_R.statistics,{now});
+  assert(!ok.some(c=>c.level==='error'),JSON.stringify(ok));
+  const bad=ISA_TEXT.slice();bad[1]='DOSYA NO: 1929';bad[3]='VEKİLİ: Av. Fatih NAKIŞLI (UETS: 1234-5)';bad[5]='KONU: 10.10.2026 tarihli duruşma ve 31.02.2026';bad[9]='Davacı Ahmet Yılmaz Vekili';bad[10]='Av. Ali Kaya';
+  const r=runText(bad,{now});const c=checks.run(r.blocks,r.statistics,{now});const codes=new Set(c.map(x=>x.code));
+  for(const k of ['case-format','uets-format','date-invalid','hearing-past','signature-attorney','signature-party-name'])assert(codes.has(k),k+' '+JSON.stringify(c));
+  assert.equal(c[0].level,'error','hatalar önce');
+  const none=checks.run(runText(['Bir paragraf.']).blocks,{},{now});const nc=new Set(none.map(x=>x.code));
+  assert(nc.has('court-missing')&&nc.has('result-missing'));
+  assert.equal(checks.run([],{enabled:false},{now})[0].code,'profile');
+  const justified=[{kind:'paragraph',alignment:'justify',runs:[{text:'A\tB'}]}];
+  assert(checks.run(justified,{},{now}).some(x=>x.code==='uyap-tab-justify'));
+});
+test('v1.5 şablon: mahkeme başlığı, esas no ve kaynak satırları',()=>{
+  assert.equal(tpl.courtHeading('Şanlıurfa 8. Asliye Hukuk Mahkemesi'),"ŞANLIURFA 8. ASLİYE HUKUK MAHKEMESİ'NE");
+  assert.equal(tpl.courtHeading("Ankara Cumhuriyet Başsavcılığı'na"),"ANKARA CUMHURİYET BAŞSAVCILIĞI'NA");
+  assert.equal(tpl.caseNumber('2026 / 1929'),'2026/1929 Esas');assert.equal(tpl.caseNumber('2026/1929 E.'),'2026/1929 E.');
+  assert.equal(tpl.trDate('2026-10-14'),'14.10.2026');
+  for(const t of tpl.TEMPLATES){
+    const f={hearingDate:'14.10.2026',serviceDate:'01.10.2026',orderDate:'25.09.2026',learnDate:'01.10.2026',reason:'durusma',otherCourt:'X Mahkemesi 2026/1 E.',grounds:'Tedbir şartları oluşmamıştır.',security:true,subject:'Beyan.'};
+    const lines=tpl.sourceLines({court:'Şanlıurfa 8. Asliye Hukuk Mahkemesi',caseNo:'2026/1929',role:'DAVALI',client:'İsa ÇİFTÇİ',other:'Yapı ve Kredi Bankası Anonim Şirketi'},
+      {topic:t.topic(f),body:t.body(f),requests:t.requests(f),closing:t.closing,attachments:t.attachments(f)},{attorneyName:'Av. Fatih NAKIŞLI'});
+    const n=normal.apply(tpl.toBlocks(lines));const r=legal.apply(n.blocks,{selection:n.selection,now:NOW});
+    const B2=r.blocks;
+    assert.equal(B2[0].role,'court-heading',t.id);
+    assert.equal(text(B2.find(b=>b.fieldLabel==='VEKİLİ')),'VEKİLİ\t: Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)',t.id);
+    assert.equal(text(B2.find(b=>b.fieldLabel==='DOSYA NO')),'DOSYA NO\t: 2026/1929 Esas',t.id);
+    assert.equal(B2.filter(b=>b.role==='result-item').length,t.requests(f).length,t.id);
+    assert.equal(B2.filter(b=>b.role==='result-closing').length,1,t.id);
+    assert(/14\.10\.2026$/u.test(text(B2.find(b=>b.role==='result-closing'))),t.id);
+    assert.deepEqual(arr(B2.filter(b=>b.role==='signature').map(text)),['Davalı İsa ÇİFTÇİ Vekili','Av. Fatih NAKIŞLI'],t.id);
+    assert(!checks.run(B2,r.statistics,{now:NOW}).some(c=>c.level==='error'),t.id);
+    assert(!lines.some(l=>l.includes('…')),t.id+' boş alan kalmadı');
+  }
+  const empty=tpl.sourceLines({role:'DAVALI'},{body:[],requests:[]},{});
+  assert(empty.some(l=>l.includes('…')),'boş alan … ile gösterilir, uydurulmaz');
 });
 console.log(failed?`SONUÇ ${count} başarılı, ${failed} BAŞARISIZ`:`SONUÇ ${count} mantık testi başarılı`);
 if(failed)process.exitCode=1;

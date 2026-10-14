@@ -47,7 +47,8 @@
     // The petition writer's own attorney profile. Used for the VEKİLİ row when
     // the source names this attorney; other attorneys get a UETS number only
     // when the user enters one for them (otherwise the value stays plain).
-    ownAttorney: Object.freeze({name: 'Av. Fatih NAKIŞLI', uets: '16615-16448-62422'}),
+    // Single source: settings.js DEFAULTS (the user can change it in the UI).
+    get ownAttorney(){ return globalThis.WordToUDFSettings?.DEFAULTS?.ownAttorney || null; },
     lists: Object.freeze({
       result: Object.freeze({id: '1', type: 'NUMBER_TYPE_NUMBER_DOT', format: 'decimal', suffix: '.'}),
       attachments: Object.freeze({id: '2', type: 'NUMBER_TYPE_NUMBER_DOT', format: 'decimal', suffix: '.'}),
@@ -60,61 +61,12 @@
   const upper = s => clean(s).toLocaleUpperCase('tr-TR');
   const stripColon = s => upper(s).replace(/\s*[:：.]\s*$/u, '').trim();
 
-  /* ---------------------------------------------------------------------
-   * Field registry. `to` is the canonical label (undefined = keep source
-   * label). `kind` drives formatting and fusion rules.
-   * ------------------------------------------------------------------- */
-  const FIELD_RULES = [
-    {re: /^(?:DOSYA\s+NO|DOSYA\s+NUMARASI|DOSYA\s+ESAS\s+NO|MAHKEME\s+DOSYA\s+NO)$/u, kind: 'case', to: 'DOSYA NO'},
-    {re: /^(?:ESAS\s+NO|ESAS\s+NUMARASI)$/u, kind: 'case', esas: true},
-    {re: /^(?:KARAR\s+NO|KARAR\s+NUMARASI)$/u, kind: 'karar'},
-    {re: /^(?:İHTİYATİ\s+HACZE\s+İTİRAZ\s+EDEN|İHTİYATİ\s+HACİZ\s+KARARINA\s+İTİRAZ\s+EDEN)$/u, kind: 'party', to: 'İTİRAZ EDEN'},
-    {re: /^İHTİYATİ\s+HACİZ\s+TALEP\s+EDEN$/u, kind: 'party', to: 'TALEP EDEN'},
-    {re: /^(?:İLGİLİ\s+İCRA\s+DOSYASI|İCRA\s+DOSYASI|İLGİLİ\s+İCRA\s+DOSYA\s+NO|İCRA\s+DOSYA\s+NO)$/u, kind: 'file', to: 'İCRA DOSYA NO'},
-    {re: /^(?:İLGİLİ\s+İCRA\s+HUKUK\s+DOSYASI|İCRA\s+HUKUK\s+DOSYASI|İCRA\s+HUKUK\s+DOSYA\s+NO)$/u, kind: 'file', to: 'İCRA HUKUK DOSYA NO'},
-    {re: /^(?:TEBLİGAT\s+ADRESİ|ADRES|ADRESİ)$/u, kind: 'address', to: 'ADRESİ'},
-    {re: /^(?:ADRES\s+VE\s+UETS|VEKİL\s+ADRESİ|VEKİLİ\s+ADRESİ|VEKİLİN\s+ADRESİ|VEKİL\s+ADRES\s+VE\s+UETS)$/u, kind: 'attorney-extra'},
-    {re: /^(?:UETS|UETS\s+ADRESİ|UETS\s+NO|E-TEBLİGAT\s+ADRESİ|KEP\s+ADRESİ)$/u, kind: 'uets'},
-    {re: /^(?:[A-ZÇĞİÖŞÜ]+\s+){0,3}VEKİL(?:İ|LERİ)$/u, kind: 'attorney'},
-    {re: /^(?:MÜDAFİİ|MÜDAFİ|MÜDAFİLERİ)$/u, kind: 'defender'},
-    {re: /^(?:DAVACI|DAVALI|DAVACILAR|DAVALILAR|KARŞI\s+DAVACI|KARŞI\s+DAVALI|SANIK|SANIKLAR|ŞÜPHELİ|ŞÜPHELİLER|MÜŞTEKİ|MÜŞTEKİLER|MÜŞTEKİ\s+ŞÜPHELİ|KATILAN|KATILANLAR|BORÇLU|BORÇLULAR|ALACAKLI|ALACAKLILAR|MÜDAHİL|İHBAR\s+OLUNAN|KARŞI\s+TARAF|BAŞVURUCU|ŞİKAYETÇİ|ŞİKÂYETÇİ|SUÇTAN\s+ZARAR\s+GÖREN|MAĞDUR)$/u, kind: 'party'},
-    {re: /^(?:[A-ZÇĞİÖŞÜ]+\s+){0,2}(?:EDEN|OLUNAN)(?:\s+(?:SANIK|DAVACI|DAVALI|KATILAN|ŞÜPHELİ|BORÇLU|ALACAKLI))?$/u, kind: 'party'},
-    {re: /^KONU$/u, kind: 'topic'},
-    {re: /^(?:VERGİ\s+NO|VERGİ\s+NUMARASI|VERGİ\s+DAİRESİ|VERGİ\s+DAİRESİ\s+VE\s+NO|TCKN|T\.C\.\s+KİMLİK\s+NO|TC\s+KİMLİK\s+NO|MERSİS\s+NO|TİCARET\s+SİCİL\s+NO|SORUŞTURMA\s+NO|TAKİP\s+DAYANAĞI|TEBLİĞ\s+TARİHİ|ÖDEME\s+EMRİNİN\s+TEBLİĞ\s+TARİHİ|SUÇ|SUÇ\s+TARİHİ|KARAR\s+TARİHİ|TUTUKLAMA\s+T\.?|TUTUKLAMA\s+TARİHİ|DAVA\s+DEĞERİ|HARCA\s+ESAS\s+DEĞER|İTİRAZ\s+EDİLEN\s+KARAR|İSTİNAF\s+EDİLEN\s+KARAR|KARARI\s+VEREN\s+MAHKEME|KARAR\s+VEREN\s+MAHKEME)$/u, kind: 'other'}
-  ];
-  const SECTION_RULES = [
-    {re: /^AÇIKLAMALAR(?:IMIZ|IM)?$/u, kind: 'explanations'},
-    {re: /^(?:HUKUKİ\s+SEBEPLER|HUKUKİ\s+NEDENLER|HUKUKİ\s+DAYANAKLAR|YASAL\s+DAYANAKLAR|HUKUKİ\s+SEBEPLER\s+VE\s+DAYANAKLAR)$/u, kind: 'legal-basis'},
-    {re: /^(?:HUKUKİ\s+DELİLLER|DELİLLER|DELİLLERİMİZ|DELİL\s+LİSTESİ|DELİLLER\s+VE\s+GEREKÇELER)$/u, kind: 'evidence'},
-    {re: /^(?:SONUÇ\s+VE\s+İSTEM|SONUÇ\s+VE\s+TALEP|NETİCE\s+VE\s+İSTEM|NETİCE\s+VE\s+TALEP|NETİCE-İ\s+TALEP|SONUÇ\s+VE\s+İSTEMLER|SONUÇ|İSTEM|TALEP|TALEPLERİMİZ)$/u, kind: 'result'},
-    {re: /^(?:EKLER|EK\s+LİSTESİ|EKLER\s+LİSTESİ)$/u, kind: 'attachments'}
-  ];
+  const RULES_SRC = globalThis.WordToUDFLegalRules;
+  if(!RULES_SRC) throw new Error('legal-rules.js, legal-typography.js dosyasından önce yüklenmelidir.');
+  const {REQUEST_END_RE, FIELD_RULES, SECTION_RULES, COURT_RE, PETITION_TITLE_RE, INTERNAL_HEADING_RE, SIGNATURE_UPPER_RE, CLOSING_TAIL_RE, CLOSING_SPLIT_RE, INTRO_RE, DATE_ONLY_RE, TRAILING_DATE_RE, LIST_PREFIX_RE, SUB_PREFIX_RE, LAW_RE, CASE_RE, RESULT_EMPHASIS_RE, INSTITUTION_RE, GIVEN_NAMES, BOLD_WIDTHS} = RULES_SRC;
   const fieldRule = label => FIELD_RULES.find(r => r.re.test(stripColon(label))) || null;
   const sectionRule = label => SECTION_RULES.find(r => r.re.test(stripColon(label))) || null;
 
-  const COURT_RE = /(?:MAHKEMESİ(?:\s+BAŞKANLIĞINA|NE|NDE|NİN)?|HÂKİMLİĞİ(?:'?(?:NE|NDE|NİN))?|HAKİMLİĞİ(?:'?(?:NE|NDE|NİN))?|CUMHURİYET\s+BAŞSAVCILIĞI(?:'?(?:NA|NDA|NIN))?|BÖLGE\s+ADLİYE\s+MAHKEMESİ.*DAİRESİ(?:'?(?:NE|NDE))?|DAİRESİ(?:'?(?:NE|NDE))?|DAİRESİ\s+BAŞKANLIĞINA|MÜDÜRLÜĞÜ(?:'?(?:NE|NDE))?)$/u;
-  const PETITION_TITLE_RE = /(?:DİLEKÇESİDİR|TALEPLİDİR|İTİRAZDIR|İTİRAZ\s+VE\s+.*TALEPLİDİR|İSTİNAF\s+DİLEKÇESİ|SAVUNMA\s+DİLEKÇESİ|BEYAN\s+DİLEKÇESİ|CEVAP\s+DİLEKÇESİ)/u;
-  const INTERNAL_HEADING_RE = /^(?:[IVXLCDM]+|\d+)\.\s+\S/u;
-  const SIGNATURE_UPPER_RE = /(?:VEKİLİ|VEKİLLERİ|MÜDAFİİ|MÜDAFİ|(?:^|\s)AV\.|AVUKAT)/u;
-  const CLOSING_TAIL_RE = /(?:(?:talep|arz)\s+(?:ve\s+(?:talep|arz)\s+)?(?:ederim|ederiz|olunur)|saygılarımla|saygılarımızla)\s*[.!]?\s*$/iu;
-  const CLOSING_SPLIT_RE = /^(.*?)[\s,;]+((?:karar\s+verilmesini|hüküm\s+kurulmasını|kaldırılmasını)\s.*?(?:talep|arz)\s+(?:ve\s+(?:talep|arz)\s+)?(?:ederim|ederiz|olunur)\s*\.?)\s*$/iu;
-  const INTRO_RE = /^(?:yukarıda|yukarıdaki|yukarıda\s+arz|açıklanan|arz\s+ve\s+izah|izah\s+edilen|belirtilen)[^;:]{0,220}?(?:sebep|neden|gerekçe)(?:ler)?(?:le|lerle|lerden|lerden\s+dolayı)\b[^;:]*?[;:,]?/iu;
-  const DATE_ONLY_RE = /^\s*(?:tarih\s*[:：]?\s*)?(?:\d{1,2}|\.{2}|…)\s*[./]\s*(?:\d{1,2}|\.{2}|…)\s*[./]\s*(?:\d{4}|20\.\.|\.\.\.\.)\s*$/iu;
-  const TRAILING_DATE_RE = /\s*(?:\d{1,2}|\.{2}|…)\s*[./]\s*(?:\d{1,2}|\.{2}|…)\s*[./]\s*(?:\d{4}|20\.\.)\s*$/u;
-  const LIST_PREFIX_RE = /^\s*(?:EK\s*[-–:]?\s*\d{1,3}\s*[:.)\-–]?|\(?\d{1,3}\s*[.)\-–]|[•·▪●◦○*]|[-–])(?=\s|\t)[\s\t]*/iu;
-  const SUB_PREFIX_RE = /^\s*\(?[a-zçğıöşü]\s*\)(?=\s|\t)[\s\t]*/u;
-
-  const LAW_RE = /(?<![\p{L}\p{N}])(?:İİK|HMK|TTK|TCK|CMK|TBK|TMK|İYUK|AYM|SGK|Anayasa|Tebligat\s+Kanunu|Belediye\s+Kanunu|İş\s+Kanunu)\s*m\.?\s*\d+(?:\/[0-9A-Za-zÇĞİÖŞÜçğıöşü-]+)?(?:\s*(?:ve|,|-)\s*\d+(?:\/[0-9A-Za-zÇĞİÖŞÜçğıöşü-]+)?)*/giu;
-  const CASE_RE = /(?:Yargıtay\s+(?:\d+\.\s*(?:Hukuk|Ceza)?\s*Dairesi|\d+\.\s*HD|\d+\.\s*CD|HGK|CGK|Ceza\s+Genel\s+Kurulu|Hukuk\s+Genel\s+Kurulu)|(?:İstanbul|Ankara|İzmir|Bursa|Adana|Gaziantep|Diyarbakır|Antalya|Konya|Samsun|Erzurum|Kayseri|Trabzon|Sakarya|Van)\s+Bölge\s+Adliye\s+Mahkemesi\s+\d+\.\s*(?:Hukuk|Ceza)\s+Dairesi|(?:İstanbul|Ankara|İzmir|Bursa|Adana|Gaziantep|Diyarbakır|Antalya|Konya|Samsun|Erzurum|Kayseri|Trabzon|Sakarya|Van)\s+BAM\s+\d+\.\s*(?:HD|CD))[^()\n]{0,140}?\d{4}\/\d+\s*E\.,\s*\d{4}\/\d+\s*K\./giu;
-  const RESULT_EMPHASIS_RE = /\b(?:YETKİ\s+İTİRAZININ\s+KABULÜ(?:YLE|NE)?|İMZAYA\s+İTİRAZIN\s+KABULÜ(?:NE)?|İHTİYATİ\s+HACİZ\s+KARARININ\s+MÜVEKKİL\s+ŞİRKET\s+YÖNÜNDEN\s+KALDIRILMASINA|TEMİNAT\s+KARŞILIĞINDA\s+KALDIRILMASINA|GEÇİCİ\s+DURDURULMASINA|DURDURULMASINA|KALDIRILMASINA|BOZULMASINA|TAHLİYESİNE|BERAATİNE|İPTALİNE|KABULÜNE|REDDİNE)\b/gu;
-
-  const INSTITUTION_RE = /(?:^|[^\p{L}])(?:LTD|LİMİTED|AŞ|A\.Ş|ŞTİ|ŞİRKETİ|ŞİRKET|SAN|SANAYİ|TİC|TİCARET|ANONİM|KOLLEKTİF|KOMANDİT|KOOPERATİFİ|HOLDİNG|BANKASI|BANK|SİGORTA|BAKANLIĞI|BAŞKANLIĞI|MÜDÜRLÜĞÜ|BELEDİYESİ|VALİLİĞİ|KAYMAKAMLIĞI|ÜNİVERSİTESİ|VAKFI|DERNEĞİ|SENDİKASI|ODASI|BİRLİĞİ|KURUMU|İDARESİ|HAZİNESİ|HAZİNE|BAROSU|NOTERLİĞİ|GRUP|İNŞAAT|ENERJİ|TEKSTİL|PLASTİK|KİMYA|GIDA|OTOMOTİV|LOJİSTİK|TURİZM|YAYINCILIK|MADENCİLİK|İTHALAT|İHRACAT|PAZARLAMA|ŞUBESİ|MERKEZİ|HASTANESİ|ECZANESİ)(?=$|[^\p{L}])/u;
-  // Common Turkish given names. Used only to decide how many trailing words
-  // form the surname; unknown names fall back to the conservative last-word rule.
-  const GIVEN_NAMES = new Set(('Ahmet Mehmet Mustafa Ali Hüseyin Hasan İbrahim İsmail Osman Yusuf Murat Ömer Ramazan Halil Süleyman Abdullah Mahmut Recep Salih Fatih Kadir Emre Hakan Adem Kemal Yaşar Bekir Musa Metin Orhan Serkan Burak Cemal Erkan Uğur Volkan Gökhan Sinan Tolga Onur Emin Selim Tuncay Levent Kenan Engin Erdal Ercan Ersin Erdem Erol Ferhat Fikret Kaan Kerem Can Cem Barış Berk Baran Arda Alper Aydın Bülent Cengiz Cihan Coşkun Doğan Eyüp Faruk Ferit Furkan Gürkan Hamza Harun Hayati Hikmet Hilmi İlhan İlker İlyas İrfan İsa Kazım Kürşat Lütfi Mesut Mert Muhammed Muharrem Mücahit Necati Nihat Nuri Oğuz Oktay Özcan Özgür Rıza Sadık Sami Sedat Selçuk Serdar Serhat Sezer Sabri Sait Şahin Şükrü Taner Tarık Tayfun Tuncer Turgut Ufuk Umut Ünal Vedat Veli Yakup Yasin Yavuz Yunus Zafer Zeki Ziya Abdurrahman Burhan Cafer Celal Cevdet Davut Erhan Fevzi Hidayet Kamil Kâmil Kudret Mevlüt Nail Necmi Nevzat Nusret Rahmi Rauf Refik Remzi Sabahattin Talat Tahsin Tevfik Yalçın Ender Eren Efe Ege Deniz Aras Alp Atilla Batuhan Berkay Caner Doruk Emir Enes Eray Ertan Ertuğrul Gökay Hakkı Haydar Kubilay Melih Necip Okan Ozan Rasim Sefa Semih Sertaç Taha Tamer Tuğrul Utku Yiğit Zekeriya Selahattin Nurettin Alaattin Bahattin Fahrettin Hayrettin Muhittin Zeynel Mithat Muzaffer Nadir Naci Nazım Niyazi Rüştü Sezai Şevket Ümit Nejat Abdülkadir Abdülkerim Bilal Cuma Dursun Ekrem Emrah Eşref Gazi Güven Hüsnü İhsan Kadri Kasım Kenan Mehmet Nurullah Rıdvan Seyit Şaban Şenol Tuncel Yıldırım Zülfikar Ayşe Fatma Emine Hatice Zeynep Elif Meryem Şerife Sultan Zehra Hanife Merve Havva Zeliha Esra Fadime Özlem Hacer Yasemin Hülya Cennet Kübra Leyla Gülsüm Rabia Melek Dilek Derya Ebru Sevgi Sevim Songül Tuğba Büşra Aysel Ayten Aynur Gül Gülay Gülşen Gülten Hande Hilal İrem Kader Kevser Kezban Nazlı Nermin Nesrin Nihal Nilay Nur Nuray Nurcan Nurhan Pınar Selma Semra Serap Sevda Seda Sibel Şükran Tülay Tülin Ümran Yeliz Yıldız Zerrin Zübeyde Asiye Aslı Aysun Ayşegül Bahar Banu Berna Betül Burcu Canan Ceren Cansu Damla Demet Didem Dilan Duygu Ece Eda Ela Elçin Emel Esin Feride Figen Filiz Funda Gamze Gizem Gökçe Gönül Güler Gülizar Gülsen Hale Hamide Handan İlknur İnci Kadriye Lale Meltem Meral Mine Müge Necla Nehir Neslihan Nevin Nilgün Oya Öznur Pelin Perihan Rukiye Saadet Safiye Sakine Sanem Saniye Selin Selda Sema Sena Seher Serpil Sevil Sinem Şenay Şule Tuba Tuğçe Türkan Ülkü Yağmur Yeşim Zahide Zuhal Nurdan Ayşenur Fatmanur Esma Asuman Beyza Cemile Gülcan Hayriye Huriye Hümeyra Melike Mukaddes Münevver Naciye Nimet Saliha Semiha Süheyla Şengül Vildan Zekiye Zülfiye').split(/\s+/u).map(n => n.toLocaleUpperCase('tr-TR')));
-
-  /* Times-Bold advance widths (1/1000 em) for label width estimation. */
-  const BOLD_WIDTHS = {A:722,B:667,C:722,D:722,E:667,F:611,G:778,H:778,I:389,J:500,K:778,L:667,M:944,N:722,O:778,P:611,Q:778,R:722,S:556,T:667,U:722,V:722,W:1000,X:722,Y:722,Z:667,'Ç':722,'Ğ':778,'İ':389,'Ö':778,'Ş':556,'Ü':722,'Â':722,'Î':389,'Û':722,' ':250,'.':250,',':250,'-':333,'/':278,'(':333,')':333,':':333};
   const labelWidthPt = (label, size = SCHEMA.labelSize) => [...String(label)].reduce((sum, ch) => sum + (BOLD_WIDTHS[ch] ?? (/\d/u.test(ch) ? 500 : 600)), 0) / 1000 * size;
 
   const cloneBlock = b => ({...b, runs: (b.runs || []).map(r => ({...r})), tabStops: b.tabStops?.map(t => ({...t})), list: b.list ? {...b.list} : undefined});
@@ -382,6 +334,37 @@
     return b;
   }
 
+  /* ------------------------------ request split ------------------------------ */
+  // Offsets where one paragraph holding several requests can be cut:
+  // "... kabulüne, müvekkil ... bırakılmasına, ... öğrenilmesine," → 3 parts.
+  // Each part must be a real clause (≥ 4 words) so "kabulüne, reddine" lists
+  // inside a single request are not torn apart.
+  function requestCuts(text){
+    const cuts = [], re = /([\p{L}]+),\s+/gu;
+    let m, last = 0;
+    while((m = re.exec(text))){
+      if(!REQUEST_END_RE.test(m[1])) continue;
+      const end = m.index + m[0].length;
+      const part = text.slice(last, end), rest = text.slice(end);
+      if(part.trim().split(/\s+/u).length < 4 || rest.trim().split(/\s+/u).length < 4) continue;
+      cuts.push(end); last = end;
+    }
+    return cuts;
+  }
+  function splitRequestBlock(block){
+    const text = flatten(block), cuts = requestCuts(text);
+    if(!cuts.length) return [block];
+    const bounds = [0, ...cuts, text.length], parts = [];
+    for(let i = 0; i + 1 < bounds.length; i++){
+      const b = cloneBlock(block);
+      b.runs = trimRuns(sliceRuns(block.runs, bounds[i], bounds[i + 1]));
+      // A new item starts with a capital letter ("müvekkil" → "Müvekkil").
+      if(i > 0 && b.runs.length) b.runs[0] = {...b.runs[0], text: b.runs[0].text.charAt(0).toLocaleUpperCase('tr-TR') + b.runs[0].text.slice(1)};
+      if(b.runs.length) parts.push(b);
+    }
+    return parts.length > 1 ? parts : [block];
+  }
+
   /* ------------------------------ künye phase ------------------------------ */
   function isKunyeBoundary(text, index){
     return !text || !!lineField(text) || isPetitionTitle(text, index) || isCourtHeading(text, index) || !!parseCasePair(text);
@@ -428,7 +411,10 @@
       const field = lineField(text);
       if(!field || field.section){
         // Continuation fragment of the previous value (address, long title).
-        if(last && text && !isKunyeBoundary(text, i) && !isCapsHeading(text) && !INTERNAL_HEADING_RE.test(text) && text.length <= 300 && ['party', 'address', 'attorney', 'topic', 'file', 'other', 'defender'].includes(last.kind)
+        // An unknown CAPITALISED label with a colon ("KARŞI VEKİL ADRESİ: …") is
+        // a künye row we do not know, never the continuation of the previous value.
+        const unknownLabel = /^[A-ZÇĞİÖŞÜÂÎÛ][A-ZÇĞİÖŞÜÂÎÛ .]{2,45}\s*[:：]/u.test(text);
+        if(last && text && !unknownLabel && !isKunyeBoundary(text, i) && !isCapsHeading(text) && !INTERNAL_HEADING_RE.test(text) && text.length <= 300 && ['party', 'address', 'attorney', 'topic', 'file', 'other', 'defender'].includes(last.kind)
           && !(last.kind === 'topic' && /[.!?]$/u.test(last.value))){
           last.value = last.value ? `${last.value}${last.kind === 'attorney' && /^(?:Av\.|Avukat)\s/u.test(text) ? ', ' : ' '}${text}` : text;
           ctx.stats.merged++;
@@ -615,6 +601,20 @@
       const t = textOf(s);
       if(!t){ droppedBlank++; continue; }
       if(DATE_ONLY_RE.test(t)){ ctx.dateLines.push(t); continue; }
+      const {block: bare} = stripListPrefix(s.block);
+      const parts = splitRequestBlock(bare);
+      if(parts.length > 1){
+        ctx.stats.splittable += parts.length;
+        if(ctx.opts.splitRequests){
+          ctx.changes.push({type: 'request-split', before: clean(flatten(bare)).slice(0, 80) + '…', after: `${parts.length} ayrı talep maddesi`});
+          for(const part of parts){
+            const item = makeListItem(part, SCHEMA.lists.result, 'result-item', ctx, line);
+            styleRegex(item, RESULT_EMPHASIS_RE, {bold: true});
+            out.push(item); items++;
+          }
+          continue;
+        }
+      }
       const item = makeListItem(s.block, SCHEMA.lists.result, 'result-item', ctx, line);
       styleRegex(item, RESULT_EMPHASIS_RE, {bold: true});
       out.push(item); items++;
@@ -741,6 +741,49 @@
     return b;
   }
 
+  /* ------------------------------ manual overrides ------------------------------ */
+  // The user can correct a detection mistake in the preview ("this is not a
+  // signature", "this is a body paragraph"). Overrides only change layout and
+  // emphasis of that paragraph, never its text. Keys are text-based so they
+  // survive re-rendering when an unrelated setting changes.
+  const OVERRIDES = Object.freeze({
+    'signature': 'İmza (sağa, kalın)',
+    'body': 'Gövde (iki yana, 1,25 cm girinti)',
+    'plain': 'Düz paragraf (sola, girintisiz)',
+    'heading': 'Ara başlık (kalın, altı çizili)',
+    'center': 'Ortalı başlık (kalın)'
+  });
+  function blockKeys(blocks){
+    const seen = new Map();
+    return blocks.map(b => {
+      if(b.kind !== 'paragraph') return null;
+      const t = clean(flatten(b)).slice(0, 80);
+      const n = (seen.get(t) || 0) + 1; seen.set(t, n);
+      return `${n}|${t}`;
+    });
+  }
+  function applyOverride(block, kind, ctx = {opts: {lineSpacing: SCHEMA.bodyLine}}){
+    const b = cloneBlock(block);
+    delete b.list; b.tabStops = [];
+    const line = ctx.opts?.lineSpacing ?? SCHEMA.bodyLine;
+    const strip = () => { if(b.listMarker){ b.runs = trimRuns(sliceRuns(b.runs, b.listMarker.length + 1)); delete b.listMarker; } };
+    if(kind === 'signature'){ strip(); Object.assign(b, {alignment: 'right', left: 0, first: 0, right: 0, above: 0, below: 0, line: 1}); setAllRuns(b, {bold: true, underline: false}); }
+    else if(kind === 'body'){ strip(); const R = NORMAL_RULES(); Object.assign(b, {alignment: 'justify', left: 0, right: 0, first: (R.explanationFirstCm ?? 1.25) * PT_PER_CM, above: (R.explanationParagraphCm ?? .15) * PT_PER_CM, below: (R.explanationParagraphCm ?? .15) * PT_PER_CM, line}); setAllRuns(b, {bold: false, underline: false}); }
+    else if(kind === 'plain'){ strip(); Object.assign(b, {alignment: 'left', left: 0, first: 0, right: 0, above: 0, below: 0, line}); setAllRuns(b, {bold: false, underline: false}); }
+    else if(kind === 'heading'){ strip(); Object.assign(b, {alignment: 'left', left: 0, first: 0, right: 0, above: .15 * PT_PER_CM, below: .15 * PT_PER_CM, line}); setAllRuns(b, {bold: true, underline: true}); }
+    else if(kind === 'center'){ strip(); Object.assign(b, {alignment: 'center', left: 0, first: 0, right: 0, above: 0, below: 0, line: 1}); setAllRuns(b, {bold: true, underline: false}); }
+    else return block;
+    b.role = `override-${kind}`;
+    return b;
+  }
+  function applyOverrides(blocks, overrides, opts = {}){
+    const map = typeof overrides?.get === 'function' && typeof overrides.size === 'number' ? overrides : new Map(Object.entries(overrides || {}));
+    if(!map.size) return {blocks, applied: 0};
+    const keys = blockKeys(blocks); let applied = 0;
+    const out = blocks.map((b, i) => { const k = keys[i] && map.get(keys[i]); if(!k || !OVERRIDES[k]) return b; applied++; return applyOverride(b, k, {opts}); });
+    return {blocks: out, applied};
+  }
+
   /* ------------------------------ integrity report ------------------------------ */
   function tokens(blocks){
     const map = new Map();
@@ -769,7 +812,7 @@
       dateMode: options.dateMode === 'keep' ? 'keep' : 'today',
       now: options.now ?? new Date(), timeZone: options.timeZone || SCHEMA.timeZone,
       markUets: options.markUets !== false, colonTabCm: options.colonTabCm,
-      listMode: options.listMode === 'auto' ? 'auto' : 'text',
+      listMode: options.listMode === 'auto' ? 'auto' : 'text', splitRequests: !!options.splitRequests,
       font: options.font === null ? null : (options.font || SCHEMA.font)
     };
     const registry = parseUetsRegistry(options.uetsRegistry);
@@ -778,7 +821,7 @@
     const uets = new Map();
     if(own?.name && UETS_NUMBER_RE.test(own.uets || '')) uets.set(personKey(own.name), own.uets);
     for(const [k, v] of registry.map) uets.set(k, v);
-    const ctx = {opts, uets, changes: [], dateLines: [], listCounters: {}, stats: {merged: 0, paired: 0, resultItems: 0, attachments: 0}};
+    const ctx = {opts, uets, changes: [], dateLines: [], listCounters: {}, stats: {merged: 0, paired: 0, resultItems: 0, attachments: 0, splittable: 0}};
     const blocks = input.map(cloneBlock);
     const auto = globalThis.WordToUDFNormalize?.detection?.(blocks) || {start: -1, end: -1};
     const given = options.selection && Number.isInteger(options.selection.start);
@@ -826,11 +869,11 @@
     const seen = new Set();
     const changes = ctx.changes.filter(c => { const k = `${c.type}|${c.before}|${c.after}`; if(seen.has(k)) return false; seen.add(k); return true; });
     return {blocks: result, statistics: {enabled: true, roles, metadataMerged: ctx.stats.merged, caseNumberPairs: ctx.stats.paired,
-      resultItems: ctx.stats.resultItems, attachments: ctx.stats.attachments, date: ctx.stats.date, closing: ctx.stats.closing,
+      resultItems: ctx.stats.resultItems, splittableRequests: ctx.opts.splitRequests ? 0 : ctx.stats.splittable, attachments: ctx.stats.attachments, date: ctx.stats.date, closing: ctx.stats.closing,
       colonTabPt: colonTabPt(opts), lineSpacing: opts.lineSpacing, changes, integrity: check,
       uetsRegistryErrors: registry.errors, zones: {expl: explStart, end: sel.end}}};
   }
 
   globalThis.WordToUDFLegalTypography = {apply, flatten, clean, upper, isCourtHeading, isPetitionTitle, isInternalHeading,
-    parseField: lineField, nameCase, todayTR, parseUetsRegistry, personKey, labelWidthPt, integrity, SCHEMA};
+    parseField: lineField, nameCase, todayTR, parseUetsRegistry, personKey, requestCuts, OVERRIDES, blockKeys, applyOverride, applyOverrides, labelWidthPt, integrity, SCHEMA};
 })();
