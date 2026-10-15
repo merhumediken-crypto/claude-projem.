@@ -629,7 +629,7 @@ body.sheet-open .mark-pop.docked{ top: calc(var(--appbar-h) + 8px); bottom: auto
 .sec-map{ flex-basis: 100%; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 0; overscroll-behavior-x: contain; }
 .sec-map::-webkit-scrollbar{ display: none; }
 .sec-chip{ flex: none; height: 30px; padding: 0 12px; border-radius: var(--r-pill); border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2);
-  font: 700 12px/1 var(--font); cursor: pointer; white-space: nowrap; transition: background-color .15s, border-color .15s, color .15s; }
+  font: 700 12px/1 var(--font); cursor: pointer; white-space: nowrap; transition: border-color .15s; }
 .sec-chip.sub{ font-weight: 600; color: var(--muted); }
 .sec-chip.sub::before{ content: "· "; }
 .sec-chip:hover{ border-color: var(--accent); }
