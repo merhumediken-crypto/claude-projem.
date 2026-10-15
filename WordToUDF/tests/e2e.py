@@ -314,6 +314,7 @@ def main():
         v19_library(browser,tmp)
         v110_tools(browser,tmp,petition)
         v1101_audit(browser,tmp,petition)
+        v111_design(browser,tmp,petition)
         csp_check(browser)
         browser.close()
 
@@ -1007,6 +1008,101 @@ def v1101_audit(browser,tmp,petition):
     # Açılır pencere doğru şablon sayısını söyler.
     assert '14 hazır dilekçe şablonu' in (ROOT/'popup.html').read_text(encoding='utf-8')
     print('PASS 1.10.1 denetim: klavyeyle paragraf, Ctrl+ı, üç tık, panel taslağı, DOCX öğe sırası, yabancı JSON reddi, numara metne yapışmaz, tüm belgede tam sözcük, taşımalar birleşir, şablon alanları korunur, feragat davacı, yerel verileri silme, süre sayfası, kullanılmayan Word stili')
+
+def v111_design(browser,tmp,petition):
+    """1.11: phone preview fits the text column and opens full screen (zoom,
+    editing above the bottom sheet, Esc), command palette, step tracker,
+    check ring with fixed suggestions and their undo, template gallery,
+    deadline e-Tebligat and calendar."""
+    # --- Telefon: metin sütunu ekranı doldurur; tam ekran, yakınlaştırma, panelin üstünde düzenleme.
+    ctx=browser.new_context(viewport={'width':390,'height':844},has_touch=True,is_mobile=True)
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html');fetch_data(page,petition)
+    scale=page.evaluate("()=>parseFloat(document.getElementById('zoomToggle').textContent.match(/%(\\d+)/)[1])/100")
+    whole=page.evaluate("()=>{const v=document.getElementById('previewViewport'),s=getComputedStyle(v);return (v.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight))/794}")
+    assert scale>whole+0.04,(scale,whole)
+    sw=page.evaluate("()=>[document.documentElement.scrollWidth,innerWidth,document.getElementById('previewViewport').scrollWidth,document.getElementById('previewViewport').clientWidth]")
+    assert sw[0]<=sw[1]+1 and sw[2]<=sw[3]+1,sw
+    page.locator('#mbPreview').click();page.wait_for_timeout(250)
+    assert page.evaluate("getComputedStyle(document.getElementById('previewSection')).position")=='fixed' and page.locator('#previewFull').get_attribute('aria-pressed')=='true'
+    assert page.locator('#tabbar, .tabbar').first.is_hidden() and page.locator('#mobileBar').is_hidden()
+    page.locator('#zoomIn').click();page.locator('#zoomIn').click();page.wait_for_timeout(100)
+    z=page.locator('#zoomToggle').text_content();assert re.fullmatch(r'%\d+',z),z
+    page.locator('#zoomToggle').click();page.wait_for_timeout(100);assert 'Sığdır' in page.locator('#zoomToggle').text_content()
+    page.locator('#paper .paragraph[data-role="result-item"]').last.click();page.wait_for_timeout(700)
+    pos=page.evaluate("()=>{const p=document.querySelector('#paper .paragraph.selected').getBoundingClientRect(),s=document.querySelector('.edit-sheet');return [Math.round(p.top),Math.round(p.bottom),innerHeight-s.offsetHeight]}")
+    assert pos[0]>=0 and pos[1]<=pos[2],('düzenlenen paragraf alttaki panelin üstünde görünür',pos)
+    page.locator('.edit-sheet .chip',has_text='Kalın').click();page.wait_for_timeout(150)
+    assert page.locator('#paper .paragraph.edited').count()==1
+    page.keyboard.press('Escape');page.wait_for_timeout(100);assert page.locator('.edit-sheet').count()==0
+    assert page.evaluate("getComputedStyle(document.getElementById('previewSection')).position")=='fixed','önce panel kapanır'
+    page.keyboard.press('Escape');page.wait_for_timeout(100)
+    assert page.evaluate("getComputedStyle(document.getElementById('previewSection')).position")!='fixed' and page.locator('#previewFull').get_attribute('aria-pressed')=='false'
+    # Satır içi önizlemede de paragraf panelin üstüne gelir.
+    page.locator('#paper .paragraph[data-role="result-item"]').first.click();page.wait_for_timeout(700)
+    pos=page.evaluate("()=>{const p=document.querySelector('#paper .paragraph.selected').getBoundingClientRect(),s=document.querySelector('.edit-sheet');return [Math.round(p.top),Math.round(p.bottom),innerHeight-s.offsetHeight]}")
+    assert pos[0]>=0 and pos[1]<=pos[2],pos
+    assert not errors,errors
+    ctx.close()
+    # --- Masaüstü: komut paleti, adımlar, denetim halkası ve düzeltilenlerin geri alınması.
+    ctx=browser.new_context(accept_downloads=True,viewport={'width':1440,'height':900})
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html')
+    assert page.evaluate("[...document.querySelectorAll('#steps li')].map(l=>l.className.trim())")[0]=='active'
+    paste_into(page,'',V19_TEXT);page.wait_for_timeout(300)
+    st=page.evaluate("[...document.querySelectorAll('#steps li')].map(l=>l.className.trim())")
+    assert st[0]=='done' and 'active' in st[3],st
+    assert page.locator('#checkRing .ring-seg').count()>=2 and page.locator('#ringBig').text_content().isdigit()
+    n=page.locator('#checkRing .ring-seg').count()
+    page.locator('#checkList li',has_text='GG/AA/YYYY').locator('button',has_text='Düzelt').click();page.wait_for_timeout(250)
+    fixed=page.locator('#checkList li.check-fixed')
+    assert fixed.count()==1 and '20.10.2026' in page.locator('#paper').text_content(),page.locator('#checkList li').all_text_contents()
+    assert page.locator('#checkRing .seg-fixed').count()==1 and page.locator('#checkRing .ring-seg').count()==n
+    fixed.locator('button',has_text='Geri al').click();page.wait_for_timeout(250)
+    assert page.locator('#checkList li.check-fixed').count()==0 and '20/10/2026' in page.locator('#paper').text_content()
+    page.keyboard.press('Control+k');page.wait_for_timeout(100)
+    assert page.locator('.palette').count()==1 and page.evaluate("document.activeElement.id")=='palInput'
+    page.keyboard.type('bul değiş');page.wait_for_timeout(100)
+    assert 'Bul / değiştir' in page.locator('.pal-item[aria-selected="true"]').text_content()
+    page.keyboard.press('Enter');page.wait_for_timeout(150)
+    assert page.locator('.palette').count()==0 and page.locator('.find-box').is_visible()
+    page.keyboard.press('Control+k');page.keyboard.type('mazeret');page.wait_for_timeout(100)
+    assert page.locator('.pal-item').count()>=1 and 'Duruşma mazeret' in page.locator('.pal-item').first.text_content()
+    page.keyboard.press('Escape');assert page.locator('.palette').count()==0
+    # İndirme düğmesi: indirilince yeşil "İndirildi", adım 4 tamam.
+    save_download(page,'#download',tmp/'v111.udf');page.wait_for_timeout(100)
+    assert page.locator('#download').get_attribute('data-state')=='done' and 'İndirildi' in page.locator('#download').text_content()
+    assert all('done' in c for c in page.evaluate("[...document.querySelectorAll('#steps li')].map(l=>l.className)"))
+    assert not errors,errors
+    ctx.close()
+    # --- Şablon galerisi: kart seçimi #tpl ile aynı; arama; kategori.
+    ctx=browser.new_context(viewport={'width':1440,'height':900});page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'templates.html');page.wait_for_timeout(300)
+    assert page.locator('#tplGrid .tpl-card').count()==14
+    page.locator('#tplSearch').fill('bilirkişi');page.wait_for_timeout(100)
+    titles=page.locator('#tplGrid .tpl-card strong').all_text_contents();assert titles and all('ilirkişi' in t for t in titles),titles
+    page.locator('#tplGrid .tpl-card',has_text='Bilirkişi raporuna itiraz').click();page.wait_for_timeout(300)
+    assert page.locator('#tpl').input_value()=='bilirkisi' and page.locator('#tplTitle').text_content().startswith('Bilirkişi')
+    assert 'ilirkişi raporu' in page.locator('#paper').text_content()
+    assert not page.locator('#tplGallery').evaluate('d=>d.open'),'seçimden sonra galeri katlanır, form öne gelir'
+    page.locator('#tplGallery summary').click();page.locator('#tplSearch').fill('');page.locator('#tplCats .chip',has_text='Duruşma').click();page.wait_for_timeout(100)
+    assert page.locator('#tplGrid .tpl-card').count()==4
+    page.locator('#tpl').select_option('islah');page.wait_for_timeout(250)
+    page.locator('#tplCats .chip',has_text='Hepsi').click();page.wait_for_timeout(100)
+    assert page.locator('#tplGrid .tpl-card[aria-pressed="true"]').get_attribute('data-tpl')=='islah','seçim kutusu galeriyle aynı'
+    assert not errors,errors
+    ctx.close()
+    # --- Süre: e-Tebligat +5 gün ve takvim.
+    ctx=browser.new_context(viewport={'width':1440,'height':900});page=ctx.new_page();load_page(page,'sure.html')
+    page.locator('#dStart').fill('2026-10-15');page.locator('.d-preset',has_text='Cevap').first.click();page.wait_for_timeout(150)
+    assert page.locator('#dDate').text_content()=='30 Ekim 2026 Cuma',page.locator('#dDate').text_content()  # 29 Ekim tatil
+    page.locator('#dEtebligat').check();page.wait_for_timeout(150)
+    assert page.locator('#dDate').text_content()=='3 Kasım 2026 Salı',page.locator('#dDate').text_content()
+    assert 'Tebligat K. m. 7/a' in page.locator('#dSteps li').first.text_content()
+    assert page.locator('#dMonths .cal-day.end').count()==1 and page.locator('#dMonths .cal-day.start').text_content()=='20'
+    assert page.locator('#dMonths .cal-day.holiday').count()>=1  # 29 Ekim
+    ctx.close()
+    print('PASS 1.11 tasarım: telefonda metin sütunu ekranı doldurur, tam ekran + yakınlaştırma + panelin üstünde düzenleme, Esc sırası; adımlar, denetim halkası, düzeltileni geri al, komut paleti, indirme durumu, şablon galerisi, e-Tebligat ve takvim')
 
 def csp_check(browser):
     """The other tests strip the pages' CSP; here the real pages are served

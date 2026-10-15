@@ -168,23 +168,35 @@
     positionTabs(paper);
     return guides ? paginate(paper, {margins, landscape}) : {pages: 0, signatureAlone: false};
   }
-  // Scale the paper to the viewport width (phones), or to a fixed zoom
-  // (0.3–2) when fitting is off. The wrapper gets the scaled size so the page
-  // scrolls normally.
-  function fit(viewport, wrapper, paper, enabled = true, zoom = 1){
+  // Scale the paper to the viewport width, or to a fixed zoom (0.3–2) when
+  // fitting is off. The wrapper gets the scaled size so the page scrolls
+  // normally. crop (phones): fit the text column instead of the whole sheet —
+  // the empty page margins are cut off, so the text is about 15 % larger and
+  // the line breaks stay exactly those of the A4 page.
+  const KEEP = 14; // px of margin left visible on each side when cropping
+  function fit(viewport, wrapper, paper, enabled = true, zoom = 1, {crop = false} = {}){
     paper.style.transform = ''; wrapper.style.height = ''; wrapper.style.width = '';
+    wrapper.classList.remove('cropped'); paper.classList.remove('cropped'); paper.style.removeProperty('--crop-r');
     // "Gerçek boyut" must scroll sideways on a phone; "Sığdır" never needs to.
     viewport.classList.toggle('fit', !!enabled);
     const w = paper.offsetWidth;
-    let scale;
+    if(!(w > 0)) return 1;
+    let scale, shift = 0, shown = w;
     if(enabled){
       const style = getComputedStyle(viewport);
       const avail = viewport.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
-      scale = w > 0 && avail > 0 ? Math.min(1, avail / w) : 1;
+      const ps = getComputedStyle(paper), pl = parseFloat(ps.paddingLeft) || 0, pr = parseFloat(ps.paddingRight) || 0;
+      // Cropping only pays off when the whole sheet would be shrunk.
+      if(crop && avail > 0 && avail < w && pl > KEEP && pr > KEEP){
+        shown = w - (pl - KEEP) - (pr - KEEP);
+        scale = Math.min(1, avail / shown); shift = (pl - KEEP) * scale;
+        wrapper.classList.add('cropped'); paper.classList.add('cropped');
+        paper.style.setProperty('--crop-r', `${pr - KEEP}px`);
+      } else scale = avail > 0 ? Math.min(1, avail / w) : 1;
     } else scale = Number.isFinite(zoom) ? Math.min(2, Math.max(.3, zoom)) : 1;
-    if(scale !== 1 && w > 0){
-      paper.style.transform = `scale(${scale})`; paper.style.transformOrigin = 'top left';
-      wrapper.style.width = `${w * scale}px`; wrapper.style.height = `${paper.offsetHeight * scale}px`;
+    if(scale !== 1 || shift){
+      paper.style.transform = `${shift ? `translateX(${-shift}px) ` : ''}scale(${scale})`; paper.style.transformOrigin = 'top left';
+      wrapper.style.width = `${shown * scale}px`; wrapper.style.height = `${paper.offsetHeight * scale}px`;
     }
     return scale;
   }

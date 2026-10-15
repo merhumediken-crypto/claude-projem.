@@ -481,9 +481,15 @@
     function reveal(){
       const p = paper.querySelector(`.paragraph[data-key="${CSS.escape(keys()[0] || '')}"]`);
       if(!p || !sheet) return;
-      const r = p.getBoundingClientRect(), sr = sheet.getBoundingClientRect();
-      if(sr.top > window.innerHeight / 3){ // bottom sheet (phone)
-        if(r.bottom > sr.top - 8 || r.top < 8) window.scrollBy({top: r.top - Math.max(8, (sr.top - r.height) / 2), behavior: 'smooth'});
+      // The bottom sheet slides in from below: its resting top is measured
+      // without the animation (a transformed rect would say "off screen").
+      const r = p.getBoundingClientRect(), bottomSheet = window.matchMedia('(max-width: 760px)').matches;
+      const sr = {top: bottomSheet ? window.innerHeight - sheet.offsetHeight : sheet.getBoundingClientRect().top};
+      if(bottomSheet){ // bottom sheet (phone)
+        // The full-screen preview scrolls inside its own box, the inline one with the page.
+        const box = p.closest('.preview-viewport'), own = box && box.scrollHeight > box.clientHeight + 1 && getComputedStyle(box).overflowY !== 'hidden' ? box : null;
+        const top = own ? own.getBoundingClientRect().top + 8 : 8;
+        if(r.bottom > sr.top - 8 || r.top < top) (own || window).scrollBy({top: r.top - Math.max(top, top + (sr.top - top - r.height) / 2), behavior: 'smooth'});
       } else if(r.top < 8 || r.bottom > window.innerHeight - 8) p.scrollIntoView({block: 'center', behavior: 'smooth'});
     }
     // Position of a paragraph among the visible editable paragraphs.

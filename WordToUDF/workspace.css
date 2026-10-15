@@ -181,7 +181,7 @@ main{ max-width: 1480px; margin: 0 auto; padding: 28px max(24px, 2vw) 40px; }
 .feature-chips span{ display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 650; color: var(--ink-2); background: var(--surface);
   border: 1px solid var(--line); padding: 7px 12px; border-radius: var(--r-pill); box-shadow: 0 1px 2px rgba(14, 26, 51, .04); }
 .feature-chips .icon{ width: 15px; height: 15px; color: var(--gold-ink); }
-.layout{ display: grid; grid-template-columns: minmax(340px, 440px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.layout{ display: grid; grid-template-columns: minmax(330px, 420px) minmax(0, 1fr); gap: 24px; align-items: start; }
 .left{ display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .right{ min-width: 0; }
 @media (min-width: 1101px){ .right{ position: sticky; top: calc(var(--appbar-h) + 16px); } }
@@ -444,7 +444,9 @@ button:disabled, .btn:disabled{ opacity: .48; cursor: not-allowed; box-shadow: n
 .zoom-group #zoomToggle[aria-pressed="true"]{ color: var(--accent-text); }
 .preview-body{ display: flex; align-items: flex-start; background: var(--viewport-bg); }
 .thumbs{ display: none; flex-direction: column; gap: 12px; padding: 22px 0 22px 18px; flex: none; max-height: calc(100vh - var(--appbar-h) - 170px); overflow-y: auto; scrollbar-width: thin; }
-.thumbs.has-pages{ display: flex; }
+/* The page rail only where it costs the page nothing: wide screens and the full-screen preview. */
+@media (min-width: 1500px){ .thumbs.has-pages{ display: flex; } }
+.preview-full .thumbs.has-pages{ display: flex; max-height: none; }
 .thumb{ display: grid; justify-items: center; gap: 4px; padding: 2px; border: 0; background: transparent; color: var(--muted); font: 700 11px var(--font); cursor: pointer; border-radius: 8px; }
 .thumb .mini{ display: block; width: 58px; height: 82px; border-radius: 6px; background-color: #fff; border: 2px solid transparent; box-shadow: 0 1px 4px rgba(0, 0, 0, .18);
   background-image: linear-gradient(#333, #333), repeating-linear-gradient(#9aa3b5 0 2px, transparent 2px 6px);
@@ -452,7 +454,21 @@ button:disabled, .btn:disabled{ opacity: .48; cursor: not-allowed; box-shadow: n
 .thumb:hover .mini{ transform: translateY(-2px); }
 .thumb[aria-current="true"] .mini{ border-color: var(--accent); }
 .thumb[aria-current="true"]{ color: var(--ink); }
-.preview-viewport{ flex: 1 1 auto; min-width: 0; overflow: auto; max-height: calc(100vh - var(--appbar-h) - 170px); min-height: 560px; background: var(--viewport-bg); padding: 24px; }
+.preview-viewport{ flex: 1 1 auto; min-width: 0; overflow: auto; max-height: calc(100vh - var(--appbar-h) - 170px); min-height: 560px; background: var(--viewport-bg); padding: 22px;
+  touch-action: pan-x pan-y; }
+/* Phones: the text column fills the width; the empty page margins are cut off (preview.js fit, crop). */
+.paper-scale.cropped{ overflow: hidden; }
+.paper.cropped .page-guide::after{ right: calc(var(--crop-r, 0px) + 4px); }
+/* Full-screen preview ("Tam ekran"): the page alone, scrollable both ways, the editor still at hand. */
+#previewSection.preview-full{ position: fixed; inset: 0; z-index: 50; margin: 0; background: var(--viewport-bg); }
+.preview-full .preview-card{ height: 100%; display: flex; flex-direction: column; border-radius: 0; border: 0; margin: 0 !important; box-shadow: none; animation: none; }
+.preview-full .preview-head{ flex: none; padding-top: max(10px, env(safe-area-inset-top)); }
+.preview-full .preview-body{ flex: 1 1 auto; min-height: 0; }
+.preview-full .preview-viewport{ height: 100%; max-height: none !important; min-height: 0; overflow: auto !important; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+.preview-full .preview-hint, .preview-full .preview-foot, .preview-full .page-note{ display: none; }
+html.full-preview{ overflow: hidden; }
+.full-btn .icon{ width: 16px; height: 16px; }
+.full-btn[aria-pressed="true"]{ background: var(--pri); border-color: var(--pri); color: var(--pri-ink); box-shadow: none; }
 .preview-foot{ font-size: 12px; color: var(--muted); margin: 0; padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--line); }
 .paper-scale{ margin: 0 auto; width: max-content; }
 .paper{ position: relative; display: flex; flex-direction: column; align-items: stretch; margin: 0 auto; width: 794px; min-height: 1123px; padding: 56.7px; line-height: 1;
@@ -794,8 +810,19 @@ body.sheet-open .mark-pop.docked{ top: calc(var(--appbar-h) + 8px); bottom: auto
   .tabpanel{ padding: 14px 16px 16px; }
   .two, .upload-extra, .settings-io, .controls .row2, .controls .row3{ grid-template-columns: 1fr; }
   .part-list{ grid-template-columns: 1fr; }
-  .preview-viewport{ padding: 10px; min-height: 0; }
+  /* Edge to edge: the page gets the whole screen width. */
+  .right .preview-card{ margin: 0 -12px; border-radius: 0; border-left: 0; border-right: 0; }
+  .preview-viewport{ padding: 12px 6px; min-height: 0; }
   .preview-viewport.fit{ max-height: none; overflow: hidden; }
+  .preview-viewport:not(.fit){ max-height: 74vh; }
+  .preview-full .thumbs{ display: none !important; }
+  html.full-preview .tabbar, html.full-preview .mobile-bar{ display: none !important; }
+  /* Room below the page so the last paragraphs can scroll above the bottom sheet. */
+  body.sheet-open .preview-full .preview-viewport{ padding-bottom: 66vh; }
+  /* One swipeable row of tools instead of three wrapped rows above the page. */
+  .preview-tools{ flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 2px 12px; }
+  .preview-tools::-webkit-scrollbar{ display: none; }
+  .preview-tools > *{ flex: none; }
   .preview-head{ padding: 10px 12px; }
   .preview-tools{ justify-content: flex-start; }
   .tool-btn{ min-height: 40px; }

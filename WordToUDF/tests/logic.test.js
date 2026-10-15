@@ -1020,5 +1020,16 @@ test('v1.10 dosya adı kalıbı ve ayarlar',()=>{
   const w=writer.write([{kind:'paragraph',runs:[{text:'a'},{text:'vurgulu',highlight:true}]}],{});assert(/background="-2702"/u.test(w.xml)||/background="-\d+"/u.test(w.xml),w.xml.slice(0,400));
   assert.equal(edits.sanitize({marks:[{text:'x',highlight:true}]}).marks[0].highlight,true);
 });
+test('v1.11 e-Tebligat (Tebligat K. m. 7/a): ulaşma + 5 gün, süre ondan sonra işler; başlangıç ve toplam gün sonuca yazılır',()=>{
+  const d=s=>new Date(s+'T00:00:00Z'),day=r=>r.end.toISOString().slice(0,10);
+  // 15.10.2026 ulaştı → 20.10.2026 tebliğ sayılır → 2 hafta → 3.11.2026 Salı.
+  const r=dl.compute(d('2026-10-15'),2,'hafta',{etebligat:true,today:d('2026-10-15')});
+  assert.equal(day(r),'2026-11-03');assert.equal(r.start.toISOString().slice(0,10),'2026-10-20');assert.equal(r.total,14);assert.equal(r.left,19);
+  assert(/Tebligat K\. m\. 7\/a/u.test(r.steps[0])&&/20 Ekim 2026 Salı/u.test(r.steps[0]),r.steps[0]);
+  // Kapalıyken eski hesap aynen; 5. gün tatil olsa da tebliğ günü kaymaz (25.10.2026 Pazar tebliğ, 7 gün → 1.11 Pazar → 2.11).
+  assert.equal(day(dl.compute(d('2026-10-15'),2,'hafta')),'2026-10-30','29 Ekim tatil');
+  const s=dl.compute(d('2026-10-20'),7,'gun',{etebligat:true});assert.equal(s.start.toISOString().slice(0,10),'2026-10-25');assert.equal(day(s),'2026-11-02');
+  assert.equal(dl.compute(d('2026-10-14'),2,'gun').total,2);
+});
 console.log(failed?`SONUÇ ${count} başarılı, ${failed} BAŞARISIZ`:`SONUÇ ${count} mantık testi başarılı`);
 if(failed)process.exitCode=1;

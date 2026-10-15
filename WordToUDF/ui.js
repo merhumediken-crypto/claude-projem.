@@ -227,25 +227,74 @@
   }
 
   /* ------------------------------ preview zoom ------------------------------ */
-  // Fit to width (default) or a fixed scale; "−" / "+" step by 10 %.
-  function zoomer({viewport, wrapper, paper, toggle, zoomIn, zoomOut, onChange = () => {}}){
+  // Fit (default) or a fixed scale; "−" / "+" step by 10 %, two fingers pinch.
+  // On phones "Sığdır" fits the text column (the empty margins are cut off).
+  // full: a "Tam ekran" button that gives the preview the whole screen.
+  const phone = () => window.matchMedia?.('(max-width: 760px)').matches;
+  function zoomer({viewport, wrapper, paper, toggle, zoomIn, zoomOut, full, section, onChange = () => {}}){
     let fit = true, zoom = 1, scale = 1;
+    const crop = () => phone() || !!section?.classList.contains('preview-full') && window.innerWidth < 900;
     function apply(){
-      scale = WordToUDFPreview.fit(viewport, wrapper, paper, fit, zoom);
+      scale = WordToUDFPreview.fit(viewport, wrapper, paper, fit, zoom, {crop: crop()});
       toggle.setAttribute('aria-pressed', String(fit));
       toggle.textContent = fit ? `Sığdır · %${Math.round(scale * 100)}` : `%${Math.round(scale * 100)}`;
-      toggle.title = fit ? 'Gerçek boyuta geç (%100)' : 'Sayfayı genişliğe sığdır';
+      toggle.title = fit ? 'Gerçek boyuta geç (%100)' : (crop() ? 'Metni ekran genişliğine sığdır' : 'Sayfayı genişliğe sığdır');
       if(zoomOut) zoomOut.disabled = !fit && zoom <= .3;
       if(zoomIn) zoomIn.disabled = !fit && zoom >= 2;
       onChange(scale);
       return scale;
     }
-    const step = d => { const base = Math.round((fit ? scale : zoom) * 10) / 10; fit = false; zoom = Math.min(2, Math.max(.3, Math.round((base + d) * 10) / 10)); apply(); };
-    toggle.addEventListener('click', () => { if(fit){ fit = false; zoom = 1; } else fit = true; apply(); });
+    // Keep the point of the page under the fingers (or the middle of the
+    // visible part) in place while the scale changes.
+    function zoomTo(z, cx, cy){
+      const v = viewport.getBoundingClientRect(), before = scale, pr = paper.getBoundingClientRect();
+      // Buttons keep the left edge of the visible text in place (lines start there).
+      const x = cx ?? Math.max(v.left, pr.left), y = cy ?? (Math.max(v.top, 0) + Math.min(v.bottom, window.innerHeight)) / 2;
+      const px = (x - pr.left) / (before || 1), py = (y - pr.top) / (before || 1);
+      fit = false; zoom = Math.min(2, Math.max(.3, z)); apply();
+      const after = paper.getBoundingClientRect();
+      const dx = after.left + px * scale - x, dy = after.top + py * scale - y;
+      viewport.scrollLeft += dx;
+      // Whatever the preview box cannot scroll, the page scrolls (phone, inline preview).
+      const top0 = viewport.scrollTop; viewport.scrollTop = top0 + dy;
+      const rest = dy - (viewport.scrollTop - top0);
+      if(Math.abs(rest) > 1) window.scrollBy(0, rest);
+    }
+    const step = d => { const base = Math.round((fit ? scale : zoom) * 10) / 10; zoomTo(Math.round((base + d) * 10) / 10); };
+    toggle.addEventListener('click', () => { if(fit) zoomTo(1); else{ fit = true; apply(); } });
     zoomIn?.addEventListener('click', () => step(.1));
     zoomOut?.addEventListener('click', () => step(-.1));
+    // Pinch on the preview zooms the page, not the whole app (touch-action in workspace.css).
+    let pinch = null;
+    const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const mid = t => [(t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2];
+    viewport.addEventListener('touchstart', e => { if(e.touches.length === 2){ pinch = {d: dist(e.touches), z: scale}; } }, {passive: true});
+    viewport.addEventListener('touchmove', e => {
+      if(!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const z = Math.round(pinch.z * dist(e.touches) / pinch.d * 100) / 100;
+      if(Math.abs(z - scale) >= .01){ const [cx, cy] = mid(e.touches); zoomTo(z, cx, cy); }
+    }, {passive: false});
+    viewport.addEventListener('touchend', e => { if(e.touches.length < 2) pinch = null; }, {passive: true});
+    // Full screen preview (phones above all): the page alone, scrollable both ways.
+    function setFull(on){
+      if(!section) return;
+      section.classList.toggle('preview-full', on);
+      document.documentElement.classList.toggle('full-preview', on);
+      if(full){ full.setAttribute('aria-pressed', String(on)); full.querySelector('.full-label').textContent = on ? 'Küçült' : 'Tam ekran'; full.title = on ? 'Tam ekrandan çık (Esc)' : 'Önizlemeyi tam ekran aç'; }
+      fit = true; apply();
+      viewport.scrollTop = 0;
+      if(!on) section.scrollIntoView({block: 'start'});
+    }
+    full?.addEventListener('click', () => setFull(!section.classList.contains('preview-full')));
+    document.addEventListener('keydown', e => {
+      // The edit panel, the format bar and the find box close first (editor-ui.js).
+      if(e.key !== 'Escape' || !section?.classList.contains('preview-full')) return;
+      if(document.querySelector('.edit-sheet, .palette-backdrop') || document.querySelector('.mark-pop:not([hidden])') || document.activeElement?.closest?.('.find-box')) return;
+      setFull(false); full?.focus({preventScroll: true});
+    });
     let t = 0; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(apply, 120); });
-    return {apply, get scale(){ return scale; }, get fit(){ return fit; }};
+    return {apply, setFull, get scale(){ return scale; }, get fit(){ return fit; }};
   }
 
   /* ------------------------------ page thumbnails ------------------------------ */

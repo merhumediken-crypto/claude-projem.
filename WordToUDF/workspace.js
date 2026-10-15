@@ -153,7 +153,7 @@
   }
 
   /* ------------------------------ preview ------------------------------ */
-  const zoom=UI.zoomer({viewport:$('previewViewport'),wrapper:$('paperScale'),paper:$('paper'),toggle:$('zoomToggle'),zoomIn:$('zoomIn'),zoomOut:$('zoomOut')});
+  const zoom=UI.zoomer({viewport:$('previewViewport'),wrapper:$('paperScale'),paper:$('paper'),toggle:$('zoomToggle'),zoomIn:$('zoomIn'),zoomOut:$('zoomOut'),full:$('previewFull'),section:$('previewSection')});
   const thumbs=UI.thumbs({rail:$('thumbs'),viewport:$('previewViewport'),paper:$('paper'),getScale:()=>zoom.scale});
   const fitPaper=()=>zoom.apply();
   // A re-render rebuilds the report and check lists, which sit above most
@@ -540,7 +540,8 @@
   });
 
   $('mbDownload').addEventListener('click',()=>download.click());
-  $('mbPreview').addEventListener('click',()=>$('previewSection').scrollIntoView({behavior:'smooth',block:'start'}));
+  // Phone: "Önizleme" opens the page full screen (zoom with two fingers there).
+  $('mbPreview').addEventListener('click',()=>zoom.setFull(true));
 
   /* ------------------------------ command palette (Ctrl+K) ------------------------------ */
   const can=id=>()=>!$(id).disabled;

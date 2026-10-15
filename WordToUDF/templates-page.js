@@ -199,7 +199,7 @@
     const src = T.sourceLines(common, {topic: $('topic').value, body: $('body').value.split(/\r?\n/u), requests: lines('requests'), closing: $('closing').value, attachments: lines('attachments')}, {attorneyName: own, signatureLines: sig});
     return P.typeset(T.toBlocks(src), {profile: 'legal', settings, now: new Date(), edits: editor.edits});
   }
-  const zoom = UI.zoomer({viewport: $('previewViewport'), wrapper: $('paperScale'), paper: $('paper'), toggle: $('zoomToggle'), zoomIn: $('zoomIn'), zoomOut: $('zoomOut')});
+  const zoom = UI.zoomer({viewport: $('previewViewport'), wrapper: $('paperScale'), paper: $('paper'), toggle: $('zoomToggle'), zoomIn: $('zoomIn'), zoomOut: $('zoomOut'), full: $('previewFull'), section: $('previewSection')});
   const thumbs = UI.thumbs({rail: $('thumbs'), viewport: $('previewViewport'), paper: $('paper'), getScale: () => zoom.scale});
   const fitPaper = () => zoom.apply();
   const fixButton = c => { const b = document.createElement('button'); b.type = 'button'; b.className = 'secondary inline-btn'; b.textContent = 'Düzelt'; b.addEventListener('click', () => editor.applyFix(c.fix)); return b; };
@@ -356,7 +356,7 @@
   });
   // Phone: quick actions at the bottom (the form is long, the preview below it).
   $('mbDownload').addEventListener('click', () => $('download').click());
-  $('mbPreview').addEventListener('click', () => $('previewSection').scrollIntoView({behavior: 'smooth', block: 'start'}));
+  $('mbPreview').addEventListener('click', () => zoom.setFull(true));
   /* ------------------------------ command palette (Ctrl+K) ------------------------------ */
   UI.commands.add([
     {id: 'tpl:udf', group: 'İndir', label: 'UDF oluştur ve indir', hint: 'UYAP Doküman Editörü dosyası', icon: 'i-download', keywords: 'indir kaydet', run: () => $('download').click()},
