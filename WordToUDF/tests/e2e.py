@@ -1220,8 +1220,9 @@ def v112_features(browser,tmp,petition):
     chips=page.locator('#secMap .sec-chip').all_text_contents()
     assert {'Künye','Konu','Açıklamalar','Sonuç ve istem','İmza'}<=set(chips),chips
     # Kontrol turu: madde sayfadaki yerinde işaretlenir; Esc bitirir.
-    page.locator('#tourStart').click();page.wait_for_timeout(300)
+    page.locator('#tourStart').click();page.wait_for_timeout(500)
     assert page.locator('.tour-bar').is_visible() and page.locator('#paper .tour-hit').count()==1
+    tb=page.locator('.tour-bar').bounding_box();assert abs(tb['x']+tb['width']/2-720)<2,('tur çubuğu ortada',tb)
     page.keyboard.press('Escape');page.wait_for_timeout(100)
     assert page.locator('.tour-bar').count()==0 and page.locator('#paper .tour-hit').count()==0
     # Önce / sonra: kaynak sayfanın üstünde, ayırıcı klavyeyle de oynar.
@@ -1258,6 +1259,10 @@ def v112_share(browser,petition):
         assert page.url.endswith('/workspace.html') and not page.evaluate("caches.open('wordtoudf-share').then(c=>c.match('shared-file')).then(x=>!!x)")
         # Chromium cannot share a .udf from the page: the button stays hidden there.
         assert page.locator('#shareUdf').is_hidden()
+        # The check tour bar stays inside a phone screen.
+        page.locator('#tourStart').scroll_into_view_if_needed();page.locator('#tourStart').click();page.wait_for_timeout(500)
+        tb=page.locator('.tour-bar').bounding_box();assert tb['x']>=0 and tb['x']+tb['width']<=390,tb
+        page.locator('.tour-bar .tb-close').click();assert page.locator('.tour-bar').count()==0
         assert not errors,errors
         ctx.close()
         print('PASS 1.12 paylaşım: telefonda paylaşılan Word dosyası uygulamada açılır, geçici kopya hemen silinir')
