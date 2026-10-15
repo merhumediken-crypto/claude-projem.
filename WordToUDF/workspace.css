@@ -747,7 +747,7 @@ body.sheet-open .mark-pop.docked{ top: calc(var(--appbar-h) + 8px); bottom: auto
 
 /* 15 · Toasts & command palette ----------------------------------------- */
 .toasts{ position: fixed; z-index: 90; right: 24px; bottom: 24px; display: grid; gap: 8px; justify-items: end; pointer-events: none; max-width: min(380px, calc(100vw - 24px)); }
-.toast{ display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-radius: 16px; background: var(--navy); color: #fff; box-shadow: 0 18px 44px rgba(11, 27, 66, .4);
+.toast{ pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-radius: 16px; background: var(--navy); color: #fff; box-shadow: 0 18px 44px rgba(11, 27, 66, .4);
   font: 650 13.5px/1.4 var(--font); animation: rise .35s var(--ease) both; border: 1px solid rgba(226, 190, 110, .22); transition: opacity .25s, transform .25s; }
 .toast .t-ico{ width: 28px; height: 28px; border-radius: 50%; background: var(--gold); color: var(--navy); display: grid; place-items: center; flex: none; }
 .toast .t-ico .icon{ width: 15px; height: 15px; stroke-width: 3; }

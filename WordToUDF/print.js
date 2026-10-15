@@ -9,8 +9,10 @@
 (() => {
   'use strict';
   const PX = 96 / 72;
+  let pending = false; // a print waiting for fonts: a second press is ignored
   function printBlocks(blocks, {margins = {}, landscape = false, font, size, title} = {}){
     if(!Array.isArray(blocks) || !blocks.some(b => b.kind === 'paragraph')) throw new Error('Yazdırılacak paragraf yok.');
+    if(pending) return;
     const m = {top: margins.top ?? 42.52, right: margins.right ?? 42.52, bottom: margins.bottom ?? 42.52, left: margins.left ?? 42.52};
     let surface = document.getElementById('docPrint');
     if(!surface){ surface = document.createElement('div'); surface.id = 'docPrint'; surface.setAttribute('aria-hidden', 'true'); document.body.append(surface); }
@@ -30,6 +32,7 @@
     if(title) document.title = title;
     document.body.classList.add('print-doc');
     const done = () => {
+      pending = false;
       window.removeEventListener('afterprint', done);
       document.body.classList.remove('print-doc');
       document.adoptedStyleSheets = before; document.title = oldTitle;
@@ -38,8 +41,10 @@
     window.addEventListener('afterprint', done);
     // Without Times New Roman the bundled Tinos is used; if it is still
     // loading, measure the tab stops again once it is there.
-    if(document.fonts?.status === 'loading') document.fonts.ready.then(() => { WordToUDFPreview.positionTabs(paper); window.print(); });
-    else window.print();
+    if(document.fonts?.status === 'loading'){
+      pending = true;
+      document.fonts.ready.then(() => { if(!surface.contains(paper)){ pending = false; return; } WordToUDFPreview.positionTabs(paper); window.print(); });
+    } else window.print();
   }
   globalThis.WordToUDFPrint = {printBlocks};
 })();

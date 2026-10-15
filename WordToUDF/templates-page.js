@@ -56,10 +56,12 @@
   const badgeText = title => (String(title).trim()[0] || '§').toLocaleUpperCase('tr-TR');
   function renderGallery(){
     const all = entries(), sel = $('tpl').value;
+    // The chip or card being used keeps the keyboard focus across the rebuild.
+    const act = document.activeElement, keep = act?.closest?.('#tplCats') ? {cat: act.dataset.cat} : act?.closest?.('#tplGrid') ? {tpl: act.dataset.tpl} : null;
     const counts = {all: all.length}; for(const e of all) counts[e.cat] = (counts[e.cat] || 0) + 1;
     if(gal.cat !== 'all' && !counts[gal.cat]) gal.cat = 'all';
     $('tplCats').replaceChildren(...[['all', 'Hepsi'], ...Object.entries(CATS)].filter(([k]) => counts[k]).map(([k, label]) => {
-      const b = UI.el('button', {type: 'button', class: `chip cat-${k}` + (gal.cat === k ? ' on' : ''), 'aria-pressed': String(gal.cat === k)},
+      const b = UI.el('button', {type: 'button', class: `chip cat-${k}` + (gal.cat === k ? ' on' : ''), 'aria-pressed': String(gal.cat === k), 'data-cat': k},
         UI.el('span', {class: 'dot', 'aria-hidden': 'true'}), document.createTextNode(label), UI.el('span', {class: 'count', text: String(counts[k])}));
       b.addEventListener('click', () => { gal.cat = k; renderGallery(); });
       return b;
@@ -76,6 +78,8 @@
       return card;
     }));
     if(!shown.length) $('tplGrid').append(UI.el('p', {class: 'tpl-empty', text: 'Bu aramayla eşleşen şablon yok.'}));
+    if(keep?.cat) $('tplCats').querySelector(`[data-cat="${keep.cat}"]`)?.focus({preventScroll: true});
+    if(keep?.tpl && $('tplGallery').open) $('tplGrid').querySelector(`[data-tpl="${CSS.escape(keep.tpl)}"]`)?.focus({preventScroll: true});
     const cur = all.find(e => e.id === sel);
     if(cur){
       $('tplBadge').textContent = badgeText(cur.title); $('tplBadge').className = `tc-badge cat-${cur.cat}`;
@@ -85,7 +89,9 @@
   }
   // One palette entry per template (own templates come and go).
   function templateCommands(){
-    UI.commands.remove(c => String(c.id).startsWith('tpl:t:'));
+    // Entries keep their place in the palette (same id = replaced in place); deleted ones go.
+    const ids = new Set(entries().map(e => `tpl:t:${e.id}`));
+    UI.commands.remove(c => String(c.id).startsWith('tpl:t:') && !ids.has(c.id));
     UI.commands.add(entries().map(e => ({id: `tpl:t:${e.id}`, group: 'Şablonlar', label: e.title, hint: `${e.law}${e.law ? ' · ' : ''}${CATS[e.cat]}`, icon: 'i-grid', keywords: `${e.desc} şablon`, run: () => pick(e.id)})));
   }
   function pick(id, scroll = true){
@@ -97,6 +103,8 @@
     if(scroll){
       $('tplGallery').open = false;
       $('court').closest('.panel').scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
+      // The keyboard continues in the form the gallery folded away to.
+      $('court').focus({preventScroll: true});
     }
   }
   $('tplSearch').addEventListener('input', () => { gal.q = $('tplSearch').value; renderGallery(); });
@@ -208,6 +216,8 @@
   const fitPaper = () => zoom.apply();
   const fixButton = c => { const b = document.createElement('button'); b.type = 'button'; b.className = 'secondary inline-btn'; b.textContent = 'Düzelt'; b.addEventListener('click', () => editor.applyFix(c.fix)); return b; };
   function render(){
+    // A change after a download: the green "İndirildi" no longer describes this text.
+    if($('download').dataset.state === 'done') UI.download($('download'), 'idle');
     try{
       const t = build(); state.result = t;
       const pg = WordToUDFPreview.render($('paper'), t.blocks, {margins: t.norm.margins, font: P.LEGAL_FONT, size: P.LEGAL_SIZE});
@@ -365,10 +375,10 @@
   $('mbPreview').addEventListener('click', () => zoom.setFull(true));
   /* ------------------------------ command palette (Ctrl+K) ------------------------------ */
   UI.commands.add([
-    {id: 'tpl:udf', group: 'İndir', label: 'UDF oluştur ve indir', hint: 'UYAP Doküman Editörü dosyası', icon: 'i-download', keywords: 'indir kaydet', run: () => $('download').click()},
-    {id: 'tpl:docx', group: 'İndir', label: 'Word (DOCX) indir', hint: 'UDF ile aynı düzen', icon: 'i-doc', keywords: 'word', run: () => $('downloadDocx').click()},
-    {id: 'tpl:pdf', group: 'İndir', label: 'PDF olarak kaydet', hint: 'Yazdırma penceresi açılır', icon: 'i-report', keywords: 'yazdır', run: () => $('printPdf').click()},
-    {id: 'tpl:find', group: 'Düzenle', label: 'Bul / değiştir', hint: 'Önizlemenin tamamında ara (Ctrl+F)', icon: 'i-search', keywords: 'ara', when: () => !!state.result, run: () => editor.openFind()},
+    {id: 'tpl:udf', keepFull: true, group: 'İndir', label: 'UDF oluştur ve indir', hint: 'UYAP Doküman Editörü dosyası', icon: 'i-download', keywords: 'indir kaydet', run: () => $('download').click()},
+    {id: 'tpl:docx', keepFull: true, group: 'İndir', label: 'Word (DOCX) indir', hint: 'UDF ile aynı düzen', icon: 'i-doc', keywords: 'word', run: () => $('downloadDocx').click()},
+    {id: 'tpl:pdf', keepFull: true, group: 'İndir', label: 'PDF olarak kaydet', hint: 'Yazdırma penceresi açılır', icon: 'i-report', keywords: 'yazdır', run: () => $('printPdf').click()},
+    {id: 'tpl:find', keepFull: true, group: 'Düzenle', label: 'Bul / değiştir', hint: 'Önizlemenin tamamında ara (Ctrl+F)', icon: 'i-search', keywords: 'ara', when: () => !!state.result, run: () => editor.openFind()},
     {id: 'tpl:regen', group: 'Düzenle', label: 'Metni şablondan yeniden oluştur', hint: 'Elle değiştirilen metin şablon metniyle değişir', icon: 'i-layers', keywords: 'sıfırla', run: () => $('regen').click()},
     {id: 'tpl:gallery', group: 'Şablonlar', label: 'Şablon galerisini aç', hint: 'Kategoriye göre ya da arayarak seç', icon: 'i-grid', keywords: 'seç liste', run: () => { $('tplGallery').open = true; $('tplGallery').scrollIntoView({block: 'start'}); $('tplSearch').focus({preventScroll: true}); }}
   ]);

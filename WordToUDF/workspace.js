@@ -11,7 +11,8 @@
   const blocking=source=>(source?.warnings||[]).filter(w=>!w.minor);
   function setReady(){
     const blocked=!state.source||!state.result||(blocking(state.source).length>0&&!review.checked);
-    download.disabled=blocked;downloadDocx.disabled=blocked;$('printPdf').disabled=blocked;
+    // A UDF being written keeps its button locked even if the preview re-renders meanwhile.
+    download.disabled=blocked||download.dataset.state==='working';downloadDocx.disabled=blocked;$('printPdf').disabled=blocked;
     reportDownload.disabled=!state.source||!state.result;
     // Phone: quick actions at the bottom once a document is loaded.
     $('mobileBar').hidden=!state.source;$('mbDownload').disabled=blocked;
@@ -178,6 +179,8 @@
     if(!state.source)return;
     const source=state.source;
     state.result=null;state.downloaded=false;
+    // A change after a download: the green "İndirildi" no longer describes this version.
+    if(download.dataset.state==='done')UI.download(download,'idle');
     let t;
     try{t=P.typeset(source.blocks,{profile:state.profile,selection:state.selection,settings:state.settings,now:new Date(),edits:editor.edits,sourceMargins:source.options.margins});}
     catch(err){message(`Dönüştürme hazırlanamadı: ${err.message}`,'error');setReady();return;}
@@ -285,7 +288,8 @@
     state.source={blocks:asm.blocks,warnings:[],statistics:{paragraphs:asm.blocks.filter(b=>b.kind==='paragraph').length,tables:0,characters:text.join('').length,pages:0},
       options:{margins:{},landscape:false,font:P.LEGAL_FONT,size:P.LEGAL_SIZE}};
     state.file={name:pasteName()};
-    if(fresh){state.selection={start:'auto',end:'auto'};editor.reset();++state.loadSerial;}
+    // A paste replaces a Word file still being read: its loading state ends here.
+    if(fresh){state.selection={start:'auto',end:'auto'};editor.reset();++state.loadSerial;setLoading(false);}
     fillSelect('startSection',state.source.blocks,state.selection.start);fillSelect('endSection',state.source.blocks,state.selection.end);
     $('completePanel').hidden=false;$('sectionPanel').hidden=false;$('reportPanel').hidden=false;
     $('fileStats').textContent=`${state.source.statistics.paragraphs} paragraf · yapıştırılan metin`;
@@ -433,16 +437,18 @@
     return {margins:state.result.margins,landscape:state.source.options.landscape,font:legal?P.LEGAL_FONT:state.source.options.font,size:legal?P.LEGAL_SIZE:state.source.options.size};
   }
   download.addEventListener('click',async()=>{
-    if(!state.source||!state.result||download.disabled)return;
+    if(!state.source||!state.result||download.disabled||download.dataset.state==='working')return;
     // Re-render so the closing date is the date of generation, not of preview.
     if(state.profile==='legal')render();
     if(!state.result)return;
+    const made=state.result;
     download.disabled=true;UI.download(download,'working');message('UDF oluşturuluyor ve içeriği doğrulanıyor…');
     try{
-      const res=await P.toUdf(state.result.blocks,outputOptions());
+      const res=await P.toUdf(made.blocks,outputOptions());
       downloadBlob(res.bytes,outBase()+'.udf','application/octet-stream');
-      const errors=(state.result.checks||[]).filter(c=>c.level==='error').length;
-      UI.download(download,'done');state.downloaded=true;
+      const errors=(made.checks||[]).filter(c=>c.level==='error').length;
+      // Step 4 is done only if nothing changed while the file was being written.
+      UI.download(download,'done');state.downloaded=state.result===made;
       message(`UDF hazır: ${res.paragraphs} paragraf, ${res.lists} otomatik liste maddesi, ${res.breaks} sayfa sonu.${errors?` Dilekçe denetiminde ${errors} hata var; göndermeden önce bakın.`:''} İndirilen dosyayı UYAP'ta denetleyin.`,errors?'error':'success');
     }catch(err){UI.download(download,'idle');message(`Dönüştürme başarısız: ${err.message}`,'error');}
     finally{setReady();}
@@ -549,14 +555,14 @@
     {id:'ws:file',group:'Dönüştür',label:'Word dosyası seç',hint:'DOCX · en fazla 24 MB · dosya cihazdan çıkmaz',icon:'i-upload',keywords:'docx yükle aç',run:()=>{setTab('word');fileInput.click();}},
     {id:'ws:paste',group:'Dönüştür',label:'Metni yapıştır',hint:'Word, PDF, Google Dokümanlar, WhatsApp…',icon:'i-paste',keywords:'yapıştır pano',run:()=>{setTab('paste');$('pasteBox').focus();}},
     {id:'ws:batch',group:'Dönüştür',label:'Toplu dönüştür',hint:'Birden çok DOCX → tek ZIP',icon:'i-stack',keywords:'zip çoklu',run:()=>$('batchInput').click()},
-    {id:'ws:udf',group:'İndir',label:'UDF oluştur ve indir',hint:'UYAP Doküman Editörü dosyası',icon:'i-download',keywords:'indir kaydet udf',when:can('download'),run:()=>download.click()},
-    {id:'ws:docx',group:'İndir',label:'Düzenlenmiş Word (DOCX) indir',hint:'UDF ile aynı düzen',icon:'i-doc',keywords:'word docx',when:can('downloadDocx'),run:()=>downloadDocx.click()},
-    {id:'ws:pdf',group:'İndir',label:'PDF olarak kaydet',hint:'Yazdırma penceresi açılır',icon:'i-report',keywords:'pdf yazdır',when:can('printPdf'),run:()=>$('printPdf').click()},
-    {id:'ws:report',group:'İndir',label:'Dönüşüm raporu',hint:'Değişiklikler, denetim, uyarılar',icon:'i-report',keywords:'rapor txt',when:can('reportDownload'),run:()=>reportDownload.click()},
-    {id:'ws:find',group:'Düzenle',label:'Bul / değiştir',hint:'Belgenin tamamında ara (Ctrl+F)',icon:'i-search',keywords:'ara değiştir',when:()=>!!state.result,run:()=>editor.openFind()},
-    {id:'ws:changes',group:'Düzenle',label:'Değişiklikleri göster / gizle',hint:'Aracın eklediği sözcükler sarıyla',icon:'i-eye',keywords:'fark',when:()=>!!state.result&&!$('changesToggle').hidden,run:()=>$('changesToggle').click()},
-    {id:'ws:fit',group:'Düzenle',label:'Sayfaya sığdır / gerçek boyut',hint:'Önizleme yakınlaştırması',icon:'i-eye',keywords:'zoom yakınlaştır',run:()=>$('zoomToggle').click()},
-    {id:'ws:settings',group:'Ayarlar',label:'Vekil ve UETS ayarları',hint:'Ad SOYAD, UETS, başka vekil',icon:'i-user',keywords:'avukat uets vekil',run:()=>{$('legalOptions').scrollIntoView({block:'start'});$('ownName').focus({preventScroll:true});}},
+    {id:'ws:udf',keepFull:true,group:'İndir',label:'UDF oluştur ve indir',hint:'UYAP Doküman Editörü dosyası',icon:'i-download',keywords:'indir kaydet udf',when:can('download'),run:()=>download.click()},
+    {id:'ws:docx',keepFull:true,group:'İndir',label:'Düzenlenmiş Word (DOCX) indir',hint:'UDF ile aynı düzen',icon:'i-doc',keywords:'word docx',when:can('downloadDocx'),run:()=>downloadDocx.click()},
+    {id:'ws:pdf',keepFull:true,group:'İndir',label:'PDF olarak kaydet',hint:'Yazdırma penceresi açılır',icon:'i-report',keywords:'pdf yazdır',when:can('printPdf'),run:()=>$('printPdf').click()},
+    {id:'ws:report',keepFull:true,group:'İndir',label:'Dönüşüm raporu',hint:'Değişiklikler, denetim, uyarılar',icon:'i-report',keywords:'rapor txt',when:can('reportDownload'),run:()=>reportDownload.click()},
+    {id:'ws:find',keepFull:true,group:'Düzenle',label:'Bul / değiştir',hint:'Belgenin tamamında ara (Ctrl+F)',icon:'i-search',keywords:'ara değiştir',when:()=>!!state.result,run:()=>editor.openFind()},
+    {id:'ws:changes',keepFull:true,group:'Düzenle',label:'Değişiklikleri göster / gizle',hint:'Aracın eklediği sözcükler sarıyla',icon:'i-eye',keywords:'fark',when:()=>!!state.result&&!$('changesToggle').hidden,run:()=>$('changesToggle').click()},
+    {id:'ws:fit',keepFull:true,group:'Düzenle',label:'Sayfaya sığdır / gerçek boyut',hint:'Önizleme yakınlaştırması',icon:'i-eye',keywords:'zoom yakınlaştır',run:()=>$('zoomToggle').click()},
+    {id:'ws:settings',group:'Ayarlar',label:'Vekil ve UETS ayarları',hint:'Ad SOYAD, UETS, başka vekil',icon:'i-user',keywords:'avukat uets vekil',when:()=>!$('legalOptions').hidden,run:()=>{$('legalOptions').scrollIntoView({block:'start'});$('ownName').focus({preventScroll:true});}},
     {id:'ws:spacing',group:'Ayarlar',label:'Satır aralığını değiştir (1,0 / 1,5)',hint:'Gövde satır aralığı',icon:'i-ruler',keywords:'satır aralık',run:()=>{$('lineSpacing').value=$('lineSpacing').value==='1'?'1.5':'1';settingsChanged();}},
     {id:'ws:case',group:'Ayarlar',label:'Bu dilekçeden dosya kartı kaydet',hint:'Mahkeme, esas no, taraflar',icon:'i-layers',keywords:'kart kaydet',when:can('saveCaseFromDoc'),run:()=>$('saveCaseFromDoc').click()}
   ]);

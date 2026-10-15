@@ -486,10 +486,17 @@
       const r = p.getBoundingClientRect(), bottomSheet = window.matchMedia('(max-width: 760px)').matches;
       const sr = {top: bottomSheet ? window.innerHeight - sheet.offsetHeight : sheet.getBoundingClientRect().top};
       if(bottomSheet){ // bottom sheet (phone)
-        // The full-screen preview scrolls inside its own box, the inline one with the page.
+        const hidden = q => q.bottom > sr.top - 8 || q.top < 8;
+        if(!hidden(r)) return;
+        // A zoomed or full-screen preview scrolls inside its own box: first there…
         const box = p.closest('.preview-viewport'), own = box && box.scrollHeight > box.clientHeight + 1 && getComputedStyle(box).overflowY !== 'hidden' ? box : null;
-        const top = own ? own.getBoundingClientRect().top + 8 : 8;
-        if(r.bottom > sr.top - 8 || r.top < top) (own || window).scrollBy({top: r.top - Math.max(top, top + (sr.top - top - r.height) / 2), behavior: 'smooth'});
+        if(own){
+          const b = own.getBoundingClientRect(), top = Math.max(8, b.top + 8), bottom = Math.min(sr.top, b.bottom) - 8;
+          own.scrollTop += r.top - Math.max(top, top + (bottom - top - r.height) / 2);
+        }
+        // …then the page moves whatever is still under the sheet (the box itself may start below it).
+        const q = p.getBoundingClientRect();
+        if(hidden(q)) window.scrollBy({top: q.top - Math.max(8, (sr.top - q.height) / 2), behavior: 'smooth'});
       } else if(r.top < 8 || r.bottom > window.innerHeight - 8) p.scrollIntoView({block: 'center', behavior: 'smooth'});
     }
     // Position of a paragraph among the visible editable paragraphs.

@@ -155,9 +155,16 @@
   try{const bytes=await WordToUDFDocxWriter.create(state.source);downloadBlob(bytes,safeName(state.file.name)+'.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document');say('Word dosyası indirildi. Belgeyi açıp sayfa düzenini kontrol edin.','success');}
   catch(e){say(`DOCX dönüştürme başarısız: ${e.message}`,'error');}finally{ready();}
  });
+ // Tinos (Times New Roman metrics) loads the first time the preview needs it: measure the tab stops again.
+ globalThis.WordToUDFUI?.onFontsLoaded(()=>{if(state.source)preview(state.source);});
  $('printPdf').addEventListener('click',()=>{
   if(!state.source)return;
-  try{printDOM(state.source);say('Yazdır penceresinde hedefi “PDF olarak kaydet” seçin.','success');window.print();}
+  try{
+   printDOM(state.source);say('Yazdır penceresinde hedefi “PDF olarak kaydet” seçin.','success');
+   // Fonts still loading: print once they are there (tab stops measured again), one print per press.
+   if(document.fonts?.status==='loading'){if(state.printing)return;state.printing=true;document.fonts.ready.then(()=>{state.printing=false;printDOM(state.source);window.print();});}
+   else window.print();
+  }
   catch(e){say(`PDF yazdırma hatası: ${e.message}`,'error');}
  });
  ready();

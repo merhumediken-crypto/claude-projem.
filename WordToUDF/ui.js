@@ -44,9 +44,10 @@
     if(!toastBox){ toastBox = el('div', {class: 'toasts', 'aria-hidden': 'true'}); document.body.append(toastBox); }
     // The same note again (e.g. several edits in a row) refreshes instead of stacking.
     const last = toastBox.lastElementChild;
-    if(last && last.dataset.text === t && !last.classList.contains('leaving')){ clearTimeout(Number(last.dataset.timer)); arm(last, ms ?? (kind === 'error' ? 7000 : 3200)); return; }
-    const node = el('div', {class: `toast ${kind}`}, el('span', {class: 't-ico'}, icon(kind === 'error' ? 'i-alert' : 'i-tick')), el('span', {text: t}));
-    node.dataset.text = t;
+    if(last && last.dataset.text === t && last.dataset.kind === kind && !last.classList.contains('leaving')){ clearTimeout(Number(last.dataset.timer)); arm(last, ms ?? (kind === 'error' ? 7000 : 3200)); return; }
+    const node = el('div', {class: `toast ${kind}`, title: 'Kapatmak için dokunun'}, el('span', {class: 't-ico'}, icon(kind === 'error' ? 'i-alert' : 'i-tick')), el('span', {text: t}));
+    node.dataset.text = t; node.dataset.kind = kind;
+    node.addEventListener('click', () => leave(node));
     // One note at a time: a new one replaces the previous (several edits in a row do not pile up over the page).
     for(const old of [...toastBox.children]){ clearTimeout(Number(old.dataset.timer)); leave(old); }
     toastBox.append(node);
@@ -73,7 +74,7 @@
   commands.add(NAV.filter(([href]) => href !== page).map(([href, label, hint, ic]) => ({id: `nav:${href}`, group: 'Sayfalar', label, hint, icon: ic, keywords: href, run: () => { location.href = href; }})));
   commands.add({id: 'theme', group: 'Görünüm', label: 'Temayı değiştir', hint: 'Otomatik → açık → koyu', icon: 'i-moon', keywords: 'koyu açık karanlık gece tema', run: () => document.getElementById('themeToggle')?.click()});
 
-  let pal = null, palPrev = null, palActive = 0, palItems = [];
+  let pal = null, palPrev = null, palActive = 0, palItems = [], fullOff = null;
   function openPalette(){
     if(pal) return;
     palPrev = document.activeElement;
@@ -85,7 +86,11 @@
       el('div', {class: 'pal-head'}, icon('i-search'), input, close), list,
       el('div', {class: 'pal-foot'}, el('span', {}, el('kbd', {text: '↑↓'}), 'seç'), el('span', {}, el('kbd', {text: 'Enter'}), 'çalıştır'), el('span', {}, el('kbd', {text: 'Esc'}), 'kapat')));
     pal = el('div', {class: 'palette-backdrop'}, dialog);
-    pal.addEventListener('mousedown', e => { if(e.target === pal) closePalette(); });
+    // The keyboard stays in the search box: a click on padding, a header or an item does not take focus away.
+    pal.addEventListener('mousedown', e => {
+      if(e.target === pal){ e.preventDefault(); closePalette(); return; }
+      if(!e.target.closest('input, button')) e.preventDefault();
+    });
     input.addEventListener('input', () => { palActive = 0; renderPalette(); });
     dialog.addEventListener('keydown', e => {
       if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); if(palItems.length){ palActive = (palActive + (e.key === 'ArrowDown' ? 1 : -1) + palItems.length) % palItems.length; markActive(true); } }
@@ -93,6 +98,8 @@
       else if(e.key === 'Enter' && e.target === input){ e.preventDefault(); runActive(); }
       else if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); closePalette(); }
       else if(e.key === 'Tab'){ e.preventDefault(); (document.activeElement === input ? close : input).focus(); }
+      // Page shortcuts (Ctrl+F, Ctrl+Z, Ctrl+B …) must not act on the page behind the dialog.
+      if((e.ctrlKey || e.metaKey) && e.key.toLocaleLowerCase('en-US') !== 'k') e.stopPropagation();
     });
     document.body.append(pal);
     renderPalette();
@@ -114,8 +121,9 @@
     const input = pal.querySelector('#palInput'), list = pal.querySelector('#palList');
     const words = fold(input.value).split(/\s+/u).filter(Boolean);
     const found = commands.list().map((c, i) => ({c, s: score(c, words), i})).filter(x => x.s > 0);
-    // With a query: best matches first; without: in registration order, grouped.
+    // With a query: best matches first; without: grouped, groups in the order they first appear.
     if(words.length) found.sort((a, b) => b.s - a.s || a.i - b.i);
+    else{ const order = new Map(); for(const x of found) if(!order.has(x.c.group)) order.set(x.c.group, order.size); found.sort((a, b) => order.get(a.c.group) - order.get(b.c.group) || a.i - b.i); }
     palItems = found.map(x => x.c).slice(0, 60);
     list.replaceChildren();
     let group = null;
@@ -141,7 +149,13 @@
   function runActive(){
     const c = palItems[palActive]; if(!c) return;
     closePalette();
-    try{ c.run(); }catch(err){ toast(err.message || String(err), 'error'); }
+    // Commands for the rest of the page leave the full-screen preview first.
+    if(document.documentElement.classList.contains('full-preview') && !c.keepFull) fullOff?.();
+    try{ c.run(); }catch(err){
+      const msg = err.message || String(err), st = document.getElementById('status');
+      if(st){ st.textContent = msg; st.className = 'status error'; }
+      toast(msg, 'error');
+    }
   }
   document.addEventListener('keydown', e => {
     if((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLocaleLowerCase('en-US') === 'k'){ e.preventDefault(); if(pal) closePalette(); else openPalette(); }
@@ -190,12 +204,19 @@
     }
     // Fixed suggestions stay listed (green) with a way back.
     for(const f of fixed){
-      const li = el('li', {class: 'check-fixed'});
+      const li = el('li', {class: 'check-fixed'}); li.dataset.code = `fixed:${f.text}`;
       li.append(el('span', {class: 'ci', 'aria-hidden': 'true'}, icon('i-tick')), el('span', {class: 'ct'}, el('strong', {text: 'Düzeltildi: '}), document.createTextNode(f.text)));
       if(f.undo) li.append(el('span', {class: 'ca'}, el('button', {type: 'button', class: 'secondary inline-btn', text: 'Geri al', onclick: f.undo})));
       rows.push(li);
     }
+    // The list is rebuilt after "Düzelt" / "Geri al": the keyboard focus stays in it.
+    const had = ul.contains(document.activeElement) ? {code: document.activeElement.closest('li')?.dataset.code, text: document.activeElement.textContent} : null;
     ul.replaceChildren(...rows);
+    if(had){
+      const same = [...ul.querySelectorAll('li')].find(li => li.dataset.code === had.code)?.querySelector('button');
+      const next = same || ul.querySelector('button');
+      if(next) next.focus({preventScroll: true}); else{ ul.tabIndex = -1; ul.focus({preventScroll: true}); }
+    }
     const stats = $(ids.stats);
     if(stats){
       stats.textContent = `${counts.error} hata · ${counts.warn} uyarı${counts.suggest ? ` · ${counts.suggest} öneri` : ''}`;
@@ -238,6 +259,8 @@
       scale = WordToUDFPreview.fit(viewport, wrapper, paper, fit, zoom, {crop: crop()});
       toggle.setAttribute('aria-pressed', String(fit));
       toggle.textContent = fit ? `Sığdır · %${Math.round(scale * 100)}` : `%${Math.round(scale * 100)}`;
+      // The name says what the button is; pressed = fitted; the percentage is the visible extra.
+      toggle.setAttribute('aria-label', `Sayfaya sığdır (şu an %${Math.round(scale * 100)})`);
       toggle.title = fit ? 'Gerçek boyuta geç (%100)' : (crop() ? 'Metni ekran genişliğine sığdır' : 'Sayfayı genişliğe sığdır');
       if(zoomOut) zoomOut.disabled = !fit && zoom <= .3;
       if(zoomIn) zoomIn.disabled = !fit && zoom >= 2;
@@ -281,11 +304,16 @@
       if(!section) return;
       section.classList.toggle('preview-full', on);
       document.documentElement.classList.toggle('full-preview', on);
+      // Behind the full-screen preview nothing is reachable by Tab or a screen reader.
+      for(const n of document.querySelectorAll('.appbar, .tabbar, .mobile-bar, main > :not(.layout), .layout > *')) if(n !== section) n.inert = on;
       if(full){ full.setAttribute('aria-pressed', String(on)); full.querySelector('.full-label').textContent = on ? 'Küçült' : 'Tam ekran'; full.title = on ? 'Tam ekrandan çık (Esc)' : 'Önizlemeyi tam ekran aç'; }
       fit = true; apply();
       viewport.scrollTop = 0;
       if(!on) section.scrollIntoView({block: 'start'});
+      // The phone's "Önizleme" button disappears behind it: the focus moves to the toggle.
+      full?.focus({preventScroll: true});
     }
+    fullOff = () => { if(section?.classList.contains('preview-full')) setFull(false); };
     full?.addEventListener('click', () => setFull(!section.classList.contains('preview-full')));
     document.addEventListener('keydown', e => {
       // The edit panel, the format bar and the find box close first (editor-ui.js).
