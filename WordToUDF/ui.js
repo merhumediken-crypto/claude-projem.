@@ -50,6 +50,8 @@
     node.addEventListener('click', () => leave(node));
     // One note at a time: a new one replaces the previous (several edits in a row do not pile up over the page).
     for(const old of [...toastBox.children]){ clearTimeout(Number(old.dataset.timer)); leave(old); }
+    // The phone's format bar sits where toasts appear: the note goes to the top instead.
+    toastBox.classList.toggle('above', !!document.querySelector('.mark-pop.docked:not([hidden])'));
     toastBox.append(node);
     arm(node, ms ?? (kind === 'error' ? 7000 : 3200));
   }
@@ -255,7 +257,20 @@
   function zoomer({viewport, wrapper, paper, toggle, zoomIn, zoomOut, full, section, onChange = () => {}}){
     let fit = true, zoom = 1, scale = 1;
     const crop = () => phone() || !!section?.classList.contains('preview-full') && window.innerWidth < 900;
+    // The paragraph editor is a side sheet on wide screens: while it is open
+    // the preview (in full screen: the whole preview, tool row included)
+    // starts right of it instead of lying under it.
+    function makeRoom(){
+      const full = !!section?.classList.contains('preview-full'), target = full ? section : viewport;
+      for(const n of [section, viewport]) if(n) n.style.paddingLeft = '';
+      const sheet = document.querySelector('.edit-sheet');
+      if(!sheet || phone()) return;
+      const right = sheet.offsetLeft + sheet.offsetWidth + 16, box = target.getBoundingClientRect();
+      const pad = parseFloat(getComputedStyle(target).paddingLeft) || 0;
+      if(right > box.left + pad && sheet.offsetLeft < box.right) target.style.paddingLeft = `${Math.round(right - box.left)}px`;
+    }
     function apply(){
+      makeRoom();
       scale = WordToUDFPreview.fit(viewport, wrapper, paper, fit, zoom, {crop: crop()});
       toggle.setAttribute('aria-pressed', String(fit));
       toggle.textContent = fit ? `Sığdır · %${Math.round(scale * 100)}` : `%${Math.round(scale * 100)}`;
@@ -322,6 +337,7 @@
       setFull(false); full?.focus({preventScroll: true});
     });
     let t = 0; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(apply, 120); });
+    document.addEventListener('wordtoudf:sheet', () => apply());
     return {apply, setFull, get scale(){ return scale; }, get fit(){ return fit; }};
   }
 
@@ -361,11 +377,16 @@
 
   /* ------------------------------ fonts ------------------------------ */
   // The bundled Tinos (Times New Roman metrics) loads only when the preview
-  // first needs it; tab stops and page guides are measured again then.
+  // first needs it; tab stops and page guides are measured again then. The
+  // interface fonts loading later (a Turkish letter in a toast, a heading)
+  // do not change the preview and are ignored.
   function onFontsLoaded(fn){
     if(!document.fonts?.addEventListener) return;
     let t = 0;
-    document.fonts.addEventListener('loadingdone', () => { clearTimeout(t); t = setTimeout(fn, 30); });
+    document.fonts.addEventListener('loadingdone', e => {
+      if(e.fontfaces && !e.fontfaces.some(f => /tinos/iu.test(f.family))) return;
+      clearTimeout(t); t = setTimeout(fn, 30);
+    });
   }
 
   globalThis.WordToUDFUI = {toast, commands, openPalette, closePalette, checks, ring, download, zoomer, thumbs, onFontsLoaded, icon, el, fold, LEVEL_TEXT};

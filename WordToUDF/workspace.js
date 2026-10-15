@@ -193,19 +193,22 @@
     $('splitHint').textContent=n>1&&!$('splitRequests').checked?`(bu belgede ${n} talep tek maddede)`:'';
     const legal=state.profile==='legal';
     const pg=WordToUDFPreview.render($('paper'),t.blocks,{margins:norm.margins,landscape:source.options.landscape,font:legal?P.LEGAL_FONT:source.options.font,size:legal?P.LEGAL_SIZE:source.options.size});
-    state.pages=pg.pages;
-    showPageNote(pg);
     // "Değişiklikleri göster": words the rules added or changed, per-paragraph notes.
     $('changesToggle').hidden=!legal;$('chgLegend').hidden=!(legal&&state.showChanges);
     if(legal&&state.showChanges)WordToUDFPreview.markChanges($('paper'),source.blocks,(t.typography.changes||[]).map(c=>({after:String(c.after||'').trim(),text:changeText(c)})));
-    fitPaper();thumbs.update(pg.pages);syncSource(pg.pages);
+    showPages(pg);
     editor.decorate();
     const ty=t.typography;
     const typeInfo=ty?.enabled?` · ${ty.metadataMerged||0} künye satırı birleştirildi · ${ty.resultItems||0} talep ve ${ty.attachments||0} ek numaralı listede · hukuk tipografisi etkin`:' · Word biçimi profili';
     $('sectionInfo').textContent=norm.selection.start<0?'AÇIKLAMALAR başlığı bulunamadı; gerekirse başlangıç başlığını seçin.':`${norm.bodyCount} gövde paragrafı ve ${norm.headingCount||0} ara başlık açıklamalar düzeninde işlendi${typeInfo}.`;
-    $('previewCount').textContent=`${source.statistics.paragraphs} paragraf · ≈ ${pg.pages} sayfa · A4 ${source.options.landscape?'yatay':'dikey'}`;
     showFileName();
     setReady();
+  }
+  // Page count, the lone-signature note, the scale and the page rail.
+  function showPages(pg){
+    state.pages=pg.pages;showPageNote(pg);
+    $('previewCount').textContent=`${state.source.statistics.paragraphs} paragraf · ≈ ${pg.pages} sayfa · A4 ${state.source.options.landscape?'yatay':'dikey'}`;
+    fitPaper();thumbs.update(pg.pages);syncSource(pg.pages);
   }
   function showPageNote(pg){
     $('pageNote').hidden=!pg.signatureAlone;
@@ -399,8 +402,11 @@
   profileSelect.addEventListener('change',e=>{state.profile=e.target.value==='faithful'?'faithful':'legal';editor.close();render();});
   $('startSection').addEventListener('change',e=>{state.selection.start=e.target.value;render();});
   $('endSection').addEventListener('change',e=>{state.selection.end=e.target.value;render();});
-  // Tinos (Times New Roman metrics) loads the first time the preview needs it: measure tabs and pages again.
-  UI.onFontsLoaded(()=>{if(state.result)render();else fitPaper();});
+  // Tinos (Times New Roman metrics) loads the first time the preview needs it
+  // on a device without Times New Roman: the same paragraphs are measured
+  // again (tabs, pages). No re-render: the selection, the open panel and the
+  // "İndirildi" state of the document stay.
+  UI.onFontsLoaded(()=>{if(state.result&&state.source)showPages(WordToUDFPreview.relayout($('paper'),{margins:state.result.margins,landscape:state.source.options.landscape}));else fitPaper();});
 
   /* ------------------------------ downloads ------------------------------ */
   function reportText(){

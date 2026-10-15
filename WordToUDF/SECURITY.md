@@ -1,4 +1,4 @@
-# WordToUDF 1.10.3 güvenlik notları
+# WordToUDF 1.11.0 güvenlik notları
 
 - Manifest V3; host izni ve genişletilmiş tarayıcı izni yoktur.
 - Ağ erişimi kapalıdır (`connect-src 'none'`); uzaktan script/kod kullanılmaz.
@@ -23,5 +23,7 @@
 - 1.7.0 arayüz: HTML sayfaları `tools/pages.py` ile üretilir ve üretim sırasında satır içi `style="…"` veya satır içi `<script>` bulunursa durur; CSP'ye `unsafe-inline` eklenmedi. Simgeler aynı sayfadaki SVG setinden (`<use href="#…">`) gelir, dış kaynak yüklenmez. Tema seçimi (`wordtoudf.theme`: auto/light/dark) yalnız yerel depolamada tutulur; okunan değer bu üç değerden biri değilse yok sayılır. Manifest izinleri değişmedi (`permissions: []`, `host_permissions: []`).
 - 1.9.0 kütüphane: dosya kartları (en çok 300) ve kendi şablonlarınız (en çok 100, her metin alanı 20.000 karakter) yalnız yerel depolamadadır; yüklemede, kayıtta ve içe aktarmada bilinen alanlara indirgenir, kontrol karakterleri atılır. Şablon alanları ({…}) yalnız harf/rakam/boşluk içerebilir ve düz metin olarak doldurulur; hiçbir değer HTML olarak işlenmez.
 - 1.10.0: PDF için yalnız tarayıcının kendi yazdırma penceresi kullanılır; `@page` kuralı oluşturulmuş stil sayfasıyla eklenir (CSP'ye `unsafe-inline` eklenmedi; CSP açık sayfa testi yazdırmayı da kapsar). Süre hesabı tamamen yereldir; takvim dosyası (.ics) kullanıcının indirdiği düz metindir. Deneysel vurgu varsayılan olarak kapalıdır ve yalnız kullanıcı açarsa UDF'ye `background` özniteliği yazılır.
+
+- 1.11.0 arayüz: yazı tipleri (Manrope, Instrument Serif, Tinos; SIL OFL, lisansları `fonts/` içinde) paketle gelir ve `@font-face` ile aynı kaynaktan yüklenir; Google Fonts veya başka bir CDN çağrılmaz, CSP değişmedi (`font-src` tanımsız olduğu için `default-src 'self'` geçerlidir). `ui.js` (bildirimler, komut arama, denetim halkası) kullanıcı ve belge metnini yalnız `textContent` ile yazar; komut listesi sayfa kodunun tanımladığı sabit komutlardır, belge içeriğinden komut üretilmez. Adresle gelen şablon / süre seçimi (`templates.html#id`, `sure.html#id`) yalnız bilinen kimliklerle eşleştirilir, bir kez kullanılıp adresten silinir; bozuk adres yok sayılır. Manifest izinleri değişmedi (`permissions: []`, `host_permissions: []`, `connect-src 'none'`).
 
 Bu kontroller dosyanın hukuki veya içerik doğruluğunu garanti etmez; yalnızca dönüştürme yüzeyini sertleştirir.

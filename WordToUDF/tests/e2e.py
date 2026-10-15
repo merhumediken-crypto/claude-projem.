@@ -315,6 +315,7 @@ def main():
         v110_tools(browser,tmp,petition)
         v1101_audit(browser,tmp,petition)
         v111_design(browser,tmp,petition)
+        v111_editing(browser,tmp,petition)
         csp_check(browser)
         browser.close()
 
@@ -1103,6 +1104,65 @@ def v111_design(browser,tmp,petition):
     assert page.locator('#dMonths .cal-day.holiday').count()>=1  # 29 Ekim
     ctx.close()
     print('PASS 1.11 tasarım: telefonda metin sütunu ekranı doldurur, tam ekran + yakınlaştırma + panelin üstünde düzenleme, Esc sırası; adımlar, denetim halkası, düzeltileni geri al, komut paleti, indirme durumu, şablon galerisi, e-Tebligat ve takvim')
+
+def v111_editing(browser,tmp,petition):
+    """1.11 audit: a late web font does not rebuild the preview (the selection
+    stays); the phone's format bar stays on one row and toasts move above it;
+    a paragraph moved up in full screen stays visible under the tool row; on
+    a desktop the full-screen preview starts right of the edit panel."""
+    ctx=browser.new_context(viewport={'width':390,'height':844},has_touch=True,is_mobile=True)
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html');fetch_data(page,petition)
+    page.locator('#paper .paragraph',has_text='verilen karara').scroll_into_view_if_needed()
+    assert page.evaluate(SELECT_JS,['#paper .paragraph','verilen karara']);page.wait_for_timeout(400)
+    page.evaluate("document.querySelector('#paper .paragraph[data-key]').__keep=1")
+    # Yazı tipi geç yüklendi: Tinos ölçüyü yeniler ama belgeyi baştan çizmez; arayüz yazı tipi hiç dokunmaz.
+    for fam in ('Manrope','Tinos'):
+        page.evaluate("f=>document.fonts.dispatchEvent(new FontFaceSetLoadEvent('loadingdone',{fontfaces:[new FontFace(f,'local(Arial)')]}))",fam);page.wait_for_timeout(250)
+    assert page.evaluate("document.querySelector('#paper .paragraph[data-key]').__keep===1"),'önizleme yeniden çizilmedi'
+    assert page.evaluate('getSelection().toString()')=='verilen karara' and page.locator('.mark-pop').is_visible(),'seçim ve biçim çubuğu kalır'
+    bar=page.locator('.mark-pop').bounding_box();assert bar['height']<=60 and bar['x']>=0 and bar['x']+bar['width']<=390,bar
+    page.locator('.mark-pop .mp-bold').click();page.wait_for_timeout(300)
+    t=page.locator('.toast:not(.leaving)').bounding_box();bar=page.locator('.mark-pop').bounding_box()
+    assert t and (t['y']+t['height']<=bar['y'] or t['y']>=bar['y']+bar['height']),('bildirim biçim çubuğunu örtmez',t,bar)
+    # Tam ekranda yukarı taşınan paragraf araç satırının altına kaçmaz.
+    page.keyboard.press('Escape');page.locator('#mbPreview').click();page.wait_for_timeout(300)
+    page.locator('#paper .paragraph[data-role="result-item"]').last.click();page.wait_for_timeout(700)
+    VIS="()=>{const p=document.querySelector('#paper .paragraph.selected').getBoundingClientRect(),v=document.getElementById('previewViewport').getBoundingClientRect(),s=document.querySelector('.edit-sheet');return p.top>=v.top-1&&p.bottom<=innerHeight-s.offsetHeight+1}"
+    for _ in range(8):
+        up=page.locator('.edit-sheet .chip',has_text='Yukarı taşı')
+        if up.is_disabled():break
+        up.click();page.wait_for_timeout(500)
+        assert page.evaluate(VIS),'taşınan paragraf görünür kalır'
+    assert not errors,errors
+    ctx.close()
+    ctx=browser.new_context(viewport={'width':1280,'height':800})
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html');fetch_data(page,petition)
+    page.locator('#previewFull').click();page.wait_for_timeout(300)
+    page.locator('#paper .paragraph[data-role="explanation-body"]').first.click();page.wait_for_timeout(600)
+    cover=page.evaluate("""()=>{const s=document.querySelector('.edit-sheet').getBoundingClientRect(),p=document.querySelector('#paper .paragraph.selected').getBoundingClientRect();
+      const tools=[...document.querySelectorAll('#previewTools button')].filter(b=>b.getClientRects().length).some(b=>{const q=b.getBoundingClientRect();return q.left<s.right&&q.right>s.left&&q.top<s.bottom&&q.bottom>s.top});
+      return {para:Math.max(0,Math.min(p.right,s.right)-Math.max(p.left,s.left)),tools}}""")
+    assert cover=={'para':0,'tools':False},('panel sayfayı ve araçları örtmez',cover)
+    page.keyboard.press('Escape');page.wait_for_timeout(200)
+    assert page.evaluate("document.getElementById('previewSection').style.paddingLeft")=='','panel kapanınca önizleme yerine döner'
+    assert not errors,errors
+    ctx.close()
+    # UDF → Word: telefonda sayfa ekrana sığar (yan kaydırma yok), boş sayfa yazısı görünür, tam ekran açılır.
+    ctx=browser.new_context(viewport={'width':390,'height':844},has_touch=True,is_mobile=True)
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'reverse.html')
+    box=page.locator('#paper .empty-state strong').bounding_box();assert box['x']>=0 and box['x']+box['width']<=390,box
+    page.locator('#fileInput').set_input_files(str(tmp/'v111.udf'));page.wait_for_timeout(800)
+    assert re.search(r'Sığdır · %\d+',page.locator('#zoomToggle').text_content())
+    sw=page.evaluate("()=>{const v=document.getElementById('previewViewport');return [document.documentElement.scrollWidth,v.scrollWidth,v.clientWidth]}")
+    assert sw[0]<=391 and sw[1]<=sw[2]+1,sw
+    page.locator('#previewFull').click();page.wait_for_timeout(200)
+    assert page.evaluate("getComputedStyle(document.getElementById('previewSection')).position")=='fixed'
+    page.keyboard.press('Escape');page.wait_for_timeout(100)
+    assert not errors,errors
+    ctx.close()
 
 def csp_check(browser):
     """The other tests strip the pages' CSP; here the real pages are served

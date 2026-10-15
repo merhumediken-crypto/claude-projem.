@@ -221,11 +221,8 @@
     try{
       const t = build(); state.result = t;
       const pg = WordToUDFPreview.render($('paper'), t.blocks, {margins: t.norm.margins, font: P.LEGAL_FONT, size: P.LEGAL_SIZE});
-      $('previewCount').textContent = `≈ ${pg.pages} sayfa · A4`;
-      $('pageNote').hidden = !pg.signatureAlone;
-      $('pageNote').textContent = pg.signatureAlone ? `Uyarı (yaklaşık): imza bloğu ${pg.pages}. sayfaya tek başına düşüyor; bir paragrafı kısaltmayı düşünün.` : '';
+      showPages(pg);
       showFileName();
-      fitPaper(); thumbs.update(pg.pages);
       editor.decorate();
       $('checksPanel').hidden = false;
       UI.checks({list: 'checkList', stats: 'checkStats', ring: 'checkRing', big: 'ringBig', small: 'ringSmall', legend: 'ringLegend'}, t.checks, {
@@ -233,6 +230,12 @@
         fixed: editor.cleanups().map(id => ({text: editor.cleanupLabel(id), undo: () => editor.dropCleanup(id)}))});
       saveDraft();
     }catch(err){ message(`Önizleme oluşturulamadı: ${err.message}`, 'error'); }
+  }
+  function showPages(pg){
+    $('previewCount').textContent = `≈ ${pg.pages} sayfa · A4`;
+    $('pageNote').hidden = !pg.signatureAlone;
+    $('pageNote').textContent = pg.signatureAlone ? `Uyarı (yaklaşık): imza bloğu ${pg.pages}. sayfaya tek başına düşüyor; bir paragrafı kısaltmayı düşünün.` : '';
+    fitPaper(); thumbs.update(pg.pages);
   }
   let timer = 0; function schedule(){ clearTimeout(timer); timer = setTimeout(render, 150); }
   // Paragraph editor on the preview (same as the converter page). Edits are
@@ -316,7 +319,8 @@
   for(const k of COMMON) $(k).addEventListener('input', () => regenerate(false));
   for(const k of TEXT) $(k).addEventListener('input', () => { edited = true; schedule(); });
   $('regen').addEventListener('click', () => regenerate(true));
-  UI.onFontsLoaded(() => render());
+  // Tinos arrived: measure the same paragraphs again (no re-render, the selection and the panel stay).
+  UI.onFontsLoaded(() => { if(state.result) showPages(WordToUDFPreview.relayout($('paper'), {margins: state.result.norm.margins})); });
 
   function fileBase(){
     const client = P.safeName($('client').value || 'Dilekce').replace(/\s+/gu, '_');

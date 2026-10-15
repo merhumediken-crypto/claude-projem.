@@ -168,6 +168,13 @@
     positionTabs(paper);
     return guides ? paginate(paper, {margins, landscape}) : {pages: 0, signatureAlone: false};
   }
+  // A web font that arrives after the first render changes text widths only:
+  // the tab stops and page guides are measured again on the same paragraphs,
+  // so a text selection, the edit panel and the marks stay as they are.
+  function relayout(paper, {margins, landscape, guides = true} = {}){
+    positionTabs(paper);
+    return guides ? paginate(paper, {margins, landscape}) : {pages: 0, signatureAlone: false};
+  }
   // Scale the paper to the viewport width, or to a fixed zoom (0.3–2) when
   // fitting is off. The wrapper gets the scaled size so the page scrolls
   // normally. crop (phones): fit the text column instead of the whole sheet —
@@ -200,5 +207,5 @@
     }
     return scale;
   }
-  globalThis.WordToUDFPreview = {render, fit, makeParagraph, positionTabs, listMarker, paginate, markChanges};
+  globalThis.WordToUDFPreview = {render, relayout, fit, makeParagraph, positionTabs, listMarker, paginate, markChanges};
 })();

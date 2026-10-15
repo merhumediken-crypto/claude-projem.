@@ -1,4 +1,4 @@
-# WordToUDF 1.10.3 – Mimari
+# WordToUDF 1.11.0 – Mimari
 
 ## Dönüşüm hattı
 
@@ -135,3 +135,15 @@ tools/pages.py ─► workspace.html · templates.html · reverse.html · sure.h
 - **legal-typography.js** künye / bölüm satırında etiket, sekme ve iki noktayı aynı biçimle (kalın + altı çizili) üretir; yazıcı üçünü `ETİKET⇥:` olarak tek öğeye birleştirir. Swing'in alt çizgisi sekme genişliğini kapsadığı için çizgi kesintisizdir.
 - **udf-reader.js** her iki yazımı da okur (`<tab>` öğesi ve metin içindeki sekme).
 
+## 1.11.0 — tasarım ve etkileşim katmanı
+
+Dönüşüm hattı, belge modeli ve UDF yazımı değişmedi; bütün öğe kimlikleri (`#download`, `#paper`, `#tpl`…) korunur.
+
+- **workspace.css** baştan yazıldı: renk, gölge ve yarıçap belirteçleri (`:root`, `[data-theme="dark"]`), bileşenler (panel, düğme, anahtar, halka, takvim, galeri, bildirim, komut paleti). Sayfaya özgü durum sınıfları `body` yerine `html` öğesine konur (`full-preview`, `intro`); yazdırmada `body.className` yalnız `print-doc` olur.
+- **fonts/** — Manrope, Instrument Serif ve Tinos woff2 alt kümeleri (`latin` + `ext`: U+0100–017F, ₺). Önizleme ailesi `"Times New Roman", Tinos, Times, serif` (preview.js / reverse.js `family()`); Tinos geç yüklenince `UI.onFontsLoaded` önizlemeyi yeniden ölçer, `print.js` yazdırmadan önce yazı tiplerini bekler.
+- **ui.js** — bütün sayfaların ortak katmanı, sayfanın kendi betiklerinden önce yüklenir (`tools/pages.py`): `toast` (tek bildirim), `commands` + `openPalette` (Ctrl+K komut arama; sayfalar kendi komutlarını ekler), `checks` / `ring` (denetim listesi ve halka), `download` (boşta / yazılıyor / indirildi), `zoomer` (sığdır, adım adım yakınlaştırma, telefonda metin sütununa kırpma, tam ekran, iki parmakla yakınlaştırma, Esc sırası), `thumbs` (sayfa küçük resimleri), `onFontsLoaded`.
+- **preview.js** `fit(viewport, wrapper, paper, enabled, zoom, {crop})` — `crop` açıkken kâğıdın boş kenarları kesilir (`translateX(-(pl−14)·s) scale(s)`), satır sonları değişmez; ölçek yalnız görünümdür. `relayout(paper, {margins, landscape})` geç gelen yazı tipinden sonra aynı DOM üzerinde sekmeleri ve sayfa kılavuzlarını yeniden ölçer; seçim, açık panel ve işaretler korunur (`UI.onFontsLoaded` yalnız Tinos yüklenince çağrılır). UDF → Word sayfası da `preview.js`'i yalnız `fit` için yükler ve aynı `zoomer`'ı kullanır.
+- **Masaüstü yan paneli:** `editor-ui.js` panel açılıp kapanınca `wordtoudf:sheet` olayını yayar; `ui.js` `makeRoom()` panel önizlemeyle (tam ekranda bütün önizleme bölümüyle) çakışıyorsa sol dolguyu panelin genişliği kadar açar ve yeniden sığdırır.
+- **editor-ui.js** — `cleanups()`, `cleanupLabel()`, `dropCleanup()`: denetim halkası listesindeki otomatik düzeltmeler tek tek geri alınır. `reveal()` telefonda alttan açılan panelin dinlenme konumunu (`innerHeight − offsetHeight`) kullanır; yakınlaştırılmış önizlemede önce önizleme kutusunu, sonra sayfayı kaydırır.
+- **deadline.js** `compute(..., {etebligat})` — e-Tebligat'ta tebliğ, ulaştığı günü izleyen 5. gün sayılır (Tebligat K. m. 7/a); `notice: false` türlerde (ek cevap süresi) kapalıdır. Sonuç `reached`, `start`, `total`, `extended`, `recessApplied` alanlarını da verir; takvim ve halka bu alanlardan çizilir.
+- **templates-page.js** — `#tpl` seçim kutusu kaynak kalır; galeri (kategori + arama) onu sürer. Kendi şablonlar başka sekmede değişince `storage` olayıyla yenilenir.

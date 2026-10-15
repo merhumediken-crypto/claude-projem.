@@ -308,7 +308,8 @@
     function hidePop(){ pop.hidden = true; popSel = null; lastSel = null; popAll = false; allBtn.setAttribute('aria-pressed', 'false'); allBtn.classList.remove('on'); }
     let popTimer = 0;
     document.addEventListener('selectionchange', () => { clearTimeout(popTimer); popTimer = setTimeout(showPop, 120); });
-    window.addEventListener('scroll', () => { if(!pop.hidden && !pop.classList.contains('docked')) showPop(); }, {passive: true});
+    // Capture: the preview box scrolls on its own too (zoom, full screen), not only the page.
+    document.addEventListener('scroll', () => { if(!pop.hidden && !pop.classList.contains('docked')) showPop(); }, {capture: true, passive: true});
 
     /* ---------- find / replace (whole document) ---------- */
     function buildFindBox(){
@@ -399,7 +400,9 @@
           edits.set(k, E().sanitize(ne));
         }
       }
-      setDoc(d, kind === 'cleanups' && rule ? `Düzeltme geri alındı: ${E().CLEANUPS[rule]?.label || rule}.` : kind === 'replace' && rule && !rule.to ? 'Kural kaldırıldı. Kendi yazdığınız paragraflardaki silme geri getirilemez; gerekirse "Geri al"ı kullanın.' : `Kural kaldırıldı${mine ? ` (kendi yazdığınız metinlerde ${mine} yerde de geri alındı)` : ''}.`, false);
+      // A cleanup is undone in the generated text; a paragraph the user typed keeps what it says.
+      const typed = kind === 'cleanups' && [...edits].some(([k, e]) => k !== DOC && (typeof e.text === 'string' || e.addAfter?.length));
+      setDoc(d, kind === 'cleanups' && rule ? `Düzeltme geri alındı: ${E().CLEANUPS[rule]?.label || rule}.${typed ? ' Elle yazdığınız paragraflardaki metin olduğu gibi kalır.' : ''}` : kind === 'replace' && rule && !rule.to ? 'Kural kaldırıldı. Kendi yazdığınız paragraflardaki silme geri getirilemez; gerekirse "Geri al"ı kullanın.' : `Kural kaldırıldı${mine ? ` (kendi yazdığınız metinlerde ${mine} yerde de geri alındı)` : ''}.`, false);
     }
     // One string → all matches replaced (used for the user's own typed text).
     function replaceIn(text, from, to, opts){
@@ -448,8 +451,9 @@
 
     /* ---------- sheet ---------- */
     function closeSheet(){
-      const back = sheet && sheet.contains(document.activeElement) ? keys()[0] : null;
+      const back = sheet && sheet.contains(document.activeElement) ? keys()[0] : null, was = !!sheet;
       sheet?.remove(); sheet = null; addOpen = false; textDraft = null; document.body.classList.remove('sheet-open');
+      if(was) document.dispatchEvent(new CustomEvent('wordtoudf:sheet'));
       if(!multi){ selected.clear(); decorate(); }
       // Keyboard users continue from the paragraph they edited.
       if(back) paper.querySelector(`.paragraph[data-key="${CSS.escape(back)}"]`)?.focus({preventScroll: true});
@@ -474,6 +478,8 @@
       // Room below the page so the last paragraphs can scroll above a bottom sheet.
       document.body.classList.add('sheet-open');
       refreshSheet();
+      // The preview moves out from under a desktop side sheet (ui.js zoomer) before reveal() measures.
+      document.dispatchEvent(new CustomEvent('wordtoudf:sheet'));
       sheet.querySelector('button, select, textarea')?.focus({preventScroll: true});
       reveal();
     }
@@ -484,20 +490,19 @@
       // The bottom sheet slides in from below: its resting top is measured
       // without the animation (a transformed rect would say "off screen").
       const r = p.getBoundingClientRect(), bottomSheet = window.matchMedia('(max-width: 760px)').matches;
-      const sr = {top: bottomSheet ? window.innerHeight - sheet.offsetHeight : sheet.getBoundingClientRect().top};
-      if(bottomSheet){ // bottom sheet (phone)
-        const hidden = q => q.bottom > sr.top - 8 || q.top < 8;
-        if(!hidden(r)) return;
-        // A zoomed or full-screen preview scrolls inside its own box: first there…
-        const box = p.closest('.preview-viewport'), own = box && box.scrollHeight > box.clientHeight + 1 && getComputedStyle(box).overflowY !== 'hidden' ? box : null;
-        if(own){
-          const b = own.getBoundingClientRect(), top = Math.max(8, b.top + 8), bottom = Math.min(sr.top, b.bottom) - 8;
-          own.scrollTop += r.top - Math.max(top, top + (bottom - top - r.height) / 2);
-        }
-        // …then the page moves whatever is still under the sheet (the box itself may start below it).
-        const q = p.getBoundingClientRect();
-        if(hidden(q)) window.scrollBy({top: q.top - Math.max(8, (sr.top - q.height) / 2), behavior: 'smooth'});
-      } else if(r.top < 8 || r.bottom > window.innerHeight - 8) p.scrollIntoView({block: 'center', behavior: 'smooth'});
+      const sheetTop = bottomSheet ? window.innerHeight - sheet.offsetHeight : window.innerHeight;
+      // A zoomed or full-screen preview scrolls inside its own box: what the box
+      // clips (under its tool row, below its bottom edge) is not visible either.
+      const box = p.closest('.preview-viewport'), own = box && box.scrollHeight > box.clientHeight + 1 && getComputedStyle(box).overflowY !== 'hidden' ? box : null;
+      const area = () => { const b = own?.getBoundingClientRect(); return {top: Math.max(8, b ? b.top + 8 : 8), bottom: Math.min(sheetTop, b ? b.bottom : Infinity) - 8}; };
+      const a = area();
+      if(r.top >= a.top && r.bottom <= a.bottom) return;
+      if(!bottomSheet){ p.scrollIntoView({block: 'center', behavior: 'smooth'}); return; }
+      // Phone: first the preview box…
+      if(own) own.scrollTop += r.top - Math.max(a.top, a.top + (a.bottom - a.top - r.height) / 2);
+      // …then the page moves whatever is still under the sheet (the box itself may start below it).
+      const q = p.getBoundingClientRect();
+      if(q.top < 8 || q.bottom > sheetTop - 8) window.scrollBy({top: q.top - Math.max(8, (sheetTop - q.height) / 2), behavior: 'smooth'});
     }
     // Position of a paragraph among the visible editable paragraphs.
     function placeOf(key){

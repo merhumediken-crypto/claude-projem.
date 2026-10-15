@@ -10,6 +10,13 @@
  const safeName=name=>String(name||'Belge').replace(/\.udf$/i,'').normalize('NFKC').replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/gu,'').replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g,'_').replace(/\s+/g,' ').trim().replace(/[. ]+$/u,'').slice(0,90)||'Belge';
  const downloadBlob=(bytes,name,mime)=>{const url=URL.createObjectURL(new Blob([bytes],{type:mime}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);};
  const ready=()=>{const ok=!!state.source;$('downloadWord').disabled=!ok;$('printPdf').disabled=!ok;};
+ // Fit, zoom and full screen as on the converter page (ui.js): on a phone the
+ // text column fills the screen width instead of a 794 px page scrolled sideways.
+ const zoom=globalThis.WordToUDFUI?.zoomer({viewport:$('previewViewport'),wrapper:$('paperScale'),paper:$('paper'),toggle:$('zoomToggle'),zoomIn:$('zoomIn'),zoomOut:$('zoomOut'),full:$('previewFull'),section:$('previewSection')});
+ const fitPaper=()=>zoom?.apply();
+ // The empty page comes back when a file cannot be read.
+ const emptyState=$('paper').firstElementChild?.cloneNode(true);
+ const clearPaper=()=>{const p=$('paper');p.removeAttribute('style');p.replaceChildren(...(emptyState?[emptyState.cloneNode(true)]:[]));$('previewCount').textContent='A4';fitPaper();};
 
  const alpha=(n,upper=false)=>{let out='';n=Math.max(1,Math.trunc(n));while(n){n--;out=String.fromCharCode((upper?65:97)+(n%26))+out;n=Math.floor(n/26);}return out;};
  const roman=(n,upper=false)=>{n=Math.max(1,Math.min(3999,Math.trunc(n)));const pairs=[[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];let out='';for(const [v,s] of pairs)while(n>=v){out+=s;n-=v;}return upper?out:out.toLowerCase();};
@@ -130,13 +137,13 @@
  }
  async function handle(file){
   if(!file)return;
-  state.source=null;state.file=null;$('reportPanel').hidden=true;$('paper').replaceChildren();ready();
+  state.source=null;state.file=null;$('reportPanel').hidden=true;clearPaper();ready();
   if(!/\.udf$/iu.test(file.name)){say('Lütfen .udf dosyası seçin.','error');return;}
   if(file.size<80||file.size>24*1024*1024){say('UDF dosyası boş, hasarlı veya 24 MB sınırını aşıyor.','error');return;}
   say('UDF arşivi ve içerik ofsetleri doğrulanıyor…');
   try{
    const source=await WordToUDFReader.readUdf(await file.arrayBuffer());
-   state.source=source;state.file=file;preview(source);$('reportPanel').hidden=false;
+   state.source=source;state.file=file;preview(source);fitPaper();$('reportPanel').hidden=false;
    $('fileStats').textContent=`${source.statistics.paragraphs} paragraf · ${source.statistics.characters} karakter`;
    const list=$('warningList');list.replaceChildren();
    if(!source.warnings.length){const li=document.createElement('li');li.className='ok';li.textContent='Desteklenmeyen öğe tespit edilmedi.';list.append(li);}
@@ -156,7 +163,8 @@
   catch(e){say(`DOCX dönüştürme başarısız: ${e.message}`,'error');}finally{ready();}
  });
  // Tinos (Times New Roman metrics) loads the first time the preview needs it: measure the tab stops again.
- globalThis.WordToUDFUI?.onFontsLoaded(()=>{if(state.source)preview(state.source);});
+ globalThis.WordToUDFUI?.onFontsLoaded(()=>{if(state.source)preview(state.source);fitPaper();});
+ fitPaper();
  $('printPdf').addEventListener('click',()=>{
   if(!state.source)return;
   try{

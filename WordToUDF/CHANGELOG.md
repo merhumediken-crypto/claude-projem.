@@ -2,6 +2,52 @@
 
 WordToUDF'nin bütün sürümleri, yeniden eskiye. Kullanım kılavuzu: [README.md](README.md).
 
+## 1.11.0 — Yeni tasarım: lacivert / altın arayüz, tam ekran önizleme, komut arama
+
+Bütün özellikler ve dönüşüm kuralları aynen korunur; UDF, Word ve PDF çıktısı değişmez. Değişen, görünüm ve etkileşim katmanıdır.
+
+### Görünüm
+- **Yeni tasarım dili:** lacivert / altın renkler, açık ve koyu tema, üst çubukta gravür deseni, telefonda alt sekme çubuğu, her sayfada gizlilik satırı (“İnternet bağlantısı yok · izin yok · belgeler cihazdan çıkmaz”).
+- **Yazı tipleri pakette:** Manrope (arayüz), Instrument Serif (başlıklar) ve Tinos (önizleme) `fonts/` klasöründe gelir; internetten yüklenmez. Tinos, Times New Roman ile aynı harf genişliklerine sahiptir: Times New Roman yüklü olmayan cihazda (telefon, Linux) önizlemenin satır ve sayfa sonları Word / UYAP'a yakın kalır. Türkçe harflerin tamamı (Ğ, İ, Ş, ı) ve ₺ kapsanır. Lisanslar (SIL OFL) pakettedir.
+- **Adım çizelgesi:** Kaynak → Denetim → Önizleme → İndir; bulunduğunuz adım işaretlenir, indirilen sürüm değişince 4. adım yeniden açılır.
+- **Denetim halkası:** hatalar, uyarılar ve kontrol edilen maddeler halka göstergesinde ve listede; otomatik düzeltmeler “Geri al” düğmesiyle tek tek geri alınır.
+- **İndirme düğmesi durumları:** hazırlanıyor → “İndirildi”; belge değişince düğme yeniden “UDF oluştur ve indir” olur. Yazılırken düğme kilitlidir, çift tıklama ikinci dosya üretmez.
+- **Bildirimler:** işlem sonuçları sağ altta kısa bir bildirimle görünür (aynı anda tek bildirim; dokununca kapanır).
+
+### Önizleme
+- **Telefonda geniş önizleme:** “Sığdır” telefonda metin sütununu ekrana sığdırır (boş sayfa kenarları kesilir, satır sonları aynı kalır); önizleme ekranın iki kenarına kadar uzanır. Yazı %43 yerine %53 boyutta görünür; araç satırı üç satıra kırılmaz, kaydırılır.
+- **Tam ekran önizleme:** “Tam ekran” düğmesi (telefonda alttaki “Önizleme”) sayfayı tek başına açar; − / + ve iki parmakla yakınlaştırma dokunduğunuz noktayı yerinde tutar. Tam ekranda da paragraf düzenlenir, metin seçilip biçimlenir. Esc önce açık paneli, sonra tam ekranı kapatır.
+- **Masaüstü:** sayfa küçük resimleri yalnız 1500 px'ten geniş ekranda ve tam ekranda görünür, sol sütun daraltıldı; sayfa yeniden büyük gösterilir.
+- **Düzenlenen paragraf görünür kalır:** telefonda alttan açılan düzenleme paneli paragrafın üstüne binmez; yakınlaştırılmış önizlemede önce önizleme kutusu, sonra sayfa kaydırılır. Tam ekranda yukarı / aşağı taşınan paragraf araç satırının altına kaçmaz.
+- **Masaüstü tam ekranda düzenleme paneli** sol üstte durur, sayfa ve araç satırı onun sağına kayar; panel sayfayı ya da “Geri al / Bul” düğmelerini örtmez. Dar masaüstü ve tablet ekranında da önizleme panelin yanına çekilir.
+- **Telefonda biçim çubuğu tek satır:** iki satıra kırılıp düzenlenen paragrafın üstüne binmez, gerekirse yana kaydırılır. Biçim verilince çıkan bildirim çubuğun üstüne değil ekranın üst kısmına gelir.
+- **UDF → Word / PDF sayfasında da** Sığdır, − / + ve Tam ekran: telefonda UDF önizlemesi artık 794 px genişliğinde yana kaydırılan bir sayfa değil, ekrana sığan metin sütunudur.
+
+### Gezinme
+- **Komut arama (Ctrl+K ya da üst çubuktaki “Komut ara”):** “UDF oluştur ve indir”, “PDF olarak kaydet”, “Bul / değiştir”, “Değişiklikleri göster / gizle”, “Sayfaya sığdır”, şablon adları, süre türleri, tema ve sayfalar tek kutudan; ok tuşları ve Enter ile. Türkçe harfler olmadan yazılan arama da bulur (“sure” → “Süre hesabı”).
+- **Şablon galerisi:** şablonlar kart olarak, kategorilere ayrılmış ve aranabilir (“HMK m.281”, “md. 281” aynı sonucu verir); kart seçilince galeri kapanır, imleç forma geçer. Başka sekmede kaydedilen kendi şablonlarınız listede hemen görünür.
+- **Süre hesabı:** hızlı süre düğmeleri, kalan gün halkası ve ay takvimi (tebliğ, başlangıç, son gün, tatiller işaretli). İsteğe bağlı **e-Tebligat**: tebligat muhataba ulaştığı günü izleyen 5. günün sonunda yapılmış sayılır (Tebligat K. m. 7/a); takvim bu bekleme günlerini ayrı gösterir. Ek cevap süresinde (başlangıcı tebliğ değil, cevap süresinin bitimi) e-Tebligat kapalıdır.
+
+### Denetimde bulunup düzeltilen hatalar
+- Word yüklenirken metin yapıştırılınca yükleniyor iskeleti ekranda kalıyordu.
+- İndirme sürerken düğmeye ikinci kez basılabiliyordu; “İndirildi” durumu belge değişse de kalıyordu.
+- Yazı tipleri yüklenirken PDF düğmesine iki kez basmak iki yazdırma penceresi açabiliyordu.
+- UDF → Word sayfasında ilk önizleme, yazı tipi yüklenince yeniden ölçülmüyordu (sekme hizası).
+- Tam ekranda arka plandaki düğmelere klavyeyle ulaşılabiliyordu; komut aramasındaki sayfa komutları tam ekranın arkasında çalışıyordu.
+- Komut aramasında boş alana tıklayınca klavye odağı kayboluyordu; grup sırası her açılışta değişebiliyordu.
+- Denetim listesi, galeri kartları ve kategori düğmeleri yeniden çizilince klavye odağı kayboluyordu.
+- “Word biçimini koru” profilinde komut aramasında görünmeyen ayarlar komutu duruyordu.
+- Süre hesabında: e-Tebligat ek cevap süresine de 5 gün ekliyordu; takvim tebligatın ulaştığı günü göstermiyordu; adresteki şablon / süre bağlantısı kaydedilmiş taslağın üzerine yazıyordu; bozuk bir adres sayfayı durduruyordu.
+- Telefonda alttan açılan panelin kayma animasyonu sırasında düzenlenen paragrafın yeri yanlış hesaplanıyor, paragraf panelin altında kalabiliyordu.
+- Bir düğmeye basınca yeniden görünen kartların giriş animasyonu sayfayı kaydırıyordu; animasyon artık yalnız sayfa açılışında oynar.
+- Koyu temada “İndirildi” düğmesinde beyaz yazı açık yeşil üstünde okunmuyordu.
+- **Seçili metin kayboluyordu:** Times New Roman'ı olmayan cihazda (telefon, Linux) her yazı tipi dosyası yüklendiğinde — örneğin ilk kez italik ya da kalın yapıldığında — önizleme baştan çiziliyor; seçim, telefondaki seçim tutamaçları ve “İndirildi” durumu sıfırlanıyordu. Artık yalnız önizleme yazı tipi (Tinos) geldiğinde aynı paragrafların sekmeleri ve sayfa sonları yeniden ölçülür; belge yeniden kurulmaz.
+- Masaüstünde yakınlaştırılmış ya da tam ekran önizleme kendi içinde kaydırılınca biçim çubuğu seçimi izlemiyordu.
+- Telefonda tam ekranda bul kutusu açıkken bir paragrafa dokununca paragrafa yer kalmıyordu; panel açıkken bul kutusu gizlenir (kapanmaz, panel kapanınca geri gelir).
+- Önerideki bir düzeltme (ör. tarih biçimi) “Geri al” ile kaldırılınca, o paragrafı elle de düzenlemişseniz metninizin değişmediği artık mesajda söylenir.
+- UDF → Word sayfasında okunamayan bir dosyadan sonra önizleme boş kalıyordu; “Önizleme burada belirir” yeniden görünür. Telefonda yanlış olan “Soldan … seçin” yazısı düzeltildi.
+- Alt bilgideki “Ana sayfa” bağlantısının dokunma alanı büyütüldü.
+
 ## 1.10.3 — UETS yazımı standarda getirilir
 
 - 1.10.2'nin sekme düzeltmesi UYAP'ta doğrulandı: künye ve bölüm satırlarında iki noktalar aynı sütunda, etiketten iki noktaya alt çizgi kesintisiz; numaralı taleplerin asılı girintisi de doğru.

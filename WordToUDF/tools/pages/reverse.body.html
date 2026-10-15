@@ -36,14 +36,15 @@
     <dl class="spec"><div><dt>Metin, renk ve yazı karakteri</dt><dd>UDF kaynağından</dd></div><div><dt>Paragraf, sekme ve listeler</dt><dd>UDF kaynağından</dd></div><div><dt>Sayfa boşlukları</dt><dd>UDF kaynağından</dd></div><div><dt>Üstbilgi ve altbilgi</dt><dd>Varsa korunur</dd></div><div><dt>İmzalar</dt><dd>Geçerli e-imza aktarılmaz</dd></div></dl>
   </details>
 </section>
-<section class="right" aria-label="Önizleme">
+<section class="right" id="previewSection" aria-label="Önizleme">
   <div class="preview-card">
-    <div class="preview-head"><div><span class="eyebrow">Salt okunur</span><h2>UDF önizleme</h2></div><span class="pill" id="previewCount">A4</span></div>
-    <div class="preview-viewport"><article class="paper" id="paper" aria-label="UDF önizlemesi"><div class="empty-state"><svg class="empty-art" viewBox="0 0 160 130" aria-hidden="true"><rect class="back" x="40" y="8" width="80" height="108" rx="6" transform="rotate(-6 80 62)"/><rect class="front" x="40" y="8" width="80" height="108" rx="6"/><path class="lines" d="M56 28h48M52 42h56M52 52h56M52 62h40M52 76h56M52 86h30"/><circle class="badge" cx="112" cy="104" r="16"/><path class="tick" d="m105 104 5 5 9-10"/></svg><strong>Önizleme burada belirir</strong><span>Soldan bir UYAP UDF dosyası seçin; metin ve biçim salt okunur gösterilir.</span></div></article></div>
+    <div class="preview-head"><div><span class="eyebrow">Salt okunur</span><h2>UDF önizleme <span class="pill" id="previewCount">A4</span></h2></div>
+      <div class="preview-tools" id="previewTools"><span class="zoom-group" role="group" aria-label="Yakınlaştırma"><button type="button" id="zoomOut" class="zoom-step" aria-label="Uzaklaştır">−</button><button type="button" id="zoomToggle" aria-pressed="true">Sığdır</button><button type="button" id="zoomIn" class="zoom-step" aria-label="Yakınlaştır">+</button></span><button type="button" id="previewFull" class="secondary tool-btn full-btn" aria-pressed="false" title="Önizlemeyi tam ekran aç"><svg class="icon" aria-hidden="true"><use href="#i-expand"/></svg><span class="full-label">Tam ekran</span></button></div></div>
+    <div class="preview-viewport fit" id="previewViewport"><div class="paper-scale" id="paperScale"><article class="paper" id="paper" aria-label="UDF önizlemesi"><div class="empty-state"><svg class="empty-art" viewBox="0 0 160 130" aria-hidden="true"><rect class="back" x="40" y="8" width="80" height="108" rx="6" transform="rotate(-6 80 62)"/><rect class="front" x="40" y="8" width="80" height="108" rx="6"/><path class="lines" d="M56 28h48M52 42h56M52 52h56M52 62h40M52 76h56M52 86h30"/><circle class="badge" cx="112" cy="104" r="16"/><path class="tick" d="m105 104 5 5 9-10"/></svg><strong>Önizleme burada belirir</strong><span>Bir UYAP UDF dosyası seçin; metin ve biçim salt okunur gösterilir.</span></div></article></div></div>
     <p class="preview-foot">Önizleme yaklaşık yerleşimdir; UYAP ekranıyla birebir sayfa kırılımı garantisi yoktur.</p>
   </div>
 </section>
 </div>
 </main>
 <div id="printSurface" aria-hidden="true"><div id="printHeader"></div><div id="printBody"></div><div id="printFooter"></div></div>
-<script src="zip.js"></script><script src="udf-reader.js"></script><script src="docx-writer.js"></script><script src="reverse.js"></script>
+<script src="zip.js"></script><script src="udf-reader.js"></script><script src="docx-writer.js"></script><script src="preview.js"></script><script src="reverse.js"></script>
