@@ -12,8 +12,10 @@ const outDir=path.resolve(process.argv[2]||path.join(root,'dist'));
 // note left next to the sources must not end up in a release. Shipped =
 // the offline app (sw.js FILES), the extension popup and manifest, the docs.
 const swFiles=JSON.parse(/const FILES = (\[[^\]]*\])/u.exec(fs.readFileSync(path.join(root,'sw.js'),'utf8'))[1].replace(/'/gu,'"'));
-const ALLOW=new Set([...swFiles.filter(f=>f!=='./'),'sw.js','manifest.json','popup.html','popup.js','popup.css','README.md','ARCHITECTURE.md','SECURITY.md','CHANGELOG.md','KABUL_TESTLERI.md']);
-const present=fs.readdirSync(root).filter(f=>!f.startsWith('.')&&fs.statSync(path.join(root,f)).isFile());
+// fonts/: the bundled typefaces and their licences (SIL OFL 1.1 asks for the licence to travel with the fonts).
+const LICENSES=fs.readdirSync(path.join(root,'fonts')).filter(f=>/^LICENSE-.+\.txt$/u.test(f)).map(f=>`fonts/${f}`);
+const ALLOW=new Set([...swFiles.filter(f=>f!=='./'),'sw.js','manifest.json','popup.html','popup.js','popup.css','README.md','ARCHITECTURE.md','SECURITY.md','CHANGELOG.md','KABUL_TESTLERI.md',...LICENSES]);
+const present=[...fs.readdirSync(root).filter(f=>!f.startsWith('.')&&fs.statSync(path.join(root,f)).isFile()),...fs.readdirSync(path.join(root,'fonts')).map(f=>`fonts/${f}`)];
 const files=[...ALLOW].sort();
 for(const f of files)if(!present.includes(f))throw new Error(`eksik dosya: ${f}`);
 const NOT_SHIPPED=new Set(['package.json']);

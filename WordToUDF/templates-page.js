@@ -1,15 +1,15 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const T = WordToUDFTemplates, P = WordToUDFPipeline, S = WordToUDFSettings, L = WordToUDFLegalTypography, Lib = WordToUDFLibrary;
+  const T = WordToUDFTemplates, P = WordToUDFPipeline, S = WordToUDFSettings, L = WordToUDFLegalTypography, Lib = WordToUDFLibrary, UI = WordToUDFUI;
   const DRAFT_KEY = 'wordtoudf.templateDraft.v1';
   const settings = S.load();
-  const state = {fit: true, result: null, extra: {}};
+  const state = {result: null, extra: {}};
   const COMMON = ['court', 'caseNo', 'role', 'otherRole', 'client', 'other', 'otherAttorney'];
   const TEXT = ['topic', 'body', 'requests', 'closing', 'attachments'];
   const draft = (() => { try{ return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') || {}; }catch{ return {}; } })();
   const saveDraft = () => { try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(collect())); }catch{ /* storage unavailable */ } };
-  function message(text, kind = ''){ $('status').textContent = text; $('status').className = `status ${kind}`; }
+  function message(text, kind = ''){ $('status').textContent = text; $('status').className = `status ${kind}`; if(kind === 'success' || kind === 'error') UI.toast(text, kind); }
   function downloadBlob(bytes, name, mime){
     const url = URL.createObjectURL(new Blob([bytes], {type: mime}));
     const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
@@ -25,7 +25,77 @@
     const mine = Lib.templates();
     if(mine.length){ const g = document.createElement('optgroup'); g.label = `Kendi şablonlarım (${mine.length})`; for(const t of mine) g.append(new Option(t.title, `u:${t.id}`)); sel.append(g); }
     if(selected && [...sel.options].some(o => o.value === selected)) sel.value = selected;
+    renderGallery(); templateCommands();
   }
+
+  /* ------------------------------ gallery ------------------------------ */
+  // Category, legal basis and a one-line description of each built-in template.
+  const CATS = {hear: 'Duruşma', time: 'Süre ve cevap', obj: 'İtiraz ve talep', file: 'Dosya işlemleri', mine: 'Kendi şablonlarım'};
+  const META = {
+    mazeret: ['hear', 'Mesleki mazeret', 'Şehir dışı, başka duruşma ya da sağlık mazereti; erteleme ve yeni günün bildirilmesi.'],
+    segbis: ['hear', 'HMK m. 149', 'Duruşmaya UYAP Avukat Portal e-Duruşma ya da SEGBİS ile katılım.'],
+    tanik: ['hear', 'HMK m. 240', 'Tanıklar, adresleri ve dinletilecekleri husus.'],
+    kesif: ['hear', 'HMK m. 288', 'Dava konusu yerde keşif; bilirkişi eşliğinde.'],
+    eksure: ['time', 'HMK m. 127', 'Cevap dilekçesi için bir aya kadar ek süre.'],
+    replik: ['time', 'HMK m. 136', 'Sıfatınıza göre başlık ve talepler kendiliğinden.'],
+    islah: ['time', 'HMK m. 176', 'Kısmi ya da tamamen ıslah; harç bilgisi.'],
+    tedbir: ['obj', 'HMK m. 394', 'Tedbir şartları ve teminat yönünden itiraz.'],
+    bilirkisi: ['obj', 'HMK m. 281', 'Ek rapor ya da yeni bilirkişi talebi.'],
+    ihtiyatihaciz: ['obj', 'İİK m. 257', 'Alacak, vade, dayanak ve teminat seçeneği.'],
+    vekalet: ['file', 'UYAP erişim', 'Vekâletname ve dosyaya erişim yetkisi.'],
+    beyan: ['file', 'Serbest', 'Kısa bir beyan ya da talep için sade iskelet.'],
+    feragat: ['file', 'HMK m. 307', 'Feragat yetkisi ve yargılama giderleri.'],
+    iade: ['file', 'HMK m. 333', 'Kullanılmayan avans ya da fazla harcın iadesi.']
+  };
+  const gal = {cat: 'all', q: ''};
+  function entries(){
+    // The legal basis is shown under the card, so the title drops its "(HMK m. …)".
+    return [...T.TEMPLATES.map(t => ({id: t.id, title: t.title, short: t.title.replace(/\s*\([^)]*\)\s*$/u, ''), cat: META[t.id]?.[0] || 'file', law: META[t.id]?.[1] || '', desc: META[t.id]?.[2] || ''})),
+      ...Lib.templates().map(u => ({id: `u:${u.id}`, title: u.title, cat: 'mine', law: 'Kendi şablonum', desc: (u.topic || u.body || '').replace(/\s+/gu, ' ').trim().slice(0, 90) || 'Kendi kaydettiğiniz şablon.'}))];
+  }
+  const badgeText = title => (String(title).trim()[0] || '§').toLocaleUpperCase('tr-TR');
+  function renderGallery(){
+    const all = entries(), sel = $('tpl').value;
+    const counts = {all: all.length}; for(const e of all) counts[e.cat] = (counts[e.cat] || 0) + 1;
+    if(gal.cat !== 'all' && !counts[gal.cat]) gal.cat = 'all';
+    $('tplCats').replaceChildren(...[['all', 'Hepsi'], ...Object.entries(CATS)].filter(([k]) => counts[k]).map(([k, label]) => {
+      const b = UI.el('button', {type: 'button', class: `chip cat-${k}` + (gal.cat === k ? ' on' : ''), 'aria-pressed': String(gal.cat === k)},
+        UI.el('span', {class: 'dot', 'aria-hidden': 'true'}), document.createTextNode(label), UI.el('span', {class: 'count', text: String(counts[k])}));
+      b.addEventListener('click', () => { gal.cat = k; renderGallery(); });
+      return b;
+    }));
+    const words = UI.fold(gal.q).split(/\s+/u).filter(Boolean);
+    const shown = all.filter(e => (gal.cat === 'all' || e.cat === gal.cat) && words.every(w => UI.fold(`${e.title} ${e.desc} ${e.law} ${CATS[e.cat]}`).includes(w)));
+    $('tplGrid').replaceChildren(...shown.map((e, i) => {
+      const card = UI.el('button', {type: 'button', class: `tpl-card cat-${e.cat}`, 'aria-pressed': String(e.id === sel), 'data-tpl': e.id},
+        UI.el('span', {class: 'tc-badge', 'aria-hidden': 'true', text: badgeText(e.title)}), UI.el('strong', {text: e.short || e.title}), UI.el('span', {class: 'tc-desc', text: e.desc}), UI.el('span', {class: 'tc-law', text: `${e.law}${e.law ? ' · ' : ''}${CATS[e.cat]}`}));
+      card.style.animationDelay = `${Math.min(i, 12) * 25}ms`;
+      card.addEventListener('click', () => pick(e.id));
+      return card;
+    }));
+    if(!shown.length) $('tplGrid').append(UI.el('p', {class: 'tpl-empty', text: 'Bu aramayla eşleşen şablon yok.'}));
+    const cur = all.find(e => e.id === sel);
+    if(cur){
+      $('tplBadge').textContent = badgeText(cur.title); $('tplBadge').className = `tc-badge cat-${cur.cat}`;
+      $('tplTitle').textContent = cur.title; $('tplLaw').textContent = `${cur.law}${cur.law ? ' · ' : ''}${CATS[cur.cat]}`;
+      $('tplGallerySub').textContent = `Seçili: ${cur.title} · ${all.length} şablon`;
+    }
+  }
+  // One palette entry per template (own templates come and go).
+  function templateCommands(){
+    UI.commands.remove(c => String(c.id).startsWith('tpl:t:'));
+    UI.commands.add(entries().map(e => ({id: `tpl:t:${e.id}`, group: 'Şablonlar', label: e.title, hint: `${e.law}${e.law ? ' · ' : ''}${CATS[e.cat]}`, icon: 'i-grid', keywords: `${e.desc} şablon`, run: () => pick(e.id)})));
+  }
+  function pick(id, scroll = true){
+    if(![...$('tpl').options].some(o => o.value === id)) return;
+    if($('tpl').value !== id){ $('tpl').value = id; useTemplate(); }
+    else renderGallery();
+    if(scroll){
+      $('tplGallery').open = false;
+      $('court').closest('.panel').scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
+    }
+  }
+  $('tplSearch').addEventListener('input', () => { gal.q = $('tplSearch').value; renderGallery(); });
   fillTemplateSelect();
   // A user template behaves like a built-in one: its {PLACEHOLDERS} become
   // the template fields; standard ones are filled from the form / settings.
@@ -129,12 +199,10 @@
     const src = T.sourceLines(common, {topic: $('topic').value, body: $('body').value.split(/\r?\n/u), requests: lines('requests'), closing: $('closing').value, attachments: lines('attachments')}, {attorneyName: own, signatureLines: sig});
     return P.typeset(T.toBlocks(src), {profile: 'legal', settings, now: new Date(), edits: editor.edits});
   }
-  function fitPaper(){
-    const scale = WordToUDFPreview.fit($('previewViewport'), $('paperScale'), $('paper'), state.fit);
-    $('zoomToggle').setAttribute('aria-pressed', String(state.fit));
-    $('zoomToggle').textContent = state.fit ? `Sığdır · %${Math.round(scale * 100)}` : 'Gerçek boyut';
-  }
-  const LEVEL_TEXT = {error: 'Hata', warn: 'Uyarı', info: 'Bilgi', suggest: 'Öneri'};
+  const zoom = UI.zoomer({viewport: $('previewViewport'), wrapper: $('paperScale'), paper: $('paper'), toggle: $('zoomToggle'), zoomIn: $('zoomIn'), zoomOut: $('zoomOut')});
+  const thumbs = UI.thumbs({rail: $('thumbs'), viewport: $('previewViewport'), paper: $('paper'), getScale: () => zoom.scale});
+  const fitPaper = () => zoom.apply();
+  const fixButton = c => { const b = document.createElement('button'); b.type = 'button'; b.className = 'secondary inline-btn'; b.textContent = 'Düzelt'; b.addEventListener('click', () => editor.applyFix(c.fix)); return b; };
   function render(){
     try{
       const t = build(); state.result = t;
@@ -143,17 +211,12 @@
       $('pageNote').hidden = !pg.signatureAlone;
       $('pageNote').textContent = pg.signatureAlone ? `Uyarı (yaklaşık): imza bloğu ${pg.pages}. sayfaya tek başına düşüyor; bir paragrafı kısaltmayı düşünün.` : '';
       showFileName();
-      fitPaper();
+      fitPaper(); thumbs.update(pg.pages);
       editor.decorate();
-      const list = $('checkList'); list.replaceChildren(); $('checksPanel').hidden = false;
-      const counts = {error: 0, warn: 0, info: 0, suggest: 0};
-      for(const c of t.checks){
-        counts[c.level]++; const li = document.createElement('li'); li.className = `check-${c.level}`; li.dataset.code = c.code; li.append(Object.assign(document.createElement('strong'), {textContent: `${LEVEL_TEXT[c.level]}: `}), c.message);
-        if(c.fix){ const b = document.createElement('button'); b.type = 'button'; b.className = 'secondary inline-btn'; b.textContent = 'Düzelt'; b.addEventListener('click', () => editor.applyFix(c.fix)); li.append(' ', b); }
-        list.append(li);
-      }
-      $('checkStats').textContent = `${counts.error} hata · ${counts.warn} uyarı${counts.suggest ? ` · ${counts.suggest} öneri` : ''}`;
-      $('checkStats').className = 'pill' + (counts.error ? ' pill-error' : counts.warn ? ' pill-warn' : ' pill-ok');
+      $('checksPanel').hidden = false;
+      UI.checks({list: 'checkList', stats: 'checkStats', ring: 'checkRing', big: 'ringBig', small: 'ringSmall', legend: 'ringLegend'}, t.checks, {
+        buttons: c => [c.fix ? fixButton(c) : null],
+        fixed: editor.cleanups().map(id => ({text: editor.cleanupLabel(id), undo: () => editor.dropCleanup(id)}))});
       saveDraft();
     }catch(err){ message(`Önizleme oluşturulamadı: ${err.message}`, 'error'); }
   }
@@ -182,6 +245,7 @@
     if(role && T.ROLES.includes(role)){ $('role').value = role; $('otherRole').value = (u && u.otherRole) || T.OPPOSITE[role] || $('otherRole').value; }
     disarmDelete();
     editor.reset(); buildFields(); edited = false; regenerate(true);
+    renderGallery();
   }
   $('tpl').addEventListener('change', useTemplate);
   // Save the current text as the user's own template (names → placeholders).
@@ -238,8 +302,7 @@
   for(const k of COMMON) $(k).addEventListener('input', () => regenerate(false));
   for(const k of TEXT) $(k).addEventListener('input', () => { edited = true; schedule(); });
   $('regen').addEventListener('click', () => regenerate(true));
-  $('zoomToggle').addEventListener('click', () => { state.fit = !state.fit; fitPaper(); });
-  let rt = 0; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fitPaper, 120); });
+  UI.onFontsLoaded(() => render());
 
   function fileBase(){
     const client = P.safeName($('client').value || 'Dilekce').replace(/\s+/gu, '_');
@@ -271,13 +334,16 @@
     }catch(err){ message(`PDF hazırlanamadı: ${err.message}`, 'error'); }
   });
   $('download').addEventListener('click', async () => {
+    if($('download').dataset.state === 'working') return;
     render(); const t = state.result; if(!t) return;
     const errors = t.checks.filter(c => c.level === 'error');
+    UI.download($('download'), 'working');
     try{
       const res = await P.toUdf(t.blocks, {margins: t.norm.margins});
       downloadBlob(res.bytes, `${fileBase()}.udf`, 'application/octet-stream');
+      UI.download($('download'), 'done');
       message(`UDF hazır: ${res.paragraphs} paragraf.${errors.length ? ` Denetimde ${errors.length} hata var; göndermeden önce bakın.` : ''} UYAP'ta açıp kontrol edin.`, errors.length ? 'error' : 'success');
-    }catch(err){ message(`UDF oluşturulamadı: ${err.message}`, 'error'); }
+    }catch(err){ UI.download($('download'), 'idle'); message(`UDF oluşturulamadı: ${err.message}`, 'error'); }
   });
   $('downloadDocx').addEventListener('click', async () => {
     render(); const t = state.result; if(!t) return;
@@ -291,5 +357,24 @@
   // Phone: quick actions at the bottom (the form is long, the preview below it).
   $('mbDownload').addEventListener('click', () => $('download').click());
   $('mbPreview').addEventListener('click', () => $('previewSection').scrollIntoView({behavior: 'smooth', block: 'start'}));
+  /* ------------------------------ command palette (Ctrl+K) ------------------------------ */
+  UI.commands.add([
+    {id: 'tpl:udf', group: 'İndir', label: 'UDF oluştur ve indir', hint: 'UYAP Doküman Editörü dosyası', icon: 'i-download', keywords: 'indir kaydet', run: () => $('download').click()},
+    {id: 'tpl:docx', group: 'İndir', label: 'Word (DOCX) indir', hint: 'UDF ile aynı düzen', icon: 'i-doc', keywords: 'word', run: () => $('downloadDocx').click()},
+    {id: 'tpl:pdf', group: 'İndir', label: 'PDF olarak kaydet', hint: 'Yazdırma penceresi açılır', icon: 'i-report', keywords: 'yazdır', run: () => $('printPdf').click()},
+    {id: 'tpl:find', group: 'Düzenle', label: 'Bul / değiştir', hint: 'Önizlemenin tamamında ara (Ctrl+F)', icon: 'i-search', keywords: 'ara', when: () => !!state.result, run: () => editor.openFind()},
+    {id: 'tpl:regen', group: 'Düzenle', label: 'Metni şablondan yeniden oluştur', hint: 'Elle değiştirilen metin şablon metniyle değişir', icon: 'i-layers', keywords: 'sıfırla', run: () => $('regen').click()},
+    {id: 'tpl:gallery', group: 'Şablonlar', label: 'Şablon galerisini aç', hint: 'Kategoriye göre ya da arayarak seç', icon: 'i-grid', keywords: 'seç liste', run: () => { $('tplGallery').open = true; $('tplGallery').scrollIntoView({block: 'start'}); $('tplSearch').focus({preventScroll: true}); }}
+  ]);
+  // templates.html#mazeret (from the command palette of another page): open that template.
+  function fromHash(){
+    const id = decodeURIComponent(location.hash.slice(1));
+    if(id && [...$('tpl').options].some(o => o.value === id)){ pick(id, false); $('tplGallery').open = false; }
+  }
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+  // A returning visit (a draft) starts with the gallery folded.
+  if(draft.tpl && !location.hash) $('tplGallery').open = false;
+
   if('serviceWorker' in navigator && /^https?:$/u.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

@@ -14,6 +14,9 @@
     if(list.kind === 'bullet') return '•';
     return `${list.format === 'lowerLetter' ? alpha(counters[level]) : counters[level]}${list.suffix === ')' ? ')' : '.'}`;
   }
+  // Times New Roman is not installed on most phones: the bundled Tinos (same
+  // metrics, workspace.css) keeps the line breaks and tab stops of UYAP.
+  const family = f => /^\s*(?:"?times new roman"?|times)\s*$/iu.test(f || '') ? '"Times New Roman", Tinos, Times, serif' : f;
   function makeParagraph(block, listState = new Map()){
     const p = document.createElement('div'); p.className = 'paragraph' + (block.source === 'table' ? ' table-row' : ''); if(block.role) p.dataset.role = block.role;
     p.style.textAlign = block.alignment === 'justify' ? 'justify' : (block.alignment || 'left');
@@ -39,7 +42,7 @@
         const span = document.createElement('span');
         span.textContent = parts[i];
         span.dataset.o = String(off); off += parts[i].length;
-        if(run.font) span.style.fontFamily = run.font;
+        if(run.font) span.style.fontFamily = family(run.font);
         if(Number.isFinite(run.size)) span.style.fontSize = `${run.size}pt`;
         if(run.color) span.style.color = `#${run.color}`;
         if(run.highlight === true) span.style.backgroundColor = '#fff176';
@@ -148,7 +151,7 @@
     paper.style.width = landscape ? '1123px' : '794px';
     paper.style.minHeight = landscape ? '794px' : '1123px';
     for(const side of ['top', 'right', 'bottom', 'left']) paper.style[`padding${side[0].toUpperCase() + side.slice(1)}`] = `${(margins?.[side] ?? 42.52) * 96 / 72}px`;
-    paper.style.fontFamily = font; paper.style.fontSize = `${size}pt`;
+    paper.style.fontFamily = family(font); paper.style.fontSize = `${size}pt`;
     const frag = document.createDocumentFragment(), listState = new Map();
     blocks.forEach((block, i) => {
       if(block.kind === 'page-break'){ const line = document.createElement('div'); line.className = 'page-break' + (block.inserted ? ' inserted' : ''); line.setAttribute('aria-label', 'Sayfa sonu'); frag.append(line); }
@@ -165,18 +168,21 @@
     positionTabs(paper);
     return guides ? paginate(paper, {margins, landscape}) : {pages: 0, signatureAlone: false};
   }
-  // Scale the paper to the viewport width (phones). The wrapper gets the
-  // scaled height so the page scrolls normally.
-  function fit(viewport, wrapper, paper, enabled = true){
+  // Scale the paper to the viewport width (phones), or to a fixed zoom
+  // (0.3–2) when fitting is off. The wrapper gets the scaled size so the page
+  // scrolls normally.
+  function fit(viewport, wrapper, paper, enabled = true, zoom = 1){
     paper.style.transform = ''; wrapper.style.height = ''; wrapper.style.width = '';
     // "Gerçek boyut" must scroll sideways on a phone; "Sığdır" never needs to.
     viewport.classList.toggle('fit', !!enabled);
-    if(!enabled) return 1;
-    const style = getComputedStyle(viewport);
-    const avail = viewport.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
     const w = paper.offsetWidth;
-    const scale = w > 0 && avail > 0 ? Math.min(1, avail / w) : 1;
-    if(scale < 1){
+    let scale;
+    if(enabled){
+      const style = getComputedStyle(viewport);
+      const avail = viewport.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
+      scale = w > 0 && avail > 0 ? Math.min(1, avail / w) : 1;
+    } else scale = Number.isFinite(zoom) ? Math.min(2, Math.max(.3, zoom)) : 1;
+    if(scale !== 1 && w > 0){
       paper.style.transform = `scale(${scale})`; paper.style.transformOrigin = 'top left';
       wrapper.style.width = `${w * scale}px`; wrapper.style.height = `${paper.offsetHeight * scale}px`;
     }

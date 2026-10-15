@@ -9,6 +9,9 @@
  * HMK m. 102–104: judicial recess 20 July – 31 August; a period that ends in
  * the recess is extended by one week from its end (7 September).
  * Half-day holidays (eves) do NOT move the deadline; they are reported.
+ * Tebligat K. m. 7/a (optional): an electronic notification counts as made at
+ * the end of the fifth day after it reached the e-address (UETS); the period
+ * then starts from that day.
  *
  * Religious holidays are taken from the Diyanet calendar for 2025–2027; for
  * other years the result says so. The result is a helper, not legal advice.
@@ -94,13 +97,19 @@
 
   // start: Date (UTC midnight), amount: integer, unit: gun|hafta|ay|yil.
   // recessBasis names the rule in the steps (İYUK m. 8/3 for administrative courts).
-  function compute(start, amount, unit, {recess = true, saturday = true, today, recessBasis = 'HMK m. 104'} = {}){
+  // etebligat: start is the day the e-notification reached the address (+5 days).
+  function compute(start, amount, unit, {recess = true, saturday = true, today, recessBasis = 'HMK m. 104', etebligat = false} = {}){
     if(!(start instanceof Date) || Number.isNaN(start.getTime())) throw new Error('Başlangıç tarihi geçersiz.');
     if(start.getUTCFullYear() < 1950 || start.getUTCFullYear() > 2100) throw new Error('Başlangıç tarihi 1950 ile 2100 yılları arasında olmalıdır.');
     if(!UNITS[unit]) throw new Error('Süre birimi geçersiz.');
     const n = Number(amount);
     if(!Number.isInteger(n) || n < 1 || n > MAX[unit]) throw new Error(`Süre 1 ile ${MAX[unit]} ${UNITS[unit]} arasında bir tam sayı olmalıdır.`);
     const steps = [], warnings = [];
+    if(etebligat){
+      const reached = start;
+      start = addDays(reached, 5);
+      steps.push(`e-Tebligat ${longDate(reached)} günü adrese ulaştı → izleyen beşinci günün sonunda, ${longDate(start)} tebliğ edilmiş sayılır (Tebligat K. m. 7/a).`);
+    }
     let end = unit === 'gun' ? addDays(start, n) : unit === 'hafta' ? addDays(start, 7 * n) : addMonths(start, unit === 'ay' ? n : 12 * n);
     steps.push(`Başlangıç: ${longDate(start)} (bu gün hesaba katılmaz).`);
     steps.push(`${n} ${UNITS[unit]} → ${longDate(end)}${unit !== 'gun' ? ' (son haftanın / ayın aynı günü)' : ''}.`);
@@ -124,12 +133,14 @@
     if(half) warnings.push(`Son gün ${half}: süre uzamaz ve o gün mesai öğleden sonra bitebilir; işlemi sabahtan yapın.`);
     // Only the years the last day can fall in matter (the start year's holidays play no part).
     for(const y of new Set([raw.getUTCFullYear(), end.getUTCFullYear()])) if(!KNOWN_YEARS.includes(y)) warnings.push(`${y} yılının dini bayram tarihleri tabloda yok; Ramazan ve Kurban Bayramı tatillerini kendiniz kontrol edin.`);
+    // start: the day the period runs from (after the e-notification days); total: days in the period.
+    const total = Math.round((end - start) / 864e5);
     if(today instanceof Date){
       const left = Math.round((end - today) / 864e5);
       if(left < 0) warnings.push(`Bu süre ${-left} gün önce dolmuş görünüyor.`);
-      return {end, steps, warnings, left};
+      return {end, steps, warnings, left, start, total, recessApplied: recess};
     }
-    return {end, steps, warnings};
+    return {end, steps, warnings, start, total, recessApplied: recess};
   }
 
   // RFC 5545 §3.1: content lines are folded at 75 octets (CRLF + space), never inside a UTF-8 sequence.
@@ -159,15 +170,26 @@
   /* ------------------------------ page ------------------------------ */
   if(typeof document === 'undefined' || !document.getElementById('dKind')) return;
   const $ = id => document.getElementById(id);
+  const UI = globalThis.WordToUDFUI;
   // formatToParts: the en-CA "YYYY-MM-DD" shape is not guaranteed by every ICU version.
   const todayUTC = () => {
     const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {timeZone: 'Europe/Istanbul', year: 'numeric', month: 'numeric', day: 'numeric'}).formatToParts(new Date()).map(x => [x.type, x.value]));
     return D(Number(parts.year), Number(parts.month), Number(parts.day));
   };
   for(const g of PRESETS){ const og = document.createElement('optgroup'); og.label = g.group; for(const p of g.items) og.append(new Option(`${p.label}${p.law ? ` — ${p.amount} ${UNITS[p.unit]} (${p.law})` : ''}`, p.id)); $('dKind').append(og); }
+  // Quick choices (the select keeps every period).
+  const QUICK = [['cevap', 'Cevap'], ['istinaf', 'İstinaf'], ['temyiz', 'Temyiz'], ['bilirkisi', 'Bilirkişi itirazı'], ['tedbir', 'Tedbire itiraz'], ['odeme', 'Ödeme emrine itiraz'], ['iptal', 'İdari dava'], ['eksure', 'Cevap için ek süre']];
+  for(const [id, label] of QUICK){
+    const p = preset(id); if(!p) continue;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'd-preset'; b.dataset.preset = id; b.setAttribute('aria-pressed', 'false');
+    const sub = document.createElement('small'); sub.textContent = `${p.law} · ${p.amount} ${UNITS[p.unit]}`;
+    b.append(label, sub);
+    b.addEventListener('click', () => { $('dKind').value = id; syncKind(); update(); });
+    $('dPresets').append(b);
+  }
   $('dStart').value = key(todayUTC());
   let last = null;
-  function say(text, kind = ''){ $('status').textContent = text; $('status').className = `status ${kind}`; }
+  function say(text, kind = ''){ $('status').textContent = text; $('status').className = `status ${kind}`; if(UI && (kind === 'success' || kind === 'error')) UI.toast(text, kind); }
   function syncKind(){
     const p = preset($('dKind').value);
     $('dCustom').hidden = p.id !== 'custom';
@@ -176,25 +198,74 @@
     const icra = PRESETS[1].items.includes(p);
     $('dKindNote').textContent = [p.note, icra ? ICRA_NOTE : ''].filter(Boolean).join(' ');
     $('dKindNote').hidden = !$('dKindNote').textContent;
+    for(const b of $('dPresets').children) b.setAttribute('aria-pressed', String(b.dataset.preset === p.id));
+  }
+  // Countdown ring: the share of the period still left.
+  function ringTo(frac){
+    const C = 2 * Math.PI * 50, len = Math.max(0, Math.min(1, frac)) * C;
+    $('dRingArc').setAttribute('stroke-dasharray', `${len.toFixed(1)} ${C.toFixed(1)}`);
+    // A round cap would still draw a dot for an empty arc.
+    $('dRingArc').setAttribute('stroke-opacity', len > 0 ? '1' : '0');
+  }
+  // Month grids from the start month to the last day's month (at most four;
+  // a longer period shows the first month and the last three).
+  const DOW = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
+  function calendar(r, saturday, recess, today){
+    const months = [];
+    let cur = D(r.start.getUTCFullYear(), r.start.getUTCMonth() + 1, 1);
+    const lastM = D(r.end.getUTCFullYear(), r.end.getUTCMonth() + 1, 1);
+    while(cur <= lastM){ months.push(cur); cur = D(cur.getUTCFullYear(), cur.getUTCMonth() + 2, 1); }
+    const shown = months.length > 4 ? [months[0], ...months.slice(-3)] : months;
+    const startK = key(r.start), endK = key(r.end), todayK = key(today);
+    $('dMonths').replaceChildren(...shown.map(m => {
+      const y = m.getUTCFullYear(), mo = m.getUTCMonth(), days = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
+      const box = document.createElement('div'); box.className = 'cal-month';
+      const h = document.createElement('h3'); h.textContent = `${MONTHS[mo]} ${y}`;
+      const dow = document.createElement('div'); dow.className = 'cal-dow'; dow.append(...DOW.map(t => Object.assign(document.createElement('span'), {textContent: t})));
+      const grid = document.createElement('div'); grid.className = 'cal-grid';
+      for(let i = 0; i < (m.getUTCDay() + 6) % 7; i++) grid.append(Object.assign(document.createElement('span'), {className: 'cal-day blank'}));
+      for(let dd = 1; dd <= days; dd++){
+        const d = D(y, mo + 1, dd), k = key(d), w = d.getUTCDay();
+        const holiday = yearInfo(y).full.get(k), half = yearInfo(y).half.get(k);
+        const cls = ['cal-day'];
+        if(d > r.start && d < r.end) cls.push('range');
+        if(w === 0 || (w === 6 && saturday)) cls.push('weekend');
+        if(holiday) cls.push('holiday');
+        if(recess && inRecess(d) && d > r.start && d <= r.end) cls.push('recess');
+        if(k === startK) cls.push('start');
+        if(k === endK) cls.push('end');
+        if(k === todayK) cls.push('today');
+        const cell = document.createElement('span'); cell.className = cls.join(' '); cell.textContent = String(dd);
+        cell.title = [longDate(d), holiday, half, k === startK ? 'başlangıç (sayılmaz)' : '', k === endK ? 'SON GÜN' : '', k === todayK ? 'bugün' : ''].filter(Boolean).join(' · ');
+        grid.append(cell);
+      }
+      box.append(h, dow, grid); return box;
+    }));
+    $('dCalNote').textContent = months.length > 4 ? `Süre ${months.length} aya yayılıyor; ilk ay ile son üç ay gösteriliyor.` : 'Takvim hesap adımlarının görselidir; tarih üzerine gelince tatilin adı görünür.';
+    $('dCalendar').hidden = false;
   }
   function update(){
     const p = preset($('dKind').value);
     const v = $('dStart').value;
     $('dAmount').max = String(MAX[$('dUnit').value] || MAX.gun);
     // A failed or empty input must not leave the previous result's steps, days left or "late" colour behind.
-    const clear = () => { $('dDate').textContent = '—'; $('dLeft').textContent = ''; $('dSteps').replaceChildren(); $('dWarn').replaceChildren(); $('dWarn').hidden = true; $('dResult').classList.remove('late'); last = null; };
+    const clear = () => { $('dDate').textContent = '—'; $('dLeft').textContent = ''; $('dSteps').replaceChildren(); $('dWarn').replaceChildren(); $('dWarn').hidden = true; $('dResult').classList.remove('late', 'soon'); ringTo(0); $('dCalendar').hidden = true; last = null; };
     if(!/^\d{4}-\d{2}-\d{2}$/u.test(v)){ clear(); say(''); return; }
     try{
-      const raw = $('dAmount').value.trim();
-      const r = compute(new Date(`${v}T00:00:00Z`), raw === '' ? NaN : Number(raw), $('dUnit').value, {recess: $('dRecess').checked, saturday: $('dSaturday').checked, today: todayUTC(),
-        recessBasis: PRESETS[2].items.includes(p) ? 'İYUK m. 8/3' : 'HMK m. 104'});
+      const raw = $('dAmount').value.trim(), today = todayUTC();
+      const r = compute(new Date(`${v}T00:00:00Z`), raw === '' ? NaN : Number(raw), $('dUnit').value, {recess: $('dRecess').checked, saturday: $('dSaturday').checked, today,
+        recessBasis: PRESETS[2].items.includes(p) ? 'İYUK m. 8/3' : 'HMK m. 104', etebligat: $('dEtebligat').checked});
       last = {...r, preset: p};
       $('dDate').textContent = longDate(r.end);
-      $('dLeft').textContent = r.left > 0 ? `Bugünden itibaren ${r.left} gün kaldı.` : r.left === 0 ? 'Son gün bugün.' : '';
+      $('dLeft').textContent = r.left > 0 ? `Bugünden itibaren ${r.left} gün kaldı · süre ${r.total} gün` : r.left === 0 ? 'Son gün bugün.' : `Süre ${-r.left} gün önce doldu.`;
       $('dSteps').replaceChildren(...r.steps.map(t => Object.assign(document.createElement('li'), {textContent: t})));
       $('dWarn').replaceChildren(...r.warnings.map(t => Object.assign(document.createElement('li'), {textContent: t})));
       $('dWarn').hidden = !r.warnings.length;
       $('dResult').classList.toggle('late', r.left < 0);
+      $('dResult').classList.toggle('soon', r.left >= 0 && r.left <= 3);
+      // Days still open, the last day included (today on the last day = one day); an expired period is a full red ring.
+      ringTo(r.left < 0 ? 1 : Math.min(r.left + 1, r.total + 1) / (r.total + 1));
+      calendar(r, $('dSaturday').checked, $('dRecess').checked, today);
       say('');
     }catch(err){ clear(); say(err.message, 'error'); }
   }
@@ -206,8 +277,8 @@
       'Yardımcı hesaptır; kanun metni, tebliğ kaydı ve güncel tatil takvimiyle kontrol edin.'].join('\n');
   };
   $('dKind').addEventListener('change', () => { syncKind(); update(); });
-  for(const id of ['dStart', 'dAmount', 'dUnit', 'dRecess', 'dSaturday']) $(id).addEventListener('input', update);
-  for(const id of ['dRecess', 'dSaturday', 'dUnit']) $(id).addEventListener('change', update);
+  for(const id of ['dStart', 'dAmount', 'dUnit', 'dRecess', 'dSaturday', 'dEtebligat']) $(id).addEventListener('input', update);
+  for(const id of ['dRecess', 'dSaturday', 'dUnit', 'dEtebligat']) $(id).addEventListener('change', update);
   $('dIcs').addEventListener('click', () => {
     if(!last){ say('Önce geçerli bir başlangıç tarihi ve süre girin.', 'error'); return; }
     const label = $('dLabel').value.trim();
@@ -223,5 +294,14 @@
     try{ await navigator.clipboard.writeText(noteText()); say('Hesap notu panoya kopyalandı.', 'success'); }
     catch{ say('Pano kullanılamadı; notu aşağıdaki adımlardan elle kopyalayın.', 'error'); }
   });
-  syncKind(); update();
+  // sure.html#istinaf (command palette of another page): that period.
+  function fromHash(){ const id = decodeURIComponent(location.hash.slice(1)); if(id && preset(id)){ $('dKind').value = id; syncKind(); update(); } }
+  window.addEventListener('hashchange', fromHash);
+  UI?.commands.add([
+    ...PRESETS.flatMap(g => g.items).filter(p => p.id !== 'custom').map(p => ({id: `dl:${p.id}`, group: 'Süreler', label: p.label, hint: `${p.amount} ${UNITS[p.unit]} · ${p.law}`, icon: 'i-clock', keywords: `${p.law} süre`, run: () => { $('dKind').value = p.id; syncKind(); update(); $('dResult').scrollIntoView({block: 'nearest'}); }})),
+    {id: 'dl:ics', group: 'Kaydet', label: 'Takvime ekle (.ics)', hint: 'Son gün, iki gün önce hatırlatmalı', icon: 'i-cal', keywords: 'takvim hatırlat', when: () => !!last, run: () => $('dIcs').click()},
+    {id: 'dl:copy', group: 'Kaydet', label: 'Hesabı kopyala', hint: 'Adımlarla birlikte panoya', icon: 'i-copy', keywords: 'pano kopyala', when: () => !!last, run: () => $('dCopy').click()},
+    {id: 'dl:etb', group: 'Ayar', label: 'e-Tebligat (+5 gün) aç / kapat', hint: 'Tebligat K. m. 7/a', icon: 'i-clock', keywords: 'uets elektronik tebligat', run: () => { $('dEtebligat').click(); }}
+  ]);
+  syncKind(); update(); fromHash();
 })();

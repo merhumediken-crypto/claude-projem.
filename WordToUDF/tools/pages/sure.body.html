@@ -1,20 +1,23 @@
 <main id="main">
 <div class="page-head">
-  <div><span class="eyebrow">Süre hesapla</span><h1>Yasal sürenin son gününü hesaplayın</h1>
+  <div><span class="eyebrow">HMK m. 92–93 · adli tatil m. 104 · Tebligat K. m. 7/a</span><h1>Süre hesabı</h1>
   <p>Tebliğ (başlangıç) tarihini ve süreyi seçin; hafta sonu, resmî tatiller, dini bayramlar, arifeler ve adli tatil hesaba katılır. Sonuç yardımcıdır: kesin süre için kanun metni, tebliğ kaydı ve güncel tatil takvimiyle kontrol edin.</p></div>
   <div class="feature-chips" aria-label="Özellikler">
     <span><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>HMK m. 92–93</span>
-    <span><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>Adli tatil HMK m. 102–104</span>
+    <span><svg class="icon" aria-hidden="true"><use href="#i-cal"/></svg>Adli tatil HMK m. 102–104</span>
     <span><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Takvime ekle</span>
   </div>
 </div>
 <div class="layout">
 <section class="left" aria-label="Süre bilgileri">
-  <div class="panel">
+  <div class="panel switches">
     <h2><span class="step" aria-hidden="true"></span>Süre</h2>
     <label for="dStart" class="setting-label">Başlangıç (tebliğ / öğrenme) tarihi</label>
     <input type="date" id="dStart" min="1950-01-01" max="2100-12-31">
-    <label for="dKind" class="setting-label">Süre</label>
+    <label class="check"><input type="checkbox" id="dEtebligat"><span>e-Tebligat: yukarıdaki tarih adrese ulaşma günü; tebliğ izleyen 5. günün sonunda sayılır (Tebligat K. m. 7/a)</span></label>
+    <span class="setting-label" id="dPresetsLabel">Sık kullanılan süreler</span>
+    <div class="d-presets" id="dPresets" role="group" aria-labelledby="dPresetsLabel"></div>
+    <label for="dKind" class="setting-label">Bütün süreler</label>
     <select id="dKind" class="profile-select"></select>
     <div id="dCustom" class="two" hidden>
       <div><label for="dAmount" class="setting-label">Miktar</label><input type="number" id="dAmount" min="1" max="3650" step="1" value="7" inputmode="numeric"></div>
@@ -27,13 +30,25 @@
 </section>
 <section class="right" aria-label="Sonuç">
   <div class="panel deadline-result" id="dResult" aria-live="polite">
-    <span class="eyebrow">Son gün</span>
-    <div class="d-date" id="dDate">—</div>
-    <div class="d-left" id="dLeft"></div>
+    <div class="d-hero">
+      <svg class="d-ring" id="dRing" viewBox="0 0 120 120" aria-hidden="true"><circle class="ring-track" cx="60" cy="60" r="50"/><circle class="ring-arc" id="dRingArc" cx="60" cy="60" r="50" stroke-dasharray="0 315"/></svg>
+      <div class="d-hero-text">
+        <span class="eyebrow">Son gün</span>
+        <div class="d-date" id="dDate">—</div>
+        <div class="d-left" id="dLeft"></div>
+      </div>
+    </div>
     <h3 class="subhead">Hesap adımları</h3>
     <ol class="d-steps" id="dSteps"></ol>
     <ul class="d-warn" id="dWarn" hidden></ul>
     <p class="note small">Kural: gün olarak belirlenen sürede başlangıç günü sayılmaz; hafta, ay ve yıl olarak belirlenen süre son haftanın / ayın aynı gününde biter (HMK m. 92). Son gün tatile rastlarsa süre izleyen ilk iş gününe uzar (HMK m. 93). Arife gibi yarım gün tatillerde süre uzamaz. Dini bayram tarihleri Diyanet takviminden alınmıştır (2025–2027). İdari izin ve köprü günleri resmî tatil değildir.</p>
+  </div>
+  <div class="panel" id="dCalendar" hidden>
+    <div class="cal-head"><h2>Takvimde</h2>
+      <div class="cal-legend" aria-hidden="true"><span><i class="l-start"></i>Başlangıç</span><span><i class="l-range"></i>Süre</span><span><i class="l-weekend"></i>Hafta sonu</span><span><i class="l-holiday"></i>Resmî tatil</span><span><i class="l-recess"></i>Adli tatil</span><span><i class="l-end"></i>Son gün</span></div>
+    </div>
+    <div class="cal-months" id="dMonths" aria-hidden="true"></div>
+    <p class="note small cal-note" id="dCalNote"></p>
   </div>
   <div class="panel actions-card">
     <h2>Kaydet</h2>
@@ -41,8 +56,8 @@
     <input type="text" id="dLabel" placeholder="ör. 2026/1929 E. – İsa ÇİFTÇİ – cevap" autocomplete="off" maxlength="160">
     <div class="controls">
       <div class="row2">
-        <button type="button" id="dIcs" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Takvime ekle (.ics)</button>
-        <button type="button" id="dCopy" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-report"/></svg>Hesabı kopyala</button>
+        <button type="button" id="dIcs" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-cal"/></svg>Takvime ekle (.ics)</button>
+        <button type="button" id="dCopy" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>Hesabı kopyala</button>
       </div>
       <p class="status" id="status" role="status" aria-live="polite"></p>
     </div>

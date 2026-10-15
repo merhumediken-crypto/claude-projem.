@@ -36,7 +36,10 @@
       surface.replaceChildren();
     };
     window.addEventListener('afterprint', done);
-    window.print();
+    // Without Times New Roman the bundled Tinos is used; if it is still
+    // loading, measure the tab stops again once it is there.
+    if(document.fonts?.status === 'loading') document.fonts.ready.then(() => { WordToUDFPreview.positionTabs(paper); window.print(); });
+    else window.print();
   }
   globalThis.WordToUDFPrint = {printBlocks};
 })();

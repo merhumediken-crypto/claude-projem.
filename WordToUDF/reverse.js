@@ -2,9 +2,11 @@
 (() => {
  'use strict';
  const $=x=>document.getElementById(x);
+ // Times New Roman is missing on most phones: Tinos (bundled, same metrics) keeps the layout.
+ const family=f=>/^\s*(?:"?times new roman"?|times)\s*$/iu.test(f||'')?'"Times New Roman", Tinos, Times, serif':f;
  const state={source:null,file:null};
  const fileInput=$('fileInput'),status=$('status');
- const say=(str,kind='')=>{status.textContent=str;status.className=`status ${kind}`;};
+ const say=(str,kind='')=>{status.textContent=str;status.className=`status ${kind}`;if(kind==='success'||kind==='error')globalThis.WordToUDFUI?.toast(str,kind);};
  const safeName=name=>String(name||'Belge').replace(/\.udf$/i,'').normalize('NFKC').replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/gu,'').replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g,'_').replace(/\s+/g,' ').trim().replace(/[. ]+$/u,'').slice(0,90)||'Belge';
  const downloadBlob=(bytes,name,mime)=>{const url=URL.createObjectURL(new Blob([bytes],{type:mime}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);};
  const ready=()=>{const ok=!!state.source;$('downloadWord').disabled=!ok;$('printPdf').disabled=!ok;};
@@ -38,7 +40,7 @@
    for(let i=0;i<pieces.length;i++){
     if(pieces[i]){
      const span=document.createElement('span');span.textContent=pieces[i];
-     if(run.font)span.style.fontFamily=run.font;
+     if(run.font)span.style.fontFamily=family(run.font);
      if(Number.isFinite(run.size))span.style.fontSize=`${run.size}pt`;
      if(run.color)span.style.color=`#${run.color}`;
      if(run.background)span.style.backgroundColor=`#${run.background}`;
@@ -92,7 +94,7 @@
   paper.style.paddingRight=`${source.options.margins.right*96/72}px`;
   paper.style.paddingBottom=`${source.options.margins.bottom*96/72}px`;
   paper.style.paddingLeft=`${source.options.margins.left*96/72}px`;
-  paper.style.fontFamily=source.options.font;
+  paper.style.fontFamily=family(source.options.font);
   paper.style.fontSize=`${source.options.size}pt`;
   if(source.headers.length){const header=document.createElement('div');header.className='preview-header';header.append(blocksNode(source.headers,new Map()));paper.append(header);}
   paper.append(blocksNode(source.blocks,new Map()));
@@ -102,7 +104,7 @@
  }
  function printDOM(source){
   for(const [id,blocks] of [['printBody',source.blocks],['printHeader',source.headers],['printFooter',source.footers]]){
-   const node=$(id);node.replaceChildren();node.append(blocksNode(blocks,new Map()));node.style.fontFamily=source.options.font;node.style.fontSize=`${source.options.size}pt`;
+   const node=$(id);node.replaceChildren();node.append(blocksNode(blocks,new Map()));node.style.fontFamily=family(source.options.font);node.style.fontSize=`${source.options.size}pt`;
   }
   const {margins:m,landscape,headerOffset,footerOffset}=source.options;
   for(const style of document.styleSheets){

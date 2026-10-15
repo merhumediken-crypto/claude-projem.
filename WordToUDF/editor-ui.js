@@ -399,7 +399,7 @@
           edits.set(k, E().sanitize(ne));
         }
       }
-      setDoc(d, kind === 'replace' && rule && !rule.to ? 'Kural kaldırıldı. Kendi yazdığınız paragraflardaki silme geri getirilemez; gerekirse "Geri al"ı kullanın.' : `Kural kaldırıldı${mine ? ` (kendi yazdığınız metinlerde ${mine} yerde de geri alındı)` : ''}.`, false);
+      setDoc(d, kind === 'cleanups' && rule ? `Düzeltme geri alındı: ${E().CLEANUPS[rule]?.label || rule}.` : kind === 'replace' && rule && !rule.to ? 'Kural kaldırıldı. Kendi yazdığınız paragraflardaki silme geri getirilemez; gerekirse "Geri al"ı kullanın.' : `Kural kaldırıldı${mine ? ` (kendi yazdığınız metinlerde ${mine} yerde de geri alındı)` : ''}.`, false);
     }
     // One string → all matches replaced (used for the user's own typed text).
     function replaceIn(text, from, to, opts){
@@ -729,6 +729,10 @@
       decorate,
       reset(){ edits.clear(); history.length = 0; future.length = 0; selected.clear(); closeSheet(); hidePop(); decorate(); },
       applyFix,
+      // Document-wide tidy-ups applied with "Düzelt" (shown as fixed checks, each undoable on its own).
+      cleanups: () => [...(E().sanitizeDoc(edits.get(DOC)).cleanups || [])],
+      cleanupLabel: id => E().CLEANUPS[id]?.label || id,
+      dropCleanup(id){ const i = (E().sanitizeDoc(edits.get(DOC)).cleanups || []).indexOf(id); if(i >= 0) dropRule('cleanups', i); },
       openFind: () => toggleFind(true),
       close: closeSheet
     };

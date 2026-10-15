@@ -1,4 +1,4 @@
-#downloadWord{background:var(--accent);color:#fff;border:0;border-radius:8px;font-size:13px;font-weight:750;padding:13px 10px}#downloadWord:disabled{opacity:.45;cursor:not-allowed}
+/* UDF → Word / PDF page: the button styles come from workspace.css. */
 #paper .preview-footer{border-top:1px dashed #e1e7ef;margin-top:auto;padding-top:10px}
 #paper .preview-header{border-bottom:1px dashed #e1e7ef;margin-bottom:14px}
 .paper .paragraph{white-space:pre-wrap}

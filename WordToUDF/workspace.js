@@ -1,11 +1,12 @@
 (() => {
   'use strict';
   const $=id=>document.getElementById(id);
-  const P=WordToUDFPipeline, S=WordToUDFSettings, L=WordToUDFLegalTypography, Lib=WordToUDFLibrary;
-  const state={file:null,source:null,result:null,selection:{start:'auto',end:'auto'},profile:'legal',loadSerial:0,settings:S.load(),fit:true};
+  const P=WordToUDFPipeline, S=WordToUDFSettings, L=WordToUDFLegalTypography, Lib=WordToUDFLibrary, UI=WordToUDFUI;
+  const state={file:null,source:null,result:null,selection:{start:'auto',end:'auto'},profile:'legal',loadSerial:0,settings:S.load(),loading:false,downloaded:false};
   const fileInput=$('fileInput'),drop=$('dropZone'),status=$('status');
   const download=$('download'),downloadDocx=$('downloadDocx'),reportDownload=$('reportDownload'),review=$('review'),profileSelect=$('typographyProfile');
-  function message(text,kind='') {status.textContent=text;status.className=`status ${kind}`;}
+  // #status is the persistent, announced message; a toast echoes successes and errors where the user is looking.
+  function message(text,kind='') {status.textContent=text;status.className=`status ${kind}`;if(kind==='success'||kind==='error')UI.toast(text,kind);}
   // Warnings that can lose content need "inceledim"; minor ones are information.
   const blocking=source=>(source?.warnings||[]).filter(w=>!w.minor);
   function setReady(){
@@ -16,10 +17,31 @@
     $('mobileBar').hidden=!state.source;$('mbDownload').disabled=blocked;
     $('overrideHint').hidden=!state.result;
     $('saveCaseFromDoc').disabled=$('saveTplFromDoc').disabled=!state.result;
+    syncSteps();
   }
+  // Step tracker: 1 Kaynak · 2 Denetim · 3 Önizleme · 4 İndir. "Denetim" stays
+  // the current step while the petition has an error or an unreviewed warning.
+  function syncSteps(){
+    const errors=(state.result?.checks||[]).some(c=>c.level==='error');
+    const unreviewed=!!state.source&&blocking(state.source).length>0&&!review.checked;
+    const at=!state.source||!state.result?0:errors||unreviewed?1:state.downloaded?4:3;
+    for(const [i,li] of [...$('steps').children].entries()){
+      li.classList.toggle('done',i<at);li.classList.toggle('active',i===at);li.classList.toggle('busy',i===0&&state.loading);
+      const a=li.querySelector('a');if(i===at)a.setAttribute('aria-current','step');else a.removeAttribute('aria-current');
+    }
+  }
+  // The loaded Word file as a row above a compact drop zone.
+  function syncSource(pages){
+    const word=!!state.source&&state.file instanceof Blob;
+    $('loadedFile').hidden=!word;drop.classList.toggle('compact',word);
+    $('dropTitle').textContent=word?'Başka bir DOCX bırakın ya da seçin':'DOCX dosyasını buraya bırakın';
+    $('selectLabel').textContent=word?'Başka dosya':'DOCX seç';
+    if(word){$('loadedName').textContent=state.file.name;$('loadedInfo').textContent=`${state.source.statistics.paragraphs} paragraf${pages?` · ≈ ${pages} sayfa`:''} · ${state.profile==='legal'?'hukuk profili':'Word biçimi'}`;}
+  }
+  function setLoading(on){state.loading=on;$('previewSection').classList.toggle('is-loading',on);drop.classList.toggle('busy',on);syncSteps();}
   // The empty-state card shipped in the HTML comes back whenever no document is loaded.
   const emptyPaper=$('paper').firstElementChild?.cloneNode(true);
-  function clearPaper(){$('paper').replaceChildren(...(emptyPaper?[emptyPaper.cloneNode(true)]:[]));$('paper').style.minHeight='';$('pageNote').hidden=true;$('chgLegend').hidden=true;}
+  function clearPaper(){$('paper').replaceChildren(...(emptyPaper?[emptyPaper.cloneNode(true)]:[]));$('paper').style.minHeight='';$('pageNote').hidden=true;$('chgLegend').hidden=true;thumbs?.update(0);syncSource();}
   const safeName=s=>P.safeName(s);
   // Download name from the user's pattern (settings: fileName).
   function outBase(){
@@ -65,7 +87,12 @@
     for(const el of [name,uets])el.addEventListener('change',settingsChanged);
     row.append(name,uets,del);$('otherList').append(row);return row;
   }
-  function syncSpec(){$('specLine').textContent=`${$('lineSpacing').value==='1'?'1,0':'1,5'} · iki yana yaslı`;}
+  function syncSpec(){
+    const ls=$('lineSpacing').value==='1'?'1,0':'1,5';
+    $('specLine').textContent=`${ls} · iki yana yaslı`;
+    const own=$('ownName').value.trim(),uets=/^\d{5}-\d{5}-\d{5}$/u.test($('ownUets').value.replace(/\s+/gu,''));
+    $('settingsSummary').textContent=`${own||'Vekil adı girilmedi'} · ${!$('markUets').checked?'UETS yazılmıyor':uets?'UETS kayıtlı':'UETS yok'} · ${ls} satır · ${$('listMode').value==='auto'?'otomatik liste':'metin numarası'}`;
+  }
 
   /* ------------------------------ panels ------------------------------ */
   function labelFor(b,i){
@@ -107,36 +134,28 @@
     const bad=S.invalidUets(state.settings);
     $('uetsInfo').textContent=bad.length?`Geçersiz UETS (${bad.join(', ')}) yok sayıldı. Biçim: 12345-12345-12345`:'';
   }
-  const LEVEL_TEXT={error:'Hata',warn:'Uyarı',info:'Bilgi',suggest:'Öneri'};
+  const LEVEL_TEXT=UI.LEVEL_TEXT;
+  const button=(text,onclick)=>{const b=document.createElement('button');b.type='button';b.className='secondary inline-btn';b.textContent=text;b.addEventListener('click',onclick);return b;};
+  // The paragraphs a fix changed glow for a moment.
+  function flashChanged(fn){
+    const text=()=>new Map([...$('paper').querySelectorAll('.paragraph[data-key]')].map(p=>[p.dataset.key,p.textContent]));
+    const before=text();fn();
+    for(const p of $('paper').querySelectorAll('.paragraph[data-key]'))if(before.has(p.dataset.key)&&before.get(p.dataset.key)!==p.textContent)p.classList.add('flash');
+  }
   function showChecks(checks){
-    const list=$('checkList');list.replaceChildren();
     $('checksPanel').hidden=!state.result;
-    const counts={error:0,warn:0,info:0,suggest:0};
-    for(const c of checks){
-      counts[c.level]++;
-      const li=document.createElement('li');li.className=`check-${c.level}`;li.dataset.code=c.code;
-      const tag=document.createElement('strong');tag.textContent=`${LEVEL_TEXT[c.level]}: `;li.append(tag,document.createTextNode(c.message));
-      if(c.code==='request-split'&&!$('splitRequests').checked){
-        const btn=document.createElement('button');btn.type='button';btn.className='secondary inline-btn';btn.textContent='Maddelere ayır';
-        btn.addEventListener('click',()=>{$('splitRequests').checked=true;settingsChanged();});li.append(' ',btn);
-      }
-      if(c.fix){
+    UI.checks({list:'checkList',stats:'checkStats',ring:'checkRing',big:'ringBig',small:'ringSmall',legend:'ringLegend'},checks,{
+      buttons:c=>[
+        c.code==='request-split'&&!$('splitRequests').checked?button('Maddelere ayır',()=>{$('splitRequests').checked=true;settingsChanged();}):null,
         // Format suggestion: one press fixes it everywhere (undoable).
-        const btn=document.createElement('button');btn.type='button';btn.className='secondary inline-btn';btn.textContent='Düzelt';
-        btn.addEventListener('click',()=>holdPosition(()=>editor.applyFix(c.fix)));li.append(' ',btn);
-      }
-      list.append(li);
-    }
-    $('checkStats').textContent=`${counts.error} hata · ${counts.warn} uyarı${counts.suggest?` · ${counts.suggest} öneri`:''}`;
-    $('checkStats').className='pill'+(counts.error?' pill-error':counts.warn?' pill-warn':' pill-ok');
+        c.fix?button('Düzelt',()=>holdPosition(()=>flashChanged(()=>editor.applyFix(c.fix)))):null],
+      fixed:editor.cleanups().map(id=>({text:editor.cleanupLabel(id),undo:()=>holdPosition(()=>editor.dropCleanup(id))}))});
   }
 
   /* ------------------------------ preview ------------------------------ */
-  function fitPaper(){
-    const scale=WordToUDFPreview.fit($('previewViewport'),$('paperScale'),$('paper'),state.fit);
-    $('zoomToggle').setAttribute('aria-pressed',String(state.fit));
-    $('zoomToggle').textContent=state.fit?`Sığdır · %${Math.round(scale*100)}`:'Gerçek boyut';
-  }
+  const zoom=UI.zoomer({viewport:$('previewViewport'),wrapper:$('paperScale'),paper:$('paper'),toggle:$('zoomToggle'),zoomIn:$('zoomIn'),zoomOut:$('zoomOut')});
+  const thumbs=UI.thumbs({rail:$('thumbs'),viewport:$('previewViewport'),paper:$('paper'),getScale:()=>zoom.scale});
+  const fitPaper=()=>zoom.apply();
   // A re-render rebuilds the report and check lists, which sit above most
   // settings; without this the control the user just changed slides away
   // (the browser loses its scroll anchor when those lists are replaced).
@@ -158,7 +177,7 @@
   function renderNow(){
     if(!state.source)return;
     const source=state.source;
-    state.result=null;
+    state.result=null;state.downloaded=false;
     let t;
     try{t=P.typeset(source.blocks,{profile:state.profile,selection:state.selection,settings:state.settings,now:new Date(),edits:editor.edits,sourceMargins:source.options.margins});}
     catch(err){message(`Dönüştürme hazırlanamadı: ${err.message}`,'error');setReady();return;}
@@ -176,7 +195,7 @@
     // "Değişiklikleri göster": words the rules added or changed, per-paragraph notes.
     $('changesToggle').hidden=!legal;$('chgLegend').hidden=!(legal&&state.showChanges);
     if(legal&&state.showChanges)WordToUDFPreview.markChanges($('paper'),source.blocks,(t.typography.changes||[]).map(c=>({after:String(c.after||'').trim(),text:changeText(c)})));
-    fitPaper();
+    fitPaper();thumbs.update(pg.pages);syncSource(pg.pages);
     editor.decorate();
     const ty=t.typography;
     const typeInfo=ty?.enabled?` · ${ty.metadataMerged||0} künye satırı birleştirildi · ${ty.resultItems||0} talep ve ${ty.attachments||0} ek numaralı listede · hukuk tipografisi etkin`:' · Word biçimi profili';
@@ -206,10 +225,11 @@
     state.file=null;state.source=null;state.result=null;state.selection={start:'auto',end:'auto'};editor.reset();
     state.paste=null;state.pasteInfo=null;$('completePanel').hidden=true;
     $('sectionPanel').hidden=true;$('reportPanel').hidden=true;$('checksPanel').hidden=true;clearPaper();
-    review.checked=false;setReady();message('Belge yerel olarak okunuyor…');
+    review.checked=false;setLoading(true);setReady();message('Belge yerel olarak okunuyor…');
     try{
       const source=await WordToUDFDocx.readDocx(await file.arrayBuffer());
       if(serial!==state.loadSerial)return;
+      setLoading(false);
       state.file=file;state.source=source;setTab('word');
       fillSelect('startSection',source.blocks,'auto');fillSelect('endSection',source.blocks,'auto');
       $('sectionPanel').hidden=false;$('reportPanel').hidden=false;
@@ -218,7 +238,7 @@
       message(`${file.name} okundu. Önizlemeyi, dilekçe denetimini ve varsa dönüşüm uyarılarını kontrol edin.`,'success');
     }catch(err){
       if(serial!==state.loadSerial)return;
-      clearPaper();state.source=null;setReady();
+      setLoading(false);clearPaper();state.source=null;setReady();
       message(`DOCX açılamadı: ${err.message}`,'error');
     }
   }
@@ -375,8 +395,8 @@
   profileSelect.addEventListener('change',e=>{state.profile=e.target.value==='faithful'?'faithful':'legal';editor.close();render();});
   $('startSection').addEventListener('change',e=>{state.selection.start=e.target.value;render();});
   $('endSection').addEventListener('change',e=>{state.selection.end=e.target.value;render();});
-  $('zoomToggle').addEventListener('click',()=>{state.fit=!state.fit;fitPaper();});
-  let resizeTimer=0;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(fitPaper,120);});
+  // Tinos (Times New Roman metrics) loads the first time the preview needs it: measure tabs and pages again.
+  UI.onFontsLoaded(()=>{if(state.result)render();else fitPaper();});
 
   /* ------------------------------ downloads ------------------------------ */
   function reportText(){
@@ -417,13 +437,14 @@
     // Re-render so the closing date is the date of generation, not of preview.
     if(state.profile==='legal')render();
     if(!state.result)return;
-    download.disabled=true;message('UDF oluşturuluyor ve içeriği doğrulanıyor…');
+    download.disabled=true;UI.download(download,'working');message('UDF oluşturuluyor ve içeriği doğrulanıyor…');
     try{
       const res=await P.toUdf(state.result.blocks,outputOptions());
       downloadBlob(res.bytes,outBase()+'.udf','application/octet-stream');
       const errors=(state.result.checks||[]).filter(c=>c.level==='error').length;
+      UI.download(download,'done');state.downloaded=true;
       message(`UDF hazır: ${res.paragraphs} paragraf, ${res.lists} otomatik liste maddesi, ${res.breaks} sayfa sonu.${errors?` Dilekçe denetiminde ${errors} hata var; göndermeden önce bakın.`:''} İndirilen dosyayı UYAP'ta denetleyin.`,errors?'error':'success');
-    }catch(err){message(`Dönüştürme başarısız: ${err.message}`,'error');}
+    }catch(err){UI.download(download,'idle');message(`Dönüştürme başarısız: ${err.message}`,'error');}
     finally{setReady();}
   });
   downloadDocx.addEventListener('click',async()=>{
@@ -520,6 +541,26 @@
 
   $('mbDownload').addEventListener('click',()=>download.click());
   $('mbPreview').addEventListener('click',()=>$('previewSection').scrollIntoView({behavior:'smooth',block:'start'}));
+
+  /* ------------------------------ command palette (Ctrl+K) ------------------------------ */
+  const can=id=>()=>!$(id).disabled;
+  UI.commands.add([
+    {id:'ws:file',group:'Dönüştür',label:'Word dosyası seç',hint:'DOCX · en fazla 24 MB · dosya cihazdan çıkmaz',icon:'i-upload',keywords:'docx yükle aç',run:()=>{setTab('word');fileInput.click();}},
+    {id:'ws:paste',group:'Dönüştür',label:'Metni yapıştır',hint:'Word, PDF, Google Dokümanlar, WhatsApp…',icon:'i-paste',keywords:'yapıştır pano',run:()=>{setTab('paste');$('pasteBox').focus();}},
+    {id:'ws:batch',group:'Dönüştür',label:'Toplu dönüştür',hint:'Birden çok DOCX → tek ZIP',icon:'i-stack',keywords:'zip çoklu',run:()=>$('batchInput').click()},
+    {id:'ws:udf',group:'İndir',label:'UDF oluştur ve indir',hint:'UYAP Doküman Editörü dosyası',icon:'i-download',keywords:'indir kaydet udf',when:can('download'),run:()=>download.click()},
+    {id:'ws:docx',group:'İndir',label:'Düzenlenmiş Word (DOCX) indir',hint:'UDF ile aynı düzen',icon:'i-doc',keywords:'word docx',when:can('downloadDocx'),run:()=>downloadDocx.click()},
+    {id:'ws:pdf',group:'İndir',label:'PDF olarak kaydet',hint:'Yazdırma penceresi açılır',icon:'i-report',keywords:'pdf yazdır',when:can('printPdf'),run:()=>$('printPdf').click()},
+    {id:'ws:report',group:'İndir',label:'Dönüşüm raporu',hint:'Değişiklikler, denetim, uyarılar',icon:'i-report',keywords:'rapor txt',when:can('reportDownload'),run:()=>reportDownload.click()},
+    {id:'ws:find',group:'Düzenle',label:'Bul / değiştir',hint:'Belgenin tamamında ara (Ctrl+F)',icon:'i-search',keywords:'ara değiştir',when:()=>!!state.result,run:()=>editor.openFind()},
+    {id:'ws:changes',group:'Düzenle',label:'Değişiklikleri göster / gizle',hint:'Aracın eklediği sözcükler sarıyla',icon:'i-eye',keywords:'fark',when:()=>!!state.result&&!$('changesToggle').hidden,run:()=>$('changesToggle').click()},
+    {id:'ws:fit',group:'Düzenle',label:'Sayfaya sığdır / gerçek boyut',hint:'Önizleme yakınlaştırması',icon:'i-eye',keywords:'zoom yakınlaştır',run:()=>$('zoomToggle').click()},
+    {id:'ws:settings',group:'Ayarlar',label:'Vekil ve UETS ayarları',hint:'Ad SOYAD, UETS, başka vekil',icon:'i-user',keywords:'avukat uets vekil',run:()=>{$('legalOptions').scrollIntoView({block:'start'});$('ownName').focus({preventScroll:true});}},
+    {id:'ws:spacing',group:'Ayarlar',label:'Satır aralığını değiştir (1,0 / 1,5)',hint:'Gövde satır aralığı',icon:'i-ruler',keywords:'satır aralık',run:()=>{$('lineSpacing').value=$('lineSpacing').value==='1'?'1.5':'1';settingsChanged();}},
+    {id:'ws:case',group:'Ayarlar',label:'Bu dilekçeden dosya kartı kaydet',hint:'Mahkeme, esas no, taraflar',icon:'i-layers',keywords:'kart kaydet',when:can('saveCaseFromDoc'),run:()=>$('saveCaseFromDoc').click()}
+  ]);
+  // Every template opens directly on the template page.
+  UI.commands.add(WordToUDFTemplates.TEMPLATES.map(t=>({id:`tpl:${t.id}`,group:'Şablonlar',label:t.title,hint:'Şablondan dilekçe',icon:'i-grid',keywords:'şablon dilekçe',run:()=>{location.href=`templates.html#${t.id}`;}})));
 
   // Offline web-app mode (outside the Chrome extension): cache the app files.
   if('serviceWorker' in navigator&&/^https?:$/u.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});

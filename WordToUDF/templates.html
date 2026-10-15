@@ -1,4 +1,4 @@
-<!doctype html><html lang="tr"><head><meta charset="utf-8"><link rel="icon" href="icon48.png"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><link rel="manifest" href="app.webmanifest"><meta name="theme-color" content="#1e3a8a"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'"><title>Şablondan Dilekçe</title><link rel="stylesheet" href="workspace.css"><script src="theme.js"></script></head><body><svg xmlns="http://www.w3.org/2000/svg" class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><link rel="icon" href="icon48.png"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><link rel="manifest" href="app.webmanifest"><meta name="theme-color" content="#0b1b42"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'"><title>Şablondan Dilekçe</title><link rel="stylesheet" href="workspace.css"><script src="theme.js"></script></head><body><svg xmlns="http://www.w3.org/2000/svg" class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
 <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4m0 0-4 4m4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
 <symbol id="i-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6M9 16h4"/></symbol>
 <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
@@ -19,20 +19,39 @@
 <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
 <symbol id="i-stack" viewBox="0 0 24 24"><rect x="4" y="8" width="13" height="13" rx="2"/><path d="M8 4h10a2 2 0 0 1 2 2v10"/></symbol>
 <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></symbol>
-</svg><header class="appbar"><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">§</span><span class="brand-text"><strong>Word ↔ UDF</strong><small>Hukuk dilekçesi araçları</small></span></a><nav class="appnav" aria-label="Bölümler"><a href="workspace.html"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>Dönüştür</a><a href="templates.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span class="l-long">Şablonlar</span><span class="l-short">Şablon</span></a><a href="reverse.html"><svg class="icon" aria-hidden="true"><use href="#i-swap"/></svg><span class="l-long">UDF → Word / PDF</span><span class="l-short">UDF→Word</span></a><a href="sure.html"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span class="l-long">Süre hesapla</span><span class="l-short">Süre</span></a></nav><div class="appbar-end"><span class="offline-badge" title="Bütün işlemler bu cihazda yapılır; dosyalar hiçbir sunucuya gönderilmez.">Çevrimdışı</span><button type="button" class="theme-toggle" id="themeToggle" aria-label="Tema"><svg class="icon t-auto" aria-hidden="true"><use href="#i-auto"/></svg><svg class="icon t-light" aria-hidden="true"><use href="#i-sun"/></svg><svg class="icon t-dark" aria-hidden="true"><use href="#i-moon"/></svg></button><span class="version" title="Sürüm">v1.10.3</span></div></header><main id="main">
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 21 20H3z"/><path d="M12 10v4M12 17.5v.01"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></symbol>
+<symbol id="i-tick" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7"/></symbol>
+<symbol id="i-spin" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 1-9 9"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+</svg><header class="appbar"><div class="appbar-in"><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">§</span><span class="brand-text"><strong>Word ↔ UDF</strong><small class="brand-sub">Hukuk dilekçesi stüdyosu</small><small class="brand-page">Şablondan dilekçe</small></span></a><nav class="appnav" aria-label="Bölümler"><a href="workspace.html"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>Dönüştür</a><a href="templates.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>Şablonlar</a><a href="reverse.html"><svg class="icon" aria-hidden="true"><use href="#i-swap"/></svg><span class="l-long">UDF → Word / PDF</span><span class="l-short">UDF→Word</span></a><a href="sure.html"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span class="l-long">Süre hesabı</span><span class="l-short">Süre</span></a></nav><div class="appbar-end"><button type="button" class="cmd-btn" id="cmdOpen" aria-haspopup="dialog" aria-keyshortcuts="Control+K" title="Komut ara (Ctrl+K)"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="cmd-label">Komut ara</span><kbd>Ctrl K</kbd></button><button type="button" class="theme-toggle" id="themeToggle" aria-label="Tema"><svg class="icon t-auto" aria-hidden="true"><use href="#i-auto"/></svg><svg class="icon t-light" aria-hidden="true"><use href="#i-sun"/></svg><svg class="icon t-dark" aria-hidden="true"><use href="#i-moon"/></svg></button><span class="version" title="Sürüm">v1.10.3</span></div></div></header><script src="ui.js"></script><main id="main">
 <div class="page-head">
-  <div><span class="eyebrow">Şablonlar</span><h1>Sık yazılan dilekçeleri birkaç alanla oluşturun</h1>
+  <div><span class="eyebrow">Şablonlar</span><h1>Sık yazılan dilekçeler, birkaç alanla</h1>
   <p>Şablon metni bir başlangıç taslağıdır; açıklama, talepler ve ekler sayfada düzenlenebilir. Dilekçe, Word'den dönüştürülenlerle aynı hukuk dilekçesi kurallarından ve denetimden geçer.</p></div>
   <div class="feature-chips" aria-label="Özellikler">
-    <span><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>14 şablon</span>
+    <span><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>14 hazır şablon</span>
     <span><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>Vekil ve UETS ayarlardan</span>
     <span><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg>Önizlemede düzenleme</span>
   </div>
 </div>
+<details class="panel tpl-gallery" id="tplGallery" open>
+  <summary><span class="sum-icon" aria-hidden="true"><svg class="icon"><use href="#i-grid"/></svg></span><span class="summary-text">Şablon seç<small id="tplGallerySub">Bir karta dokunun; form ve önizleme aşağıda dolar</small></span></summary>
+  <div class="tpl-gallery-head">
+    <label class="tpl-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="visually-hidden">Şablon ara</span><input type="search" id="tplSearch" placeholder="Ara: mazeret, ıslah, HMK 281…" autocomplete="off" spellcheck="false"></label>
+    <div class="tpl-cats" id="tplCats" role="group" aria-label="Kategoriler"></div>
+  </div>
+  <div class="tpl-grid" id="tplGrid" aria-label="Şablonlar"></div>
+</details>
 <div class="layout">
 <section class="left" aria-label="Şablon formu">
   <div class="panel">
     <h2><span class="step" aria-hidden="true"></span>Şablon</h2>
+    <div class="tpl-current" id="tplCurrent"><span class="tc-badge" id="tplBadge" aria-hidden="true"></span><span class="tc-text"><strong id="tplTitle"></strong><small id="tplLaw"></small></span></div>
     <label for="tpl" class="setting-label">Dilekçe türü</label>
     <select id="tpl" class="profile-select"></select>
     <p class="note small" id="tplNote" hidden></p>
@@ -73,22 +92,22 @@
   </div>
   <div class="panel checks" id="checksPanel" hidden>
     <div class="panel-heading"><h2><span class="step" aria-hidden="true"></span>Denetim</h2><span class="pill" id="checkStats"></span></div>
+    <div class="ring-row"><svg class="ring" id="checkRing" viewBox="0 0 100 100"></svg><div class="ring-text"><span class="ring-big" id="ringBig"></span><span class="ring-small" id="ringSmall"></span><span class="ring-legend" id="ringLegend"></span></div></div>
     <ul id="checkList" class="checks-list"></ul>
   </div>
-  <div class="panel actions-card">
+  <div class="panel actions-card" id="actionsCard">
     <div class="panel-heading"><h2><span class="step" aria-hidden="true"></span>İndir</h2></div>
     <div class="controls">
-      <button type="button" id="download" class="btn-lg"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>UDF oluştur ve indir</button>
+      <button type="button" id="download" class="btn-lg dl-btn" data-state="idle"><svg class="icon dl-i dl-idle" aria-hidden="true"><use href="#i-download"/></svg><svg class="icon dl-i dl-working" aria-hidden="true"><use href="#i-spin"/></svg><svg class="icon dl-i dl-done" aria-hidden="true"><use href="#i-tick"/></svg><span class="dl-label">UDF oluştur ve indir</span></button>
       <div class="row2">
         <button type="button" id="downloadDocx" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>Word (DOCX)</button>
         <button type="button" id="printPdf" class="secondary" title="Yazdırma penceresi açılır; hedef olarak “PDF olarak kaydet”i seçin"><svg class="icon" aria-hidden="true"><use href="#i-report"/></svg>PDF</button>
       </div>
       <details class="file-name">
-        <summary>İndirilen dosya adı</summary>
+        <summary><span>Dosya adı</span><code class="file-name-preview" id="fileNamePreview"></code></summary>
         <label for="fileNamePattern" class="setting-label">Dosya adı kalıbı</label>
         <input type="text" id="fileNamePattern" placeholder="{KAYNAK}" autocomplete="off" spellcheck="false" maxlength="120">
         <p class="note small">Kullanılabilir alanlar: {TARİH} {MÜVEKKİL} {ESAS} {TÜR} {KAYNAK}. Örnek: {TARİH}_{MÜVEKKİL}_{TÜR}. Boş bırakılırsa {KAYNAK} (kaynak dosyanın / şablonun adı) kullanılır. Bu tarayıcıda saklanır.</p>
-        <p class="note small file-name-preview" id="fileNamePreview"></p>
       </details>
       <p class="status" id="status" role="status" aria-live="polite"></p>
     </div>
@@ -97,19 +116,20 @@
 <section class="right" id="previewSection" aria-label="Önizleme">
   <div class="preview-card">
     <div class="preview-head">
-      <div><span class="eyebrow">Önizleme</span><h2>Dilekçe</h2></div>
-      <div class="preview-tools" id="previewTools"><span class="pill" id="previewCount">A4</span><button type="button" id="zoomToggle" class="secondary tool-btn zoom-btn" aria-pressed="true">Sığdır</button></div>
+      <div><span class="eyebrow">Önizleme</span><h2>Dilekçe <span class="pill" id="previewCount">A4</span></h2></div>
+      <div class="preview-tools" id="previewTools"><span class="zoom-group" role="group" aria-label="Yakınlaştırma"><button type="button" id="zoomOut" class="zoom-step" aria-label="Uzaklaştır">−</button><button type="button" id="zoomToggle" aria-pressed="true">Sığdır</button><button type="button" id="zoomIn" class="zoom-step" aria-label="Yakınlaştır">+</button></span></div>
     </div>
     <p class="preview-hint">Önizlemedeki bir paragrafa dokunarak türünü, biçimini veya metnini değiştirin; bir sözcüğü ya da cümleyi seçerek kalın / italik yapın.</p>
-    <div class="preview-viewport fit" id="previewViewport"><div class="paper-scale" id="paperScale"><article class="paper editable" id="paper"></article></div></div>
+    <div class="preview-body"><nav class="thumbs" id="thumbs" aria-label="Sayfalar"></nav>
+    <div class="preview-viewport fit" id="previewViewport"><div class="paper-scale" id="paperScale"><article class="paper editable" id="paper" aria-label="Dilekçe önizlemesi"></article></div></div></div>
     <p class="page-note" id="pageNote" role="status" hidden></p>
     <p class="preview-foot">Önizleme yaklaşık yerleşimi gösterir. UYAP Doküman Editörü'nde açarak son kontrolleri yapın.</p>
   </div>
 </section>
 </div>
-</main>
+<footer class="app-foot"><span class="foot-safe"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>İnternet bağlantısı yok · izin yok · belgeler cihazdan çıkmaz</span><span class="foot-ver">Word ↔ UDF v1.10.3 · <a href="index.html">Ana sayfa</a></span></footer></main>
 <div class="mobile-bar" id="mobileBar">
   <button type="button" class="btn btn-secondary" id="mbPreview"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg>Önizleme</button>
   <button type="button" class="btn btn-primary" id="mbDownload"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>UDF indir</button>
 </div>
-<script src="zip.js"></script><script src="normalize.js"></script><script src="settings.js"></script><script src="legal-rules.js"></script><script src="legal-typography.js"></script><script src="edits.js"></script><script src="checks.js"></script><script src="udf.js"></script><script src="docx-writer.js"></script><script src="pipeline.js"></script><script src="preview.js"></script><script src="print.js"></script><script src="editor-ui.js"></script><script src="templates.js"></script><script src="library.js"></script><script src="templates-page.js"></script></body></html>
+<script src="zip.js"></script><script src="normalize.js"></script><script src="settings.js"></script><script src="legal-rules.js"></script><script src="legal-typography.js"></script><script src="edits.js"></script><script src="checks.js"></script><script src="udf.js"></script><script src="docx-writer.js"></script><script src="pipeline.js"></script><script src="preview.js"></script><script src="print.js"></script><script src="editor-ui.js"></script><script src="templates.js"></script><script src="library.js"></script><script src="templates-page.js"></script><nav class="tabbar" aria-label="Sayfalar (alt çubuk)"><a href="workspace.html"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg><span>Dönüştür</span></a><a href="templates.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg><span>Şablonlar</span></a><a href="reverse.html"><svg class="icon" aria-hidden="true"><use href="#i-swap"/></svg><span>UDF→Word</span></a><a href="sure.html"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span>Süre</span></a></nav></body></html>

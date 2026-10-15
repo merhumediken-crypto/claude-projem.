@@ -1,4 +1,4 @@
-<!doctype html><html lang="tr"><head><meta charset="utf-8"><link rel="icon" href="icon48.png"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><link rel="manifest" href="app.webmanifest"><meta name="theme-color" content="#1e3a8a"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'"><title>Süre hesapla</title><link rel="stylesheet" href="workspace.css"><script src="theme.js"></script></head><body><svg xmlns="http://www.w3.org/2000/svg" class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><link rel="icon" href="icon48.png"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><link rel="manifest" href="app.webmanifest"><meta name="theme-color" content="#0b1b42"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'"><title>Süre hesabı</title><link rel="stylesheet" href="workspace.css"><script src="theme.js"></script></head><body><svg xmlns="http://www.w3.org/2000/svg" class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
 <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4m0 0-4 4m4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
 <symbol id="i-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6M9 16h4"/></symbol>
 <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
@@ -19,23 +19,36 @@
 <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
 <symbol id="i-stack" viewBox="0 0 24 24"><rect x="4" y="8" width="13" height="13" rx="2"/><path d="M8 4h10a2 2 0 0 1 2 2v10"/></symbol>
 <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m0 0-5-5m5 5-5 5"/></symbol>
-</svg><header class="appbar"><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">§</span><span class="brand-text"><strong>Word ↔ UDF</strong><small>Hukuk dilekçesi araçları</small></span></a><nav class="appnav" aria-label="Bölümler"><a href="workspace.html"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>Dönüştür</a><a href="templates.html"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span class="l-long">Şablonlar</span><span class="l-short">Şablon</span></a><a href="reverse.html"><svg class="icon" aria-hidden="true"><use href="#i-swap"/></svg><span class="l-long">UDF → Word / PDF</span><span class="l-short">UDF→Word</span></a><a href="sure.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span class="l-long">Süre hesapla</span><span class="l-short">Süre</span></a></nav><div class="appbar-end"><span class="offline-badge" title="Bütün işlemler bu cihazda yapılır; dosyalar hiçbir sunucuya gönderilmez.">Çevrimdışı</span><button type="button" class="theme-toggle" id="themeToggle" aria-label="Tema"><svg class="icon t-auto" aria-hidden="true"><use href="#i-auto"/></svg><svg class="icon t-light" aria-hidden="true"><use href="#i-sun"/></svg><svg class="icon t-dark" aria-hidden="true"><use href="#i-moon"/></svg></button><span class="version" title="Sürüm">v1.10.3</span></div></header><main id="main">
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 21 20H3z"/><path d="M12 10v4M12 17.5v.01"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></symbol>
+<symbol id="i-tick" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7"/></symbol>
+<symbol id="i-spin" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 1-9 9"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+</svg><header class="appbar"><div class="appbar-in"><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">§</span><span class="brand-text"><strong>Word ↔ UDF</strong><small class="brand-sub">Hukuk dilekçesi stüdyosu</small><small class="brand-page">Süre hesabı</small></span></a><nav class="appnav" aria-label="Bölümler"><a href="workspace.html"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg>Dönüştür</a><a href="templates.html"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>Şablonlar</a><a href="reverse.html"><svg class="icon" aria-hidden="true"><use href="#i-swap"/></svg><span class="l-long">UDF → Word / PDF</span><span class="l-short">UDF→Word</span></a><a href="sure.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span class="l-long">Süre hesabı</span><span class="l-short">Süre</span></a></nav><div class="appbar-end"><button type="button" class="cmd-btn" id="cmdOpen" aria-haspopup="dialog" aria-keyshortcuts="Control+K" title="Komut ara (Ctrl+K)"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="cmd-label">Komut ara</span><kbd>Ctrl K</kbd></button><button type="button" class="theme-toggle" id="themeToggle" aria-label="Tema"><svg class="icon t-auto" aria-hidden="true"><use href="#i-auto"/></svg><svg class="icon t-light" aria-hidden="true"><use href="#i-sun"/></svg><svg class="icon t-dark" aria-hidden="true"><use href="#i-moon"/></svg></button><span class="version" title="Sürüm">v1.10.3</span></div></div></header><script src="ui.js"></script><main id="main">
 <div class="page-head">
-  <div><span class="eyebrow">Süre hesapla</span><h1>Yasal sürenin son gününü hesaplayın</h1>
+  <div><span class="eyebrow">HMK m. 92–93 · adli tatil m. 104 · Tebligat K. m. 7/a</span><h1>Süre hesabı</h1>
   <p>Tebliğ (başlangıç) tarihini ve süreyi seçin; hafta sonu, resmî tatiller, dini bayramlar, arifeler ve adli tatil hesaba katılır. Sonuç yardımcıdır: kesin süre için kanun metni, tebliğ kaydı ve güncel tatil takvimiyle kontrol edin.</p></div>
   <div class="feature-chips" aria-label="Özellikler">
     <span><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>HMK m. 92–93</span>
-    <span><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>Adli tatil HMK m. 102–104</span>
+    <span><svg class="icon" aria-hidden="true"><use href="#i-cal"/></svg>Adli tatil HMK m. 102–104</span>
     <span><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Takvime ekle</span>
   </div>
 </div>
 <div class="layout">
 <section class="left" aria-label="Süre bilgileri">
-  <div class="panel">
+  <div class="panel switches">
     <h2><span class="step" aria-hidden="true"></span>Süre</h2>
     <label for="dStart" class="setting-label">Başlangıç (tebliğ / öğrenme) tarihi</label>
     <input type="date" id="dStart" min="1950-01-01" max="2100-12-31">
-    <label for="dKind" class="setting-label">Süre</label>
+    <label class="check"><input type="checkbox" id="dEtebligat"><span>e-Tebligat: yukarıdaki tarih adrese ulaşma günü; tebliğ izleyen 5. günün sonunda sayılır (Tebligat K. m. 7/a)</span></label>
+    <span class="setting-label" id="dPresetsLabel">Sık kullanılan süreler</span>
+    <div class="d-presets" id="dPresets" role="group" aria-labelledby="dPresetsLabel"></div>
+    <label for="dKind" class="setting-label">Bütün süreler</label>
     <select id="dKind" class="profile-select"></select>
     <div id="dCustom" class="two" hidden>
       <div><label for="dAmount" class="setting-label">Miktar</label><input type="number" id="dAmount" min="1" max="3650" step="1" value="7" inputmode="numeric"></div>
@@ -48,13 +61,25 @@
 </section>
 <section class="right" aria-label="Sonuç">
   <div class="panel deadline-result" id="dResult" aria-live="polite">
-    <span class="eyebrow">Son gün</span>
-    <div class="d-date" id="dDate">—</div>
-    <div class="d-left" id="dLeft"></div>
+    <div class="d-hero">
+      <svg class="d-ring" id="dRing" viewBox="0 0 120 120" aria-hidden="true"><circle class="ring-track" cx="60" cy="60" r="50"/><circle class="ring-arc" id="dRingArc" cx="60" cy="60" r="50" stroke-dasharray="0 315"/></svg>
+      <div class="d-hero-text">
+        <span class="eyebrow">Son gün</span>
+        <div class="d-date" id="dDate">—</div>
+        <div class="d-left" id="dLeft"></div>
+      </div>
+    </div>
     <h3 class="subhead">Hesap adımları</h3>
     <ol class="d-steps" id="dSteps"></ol>
     <ul class="d-warn" id="dWarn" hidden></ul>
     <p class="note small">Kural: gün olarak belirlenen sürede başlangıç günü sayılmaz; hafta, ay ve yıl olarak belirlenen süre son haftanın / ayın aynı gününde biter (HMK m. 92). Son gün tatile rastlarsa süre izleyen ilk iş gününe uzar (HMK m. 93). Arife gibi yarım gün tatillerde süre uzamaz. Dini bayram tarihleri Diyanet takviminden alınmıştır (2025–2027). İdari izin ve köprü günleri resmî tatil değildir.</p>
+  </div>
+  <div class="panel" id="dCalendar" hidden>
+    <div class="cal-head"><h2>Takvimde</h2>
+      <div class="cal-legend" aria-hidden="true"><span><i class="l-start"></i>Başlangıç</span><span><i class="l-range"></i>Süre</span><span><i class="l-weekend"></i>Hafta sonu</span><span><i class="l-holiday"></i>Resmî tatil</span><span><i class="l-recess"></i>Adli tatil</span><span><i class="l-end"></i>Son gün</span></div>
+    </div>
+    <div class="cal-months" id="dMonths" aria-hidden="true"></div>
+    <p class="note small cal-note" id="dCalNote"></p>
   </div>
   <div class="panel actions-card">
     <h2>Kaydet</h2>
@@ -62,13 +87,13 @@
     <input type="text" id="dLabel" placeholder="ör. 2026/1929 E. – İsa ÇİFTÇİ – cevap" autocomplete="off" maxlength="160">
     <div class="controls">
       <div class="row2">
-        <button type="button" id="dIcs" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Takvime ekle (.ics)</button>
-        <button type="button" id="dCopy" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-report"/></svg>Hesabı kopyala</button>
+        <button type="button" id="dIcs" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-cal"/></svg>Takvime ekle (.ics)</button>
+        <button type="button" id="dCopy" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>Hesabı kopyala</button>
       </div>
       <p class="status" id="status" role="status" aria-live="polite"></p>
     </div>
   </div>
 </section>
 </div>
-</main>
-<script src="deadline.js"></script></body></html>
+<footer class="app-foot"><span class="foot-safe"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>İnternet bağlantısı yok · izin yok · belgeler cihazdan çıkmaz</span><span class="foot-ver">Word ↔ UDF v1.10.3 · <a href="index.html">Ana sayfa</a></span></footer></main>
+<script src="deadline.js"></script><nav class="tabbar" aria-label="Sayfalar (alt çubuk)"><a href="workspace.html"><svg class="icon" aria-hidden="true"><use href="#i-doc"/></svg><span>Dönüştür</span></a><a href="templates.html"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg><span>Şablonlar</span></a><a href="reverse.html"><svg class="icon" aria-hidden="true"><use href="#i-swap"/></svg><span>UDF→Word</span></a><a href="sure.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><span>Süre</span></a></nav></body></html>
