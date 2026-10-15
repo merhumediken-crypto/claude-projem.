@@ -20,7 +20,7 @@ Bütün özellikler ve dönüşüm kuralları aynen korunur; UDF, Word ve PDF ç
 - **Masaüstü:** sayfa küçük resimleri yalnız 1500 px'ten geniş ekranda ve tam ekranda görünür, sol sütun daraltıldı; sayfa yeniden büyük gösterilir.
 - **Düzenlenen paragraf görünür kalır:** telefonda alttan açılan düzenleme paneli paragrafın üstüne binmez; yakınlaştırılmış önizlemede önce önizleme kutusu, sonra sayfa kaydırılır. Tam ekranda yukarı / aşağı taşınan paragraf araç satırının altına kaçmaz.
 - **Masaüstü tam ekranda düzenleme paneli** sol üstte durur, sayfa ve araç satırı onun sağına kayar; panel sayfayı ya da “Geri al / Bul” düğmelerini örtmez. Dar masaüstü ve tablet ekranında da önizleme panelin yanına çekilir.
-- **Telefonda biçim çubuğu tek satır:** iki satıra kırılıp düzenlenen paragrafın üstüne binmez, gerekirse yana kaydırılır. Biçim verilince çıkan bildirim çubuğun üstüne değil ekranın üst kısmına gelir.
+- **Telefonda biçim çubuğu tek satır:** iki satıra kırılıp düzenlenen paragrafın üstüne binmez; “Tüm belgede” telefonda “Tümü” olarak kısalır, 320 px ekranda da bütün düğmeler görünür. Biçim verilince çıkan bildirim çubuğun üstüne değil ekranın üst kısmına gelir.
 - **UDF → Word / PDF sayfasında da** Sığdır, − / + ve Tam ekran: telefonda UDF önizlemesi artık 794 px genişliğinde yana kaydırılan bir sayfa değil, ekrana sığan metin sütunudur.
 
 ### Gezinme

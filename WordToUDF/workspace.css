@@ -639,11 +639,15 @@ html.full-preview{ overflow: hidden; }
 .mp-plain, .mp-sentence, .mp-scope{ font: 700 12.5px/1 var(--font); }
 .mp-scope{ white-space: nowrap; }
 .mp-sep{ width: 1px; height: 22px; align-self: center; margin: 0 4px; background: rgba(255, 255, 255, .22); }
-.mark-pop.docked{ left: 12px; right: 12px; bottom: calc(150px + env(safe-area-inset-bottom)); justify-content: space-between; flex-wrap: nowrap;
+.mark-pop.docked{ left: 12px; right: 12px; bottom: calc(150px + env(safe-area-inset-bottom)); justify-content: space-between; flex-wrap: nowrap; gap: 2px; padding: 5px;
   overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
-/* One row on a phone (a second row would cover the edited paragraph); it swipes sideways when narrow. */
-.mark-pop.docked .mp-btn{ flex: none; min-width: 36px; padding: 0 8px; }
-.mark-pop.docked .mp-sep{ flex: none; margin: 0 2px; }
+/* One row on a phone (a second row would cover the edited paragraph): compact buttons, "Tümü" for
+   "Tüm belgede"; fits 320 px, and swipes sideways if an extra style button is shown. */
+.mark-pop .mp-short{ display: none; }
+.mark-pop.docked .mp-btn{ flex: none; min-width: 34px; padding: 0 6px; }
+.mark-pop.docked .mp-sep{ display: none; }
+.mark-pop.docked .mp-long{ display: none; }
+.mark-pop.docked .mp-short{ display: inline; }
 body.sheet-open .mark-pop.docked{ top: calc(var(--appbar-h) + 8px); bottom: auto; }
 
 /* 12 · Templates --------------------------------------------------------- */

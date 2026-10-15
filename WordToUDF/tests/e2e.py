@@ -1122,6 +1122,7 @@ def v111_editing(browser,tmp,petition):
     assert page.evaluate("document.querySelector('#paper .paragraph[data-key]').__keep===1"),'önizleme yeniden çizilmedi'
     assert page.evaluate('getSelection().toString()')=='verilen karara' and page.locator('.mark-pop').is_visible(),'seçim ve biçim çubuğu kalır'
     bar=page.locator('.mark-pop').bounding_box();assert bar['height']<=60 and bar['x']>=0 and bar['x']+bar['width']<=390,bar
+    assert page.evaluate("(p=>p.scrollWidth<=p.clientWidth+1)(document.querySelector('.mark-pop'))"),'bütün düğmeler görünür (Tümü)'
     page.locator('.mark-pop .mp-bold').click();page.wait_for_timeout(300)
     t=page.locator('.toast:not(.leaving)').bounding_box();bar=page.locator('.mark-pop').bounding_box()
     assert t and (t['y']+t['height']<=bar['y'] or t['y']>=bar['y']+bar['height']),('bildirim biçim çubuğunu örtmez',t,bar)
@@ -1163,6 +1164,7 @@ def v111_editing(browser,tmp,petition):
     page.keyboard.press('Escape');page.wait_for_timeout(100)
     assert not errors,errors
     ctx.close()
+    print('PASS 1.11 düzenleme: geç yüklenen yazı tipi önizlemeyi yeniden kurmaz (seçim kalır), telefonda biçim çubuğu tek satır ve bildirim üstünde, tam ekranda taşınan paragraf görünür, masaüstü tam ekranda panel sayfayı örtmez, UDF → Word telefonda ekrana sığar')
 
 def csp_check(browser):
     """The other tests strip the pages' CSP; here the real pages are served

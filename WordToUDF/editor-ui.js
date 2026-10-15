@@ -250,7 +250,8 @@
     let popSel = null, popAll = false, lastSel = null;
     const current = () => popSel || (lastSel && performance.now() - lastSel.t < 1500 ? lastSel.s : null);
     const pop = el('div', {class: 'mark-pop', role: 'toolbar', 'aria-label': 'Seçili metnin biçimi', hidden: true});
-    const allBtn = el('button', {type: 'button', class: 'mp-btn mp-scope', 'aria-pressed': 'false', text: 'Tüm belgede', title: 'Açıkken biçim, bu metnin belgedeki her geçişine uygulanır'});
+    // "Tümü" on a phone, where the bar is one row (workspace.css); the name stays "Tüm belgede".
+    const allBtn = el('button', {type: 'button', class: 'mp-btn mp-scope', 'aria-pressed': 'false', 'aria-label': 'Tüm belgede', title: 'Açıkken biçim, bu metnin belgedeki her geçişine uygulanır'}, el('span', {class: 'mp-long', text: 'Tüm belgede'}), el('span', {class: 'mp-short', text: 'Tümü'}));
     pop.append(...STYLE_BTNS.map(([k, label, name, key]) => el('button', {type: 'button', class: `mp-btn mp-${k}`, text: label, 'aria-label': name, title: key ? `${name} (Ctrl+${key})` : name, 'data-style': k})),
       el('button', {type: 'button', class: 'mp-btn mp-plain', text: 'Düz', title: 'Kalın, italik, altı ve üstü çizgiyi kaldır', 'data-style': 'plain'}),
       el('span', {class: 'mp-sep', 'aria-hidden': 'true'}),
