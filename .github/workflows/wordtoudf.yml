@@ -26,10 +26,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: HTML sayfaları kaynağıyla aynı mı (tools/pages.py)
+      - name: HTML sayfaları ve temalar kaynağıyla aynı mı (tools/pages.py, tools/themes.py)
         run: |
           python tools/pages.py
-          git diff --exit-code -- '*.html' || { echo "::error::HTML sayfaları elle düzenlenmiş ya da yeniden üretilmemiş; python3 tools/pages.py çalıştırın."; exit 1; }
+          python tools/themes.py
+          git diff --exit-code -- '*.html' themes.css || { echo "::error::HTML sayfaları ya da themes.css elle düzenlenmiş veya yeniden üretilmemiş; python3 tools/pages.py ve python3 tools/themes.py çalıştırın."; exit 1; }
       - name: Tarayıcı testleri için bağımlılıklar
         run: |
           pip install playwright==1.64.0 python-docx lxml

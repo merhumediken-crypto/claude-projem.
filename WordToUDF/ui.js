@@ -37,23 +37,28 @@
 
   /* ------------------------------ toasts ------------------------------ */
   let toastBox = null;
-  function toast(text, kind = 'success', ms){
+  // action: {label, run} — a button in the note (e.g. "Geri al" after an edit).
+  // Keyboard users have the same command elsewhere (Ctrl+Z), so it is not a tab stop.
+  function toast(text, kind = 'success', ms, action){
     const t = String(text || '').trim(); if(!t || !document.body) return;
     // Under a phone's bottom sheet the only visible strip is the edited paragraph: no toast over it.
     if(kind !== 'error' && document.body.classList.contains('sheet-open') && window.matchMedia?.('(max-width: 760px)').matches) return;
     if(!toastBox){ toastBox = el('div', {class: 'toasts', 'aria-hidden': 'true'}); document.body.append(toastBox); }
     // The same note again (e.g. several edits in a row) refreshes instead of stacking.
     const last = toastBox.lastElementChild;
-    if(last && last.dataset.text === t && last.dataset.kind === kind && !last.classList.contains('leaving')){ clearTimeout(Number(last.dataset.timer)); arm(last, ms ?? (kind === 'error' ? 7000 : 3200)); return; }
-    const node = el('div', {class: `toast ${kind}`, title: 'Kapatmak için dokunun'}, el('span', {class: 't-ico'}, icon(kind === 'error' ? 'i-alert' : 'i-tick')), el('span', {text: t}));
+    const life = ms ?? (kind === 'error' ? 7000 : action ? 6000 : 3200);
+    if(last && last.dataset.text === t && last.dataset.kind === kind && !last.classList.contains('leaving') && !action === !last.querySelector('.t-act')){ clearTimeout(Number(last.dataset.timer)); arm(last, life); return; }
+    const act = action ? el('button', {type: 'button', class: 't-act', tabindex: '-1', text: action.label}) : null;
+    const node = el('div', {class: `toast ${kind}` + (act ? ' has-act' : ''), title: 'Kapatmak için dokunun'}, el('span', {class: 't-ico'}, icon(kind === 'error' ? 'i-alert' : 'i-tick')), el('span', {class: 't-text', text: t}), act);
+    act?.addEventListener('click', ev => { ev.stopPropagation(); leave(node); action.run(); });
     node.dataset.text = t; node.dataset.kind = kind;
     node.addEventListener('click', () => leave(node));
     // One note at a time: a new one replaces the previous (several edits in a row do not pile up over the page).
     for(const old of [...toastBox.children]){ clearTimeout(Number(old.dataset.timer)); leave(old); }
     // The phone's format bar sits where toasts appear: the note goes to the top instead.
-    toastBox.classList.toggle('above', !!document.querySelector('.mark-pop.docked:not([hidden])'));
+    toastBox.classList.toggle('above', !!document.querySelector('.mark-pop.docked:not([hidden]), .tour-bar'));
     toastBox.append(node);
-    arm(node, ms ?? (kind === 'error' ? 7000 : 3200));
+    arm(node, life);
   }
   function arm(node, ms){ node.dataset.timer = String(setTimeout(() => leave(node), ms)); }
   function leave(node){
@@ -74,7 +79,13 @@
   const NAV = [['workspace.html', 'Dönüştür: Word → UDF', 'DOCX seç ya da metni yapıştır', 'i-doc'], ['templates.html', 'Şablondan dilekçe', 'Mazeret, ek süre, itirazlar, ıslah…', 'i-grid'],
     ['sure.html', 'Süre hesabı', 'Cevap, istinaf, itiraz; tatil ve adli tatil dahil', 'i-clock'], ['reverse.html', 'UDF → Word / PDF', 'UYAP dosyasını aç ve dönüştür', 'i-swap'], ['index.html', 'Ana sayfa', 'Bütün araçlar', 'i-layers']];
   commands.add(NAV.filter(([href]) => href !== page).map(([href, label, hint, ic]) => ({id: `nav:${href}`, group: 'Sayfalar', label, hint, icon: ic, keywords: href, run: () => { location.href = href; }})));
-  commands.add({id: 'theme', group: 'Görünüm', label: 'Temayı değiştir', hint: 'Otomatik → açık → koyu', icon: 'i-moon', keywords: 'koyu açık karanlık gece tema', run: () => document.getElementById('themeToggle')?.click()});
+  // Theme picker and every palette / mode (theme.js) by name.
+  const T = globalThis.WordToUDFTheme;
+  commands.add({id: 'theme', group: 'Görünüm', label: 'Görünüm ve tema…', hint: 'Renk teması, açık / koyu', icon: 'i-moon', keywords: 'tema renk koyu açık karanlık gece görünüm', run: () => T ? T.open() : document.getElementById('themeToggle')?.click()});
+  if(T){
+    commands.add(T.palettes.map(([id, name, hint]) => ({id: `theme:${id}`, group: 'Görünüm', label: `Tema: ${name}`, hint, icon: 'i-moon', keywords: 'tema renk', when: () => T.palette !== id, run: () => T.setPalette(id)})));
+    commands.add(T.modes.map(([id, name]) => ({id: `mode:${id}`, group: 'Görünüm', label: `${name} görünüm`, hint: id === 'auto' ? 'Cihazın ayarına göre' : '', icon: 'i-moon', keywords: 'tema koyu açık karanlık gece', when: () => T.mode !== id, run: () => T.setMode(id)})));
+  }
 
   let pal = null, palPrev = null, palActive = 0, palItems = [], fullOff = null;
   function openPalette(){
@@ -375,6 +386,200 @@
     return {update, go};
   }
 
+  /* ------------------------------ section map ------------------------------ */
+  // The petition's parts as chips above the preview (Künye, Konu, Açıklamalar,
+  // I., II., Hukuki sebepler, Sonuç ve istem, İmza, Ekler): a tap goes there,
+  // and the part in view is marked while the page scrolls.
+  const sentenceCase = s => { const t = s.toLocaleLowerCase('tr-TR'); return t.charAt(0).toLocaleUpperCase('tr-TR') + t.slice(1); };
+  const headOf = p => p.textContent.replace(/\s+/gu, ' ').trim().split(/\s*[:\t]/u)[0].trim();
+  const clip = (s, n) => s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s;
+  // Where the visible part of the preview starts: its own box when it scrolls, else under the app bar.
+  function viewTop(viewport){
+    const own = viewport && viewport.scrollHeight > viewport.clientHeight + 1 && getComputedStyle(viewport).overflowY !== 'hidden';
+    const bar = document.querySelector('.appbar')?.getBoundingClientRect().bottom || 0;
+    return own ? Math.max(viewport.getBoundingClientRect().top, bar) : bar;
+  }
+  function sections({nav, paper, viewport}){
+    if(!nav) return {update(){}};
+    let items = [], current = -1, raf = 0;
+    function update(){
+      items = [];
+      const seen = new Set();
+      for(const p of paper.querySelectorAll('.paragraph[data-role]')){
+        const r = p.dataset.role, head = headOf(p);
+        let label = null, sub = false;
+        if(r === 'court-heading'){ if(!seen.has('court')){ seen.add('court'); label = 'Başlık'; } }
+        else if(r === 'metadata' || r === 'case-number'){ if(!seen.has('kunye')){ seen.add('kunye'); label = 'Künye'; } }
+        else if(r === 'topic') label = 'Konu';
+        else if(r === 'major-heading' || r === 'result-heading' || r === 'section-field') label = head ? sentenceCase(clip(head, 24)) : null;
+        else if(r === 'section-heading'){
+          // "II. HUKUKA AYKIRILIK" → "II. Hukuka aykırılık": the numeral stays as written.
+          const m = /^((?:[IVXLCDM]+|\d+|[a-zçğıöşü])[.)]\s*)(.*)$/iu.exec(head);
+          label = head ? clip(m ? m[1] + sentenceCase(m[2]) : sentenceCase(head), 26) : null; sub = true;
+        }
+        else if(r === 'signature'){ if(!seen.has('sig')){ seen.add('sig'); label = 'İmza'; } }
+        else if(r === 'attachment-item'){ if(!seen.has('ek') && !items.some(x => /^ekler/iu.test(x.label))){ seen.add('ek'); label = 'Ekler'; } }
+        if(label) items.push({p, label, sub});
+      }
+      nav.hidden = items.length < 3;
+      nav.replaceChildren(...items.map((it, i) => el('button', {type: 'button', class: 'sec-chip' + (it.sub ? ' sub' : ''), 'data-i': String(i), text: it.label, title: `${it.label} bölümüne git`})));
+      current = -1; spy();
+    }
+    nav.addEventListener('click', e => {
+      const b = e.target.closest('.sec-chip'); if(!b) return;
+      const it = items[Number(b.dataset.i)]; if(!it?.p.isConnected) return;
+      it.p.scrollIntoView({block: 'start', behavior: reduced() ? 'auto' : 'smooth'});
+      it.p.classList.remove('glow'); void it.p.offsetWidth; it.p.classList.add('glow');
+    });
+    function spy(){
+      raf = 0;
+      if(nav.hidden || !items.length) return;
+      const line = viewTop(viewport) + 90;
+      let at = 0;
+      items.forEach((it, i) => { if(it.p.isConnected && it.p.getBoundingClientRect().top <= line) at = i; });
+      if(at === current) return;
+      current = at;
+      nav.querySelectorAll('.sec-chip').forEach((b, i) => { b.classList.toggle('on', i === at); if(i === at) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+      // Keep the marked chip in sight inside the strip (without scrolling the page).
+      const b = nav.querySelector('.sec-chip.on');
+      if(b && (b.offsetLeft < nav.scrollLeft || b.offsetLeft + b.offsetWidth > nav.scrollLeft + nav.clientWidth)) nav.scrollLeft = Math.max(0, b.offsetLeft - 24);
+    }
+    document.addEventListener('scroll', () => { if(!raf) raf = requestAnimationFrame(spy); }, {capture: true, passive: true});
+    return {update};
+  }
+
+  /* ------------------------------ check tour ------------------------------ */
+  // "Kontrol turu": the findings one by one, the paragraphs each is about
+  // marked on the page; ‹ › go through them, Esc ends the tour.
+  function tour({button, getChecks, locate, actions = () => []}){
+    let bar = null, list = [], i = 0, hits = [];
+    const usable = () => (getChecks() || []).filter(c => c.code !== 'ok' && c.code !== 'profile');
+    function clearHits(){ for(const p of hits) p.classList.remove('tour-hit'); hits = []; }
+    function stop(){
+      clearHits(); bar?.remove(); bar = null;
+      button?.setAttribute('aria-pressed', 'false'); button?.classList.remove('on');
+      document.removeEventListener('keydown', keys, true);
+    }
+    function keys(e){
+      if(!bar) return;
+      if(e.key === 'Escape' && !document.querySelector('.edit-sheet, .palette-backdrop, .theme-pop')){ e.preventDefault(); e.stopPropagation(); stop(); button?.focus({preventScroll: true}); }
+    }
+    function show(){
+      clearHits();
+      const c = list[i]; if(!c){ stop(); return; }
+      hits = (locate(c) || []).filter(p => p.isConnected);
+      for(const p of hits) p.classList.add('tour-hit');
+      if(hits[0]){
+        // Full screen keeps its own box; elsewhere the page scrolls.
+        hits[0].scrollIntoView({block: 'center', behavior: reduced() ? 'auto' : 'smooth'});
+      }
+      const where = hits.length > 1 ? ` · ${hits.length} paragraf` : hits.length ? '' : ' · sayfada belirli bir yeri yok';
+      bar.querySelector('.tb-level').textContent = LEVEL_TEXT[c.level] || 'Bilgi';
+      bar.querySelector('.tb-level').className = `tb-level lv-${c.level}`;
+      bar.querySelector('.tb-count').textContent = `${i + 1} / ${list.length}${where}`;
+      bar.querySelector('.tb-text').textContent = c.message;
+      bar.querySelector('.tb-prev').disabled = i === 0;
+      bar.querySelector('.tb-next').disabled = i >= list.length - 1;
+      bar.querySelector('.tb-acts').replaceChildren(...(actions(c) || []).filter(Boolean));
+    }
+    function start(){
+      list = usable();
+      if(!list.length){ toast('Denetimde gözden geçirilecek madde yok.'); return; }
+      i = 0;
+      bar = el('div', {class: 'tour-bar', role: 'region', 'aria-label': 'Kontrol turu', 'aria-live': 'polite'},
+        el('div', {class: 'tb-top'}, el('span', {class: 'tb-level'}), el('span', {class: 'tb-count'}),
+          el('span', {class: 'tb-nav'},
+            el('button', {type: 'button', class: 'tb-prev', 'aria-label': 'Önceki madde', text: '‹', onclick: () => { if(i > 0){ i--; show(); } }}),
+            el('button', {type: 'button', class: 'tb-next', 'aria-label': 'Sonraki madde', text: '›', onclick: () => { if(i < list.length - 1){ i++; show(); } }}),
+            el('button', {type: 'button', class: 'tb-close', 'aria-label': 'Kontrol turunu bitir', text: '×', onclick: () => { stop(); button?.focus({preventScroll: true}); }}))),
+        el('p', {class: 'tb-text'}), el('div', {class: 'tb-acts'}));
+      document.body.append(bar);
+      button?.setAttribute('aria-pressed', 'true'); button?.classList.add('on');
+      document.addEventListener('keydown', keys, true);
+      show();
+      bar.querySelector('.tb-next:not(:disabled), .tb-close')?.focus({preventScroll: true});
+    }
+    // After a re-render (Düzelt, an edit): same finding if it is still there, else the next one.
+    function refresh(){
+      if(!bar) return;
+      const code = list[i]?.code, msg = list[i]?.message;
+      list = usable();
+      if(!list.length){ stop(); toast('Denetimdeki bütün maddeler giderildi.'); return; }
+      const j = list.findIndex(c => c.code === code && c.message === msg);
+      i = j >= 0 ? j : Math.min(i, list.length - 1);
+      show();
+    }
+    button?.addEventListener('click', () => bar ? stop() : start());
+    return {start, stop, refresh, get active(){ return !!bar; }};
+  }
+
+  /* ------------------------------ before / after ------------------------------ */
+  // "Karşılaştır": the source as it came (Word / pasted text) over the result;
+  // a handle moves the border between "önce" (left) and "sonra" (right).
+  function compare({button, wrapper, paper, renderSource, label = 'Önce'}){
+    if(!button || !wrapper) return {sync(){}, off(){}, get on(){ return false; }};
+    let over = null, handle = null, tags = null, f = .5, drag = false;
+    const parse = () => {
+      const t = paper.style.transform || '';
+      return {s: Number(/scale\(([\d.]+)\)/u.exec(t)?.[1] || 1), tx: Number(/translateX\((-?[\d.]+)px\)/u.exec(t)?.[1] || 0)};
+    };
+    function sync(){
+      if(!over) return;
+      over.style.transform = paper.style.transform; over.style.transformOrigin = 'top left';
+      const {s, tx} = parse(), w = wrapper.getBoundingClientRect().width;
+      // The wrapper is as tall as the taller of the two pages.
+      const h = Math.max(paper.offsetHeight, over.offsetHeight) * s;
+      if(h > wrapper.offsetHeight + 1) wrapper.style.height = `${Math.round(h)}px`;
+      const x = f * w, local = (x - tx) / s;
+      over.style.clipPath = `inset(0 ${Math.max(0, over.offsetWidth - local)}px 0 0)`;
+      handle.style.left = `${Math.round(x)}px`;
+      handle.setAttribute('aria-valuenow', String(Math.round(f * 100)));
+    }
+    function setF(v){ f = Math.min(1, Math.max(0, v)); sync(); }
+    function on(){
+      over = el('article', {class: 'paper compare-paper', 'aria-hidden': 'true'});
+      wrapper.classList.add('comparing'); wrapper.append(over);
+      try{ renderSource(over); }catch{ off(); toast('Kaynağın önceki hali gösterilemedi.', 'error'); return; }
+      tags = [el('span', {class: 'cmp-tag before', 'aria-hidden': 'true', text: label}), el('span', {class: 'cmp-tag after', 'aria-hidden': 'true', text: 'Sonra · UDF'})];
+      handle = el('div', {class: 'cmp-handle', role: 'slider', tabindex: '0', 'aria-label': 'Önce / sonra ayırıcı (sol: önce, sağ: sonra)', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '50'}, el('span', {class: 'cmp-knob', 'aria-hidden': 'true'}));
+      wrapper.append(...tags, handle);
+      handle.addEventListener('pointerdown', e => { drag = true; handle.setPointerCapture(e.pointerId); e.preventDefault(); });
+      handle.addEventListener('pointermove', e => { if(drag){ const r = wrapper.getBoundingClientRect(); setF((e.clientX - r.left) / r.width); } });
+      const end = () => { drag = false; };
+      handle.addEventListener('pointerup', end); handle.addEventListener('pointercancel', end);
+      handle.addEventListener('keydown', e => {
+        const d = {ArrowLeft: -.05, ArrowRight: .05, Home: -1, End: 1}[e.key];
+        if(d !== undefined){ e.preventDefault(); setF(f + d); }
+      });
+      button.setAttribute('aria-pressed', 'true'); button.classList.add('on');
+      f = .5; sync();
+    }
+    function off(){
+      if(!over && !handle) return;
+      over?.remove(); handle?.remove(); for(const t of tags || []) t.remove();
+      over = handle = tags = null;
+      wrapper.classList.remove('comparing');
+      button.setAttribute('aria-pressed', 'false'); button.classList.remove('on');
+    }
+    button.addEventListener('click', () => { if(over) off(); else on(); });
+    return {sync, off, get on(){ return !!over; }};
+  }
+
+  /* ------------------------------ shared file ------------------------------ */
+  // A file shared to the installed web app (sw.js keeps it in a local cache):
+  // read once, deleted at once, the address cleaned. Nothing leaves the device.
+  async function takeShared(){
+    if(!new URLSearchParams(location.search).has('shared')) return null;
+    history.replaceState(null, '', location.pathname + location.hash);
+    try{
+      const cache = await caches.open('wordtoudf-share'), res = await cache.match('shared-file');
+      await cache.delete('shared-file');
+      if(!res) return null;
+      const name = decodeURIComponent(res.headers.get('X-File-Name') || 'paylasilan');
+      return new File([await res.blob()], name, {type: res.headers.get('Content-Type') || ''});
+    }catch{ return null; }
+  }
+
   /* ------------------------------ fonts ------------------------------ */
   // The bundled Tinos (Times New Roman metrics) loads only when the preview
   // first needs it; tab stops and page guides are measured again then. The
@@ -389,5 +594,5 @@
     });
   }
 
-  globalThis.WordToUDFUI = {toast, commands, openPalette, closePalette, checks, ring, download, zoomer, thumbs, onFontsLoaded, icon, el, fold, LEVEL_TEXT};
+  globalThis.WordToUDFUI = {toast, commands, openPalette, closePalette, checks, ring, download, zoomer, thumbs, sections, tour, compare, takeShared, onFontsLoaded, icon, el, fold, LEVEL_TEXT};
 })();

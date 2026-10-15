@@ -9,7 +9,7 @@
   const TEXT = ['topic', 'body', 'requests', 'closing', 'attachments'];
   const draft = (() => { try{ return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') || {}; }catch{ return {}; } })();
   const saveDraft = () => { try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(collect())); }catch{ /* storage unavailable */ } };
-  function message(text, kind = ''){ $('status').textContent = text; $('status').className = `status ${kind}`; if(kind === 'success' || kind === 'error') UI.toast(text, kind); }
+  function message(text, kind = '', action){ $('status').textContent = text; $('status').className = `status ${kind}`; if(kind === 'success' || kind === 'error') UI.toast(text, kind, undefined, action); }
   function downloadBlob(bytes, name, mime){
     const url = URL.createObjectURL(new Blob([bytes], {type: mime}));
     const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
@@ -213,6 +213,9 @@
   }
   const zoom = UI.zoomer({viewport: $('previewViewport'), wrapper: $('paperScale'), paper: $('paper'), toggle: $('zoomToggle'), zoomIn: $('zoomIn'), zoomOut: $('zoomOut'), full: $('previewFull'), section: $('previewSection')});
   const thumbs = UI.thumbs({rail: $('thumbs'), viewport: $('previewViewport'), paper: $('paper'), getScale: () => zoom.scale});
+  // The petition's parts above the preview, and the check tour.
+  const sections = UI.sections({nav: $('secMap'), paper: $('paper'), viewport: $('previewViewport')});
+  const tour = UI.tour({button: $('tourStart'), getChecks: () => state.result?.checks, locate: c => editor.locate(c), actions: c => [c.fix ? fixButton(c) : null]});
   const fitPaper = () => zoom.apply();
   const fixButton = c => { const b = document.createElement('button'); b.type = 'button'; b.className = 'secondary inline-btn'; b.textContent = 'Düzelt'; b.addEventListener('click', () => editor.applyFix(c.fix)); return b; };
   function render(){
@@ -228,6 +231,7 @@
       UI.checks({list: 'checkList', stats: 'checkStats', ring: 'checkRing', big: 'ringBig', small: 'ringSmall', legend: 'ringLegend'}, t.checks, {
         buttons: c => [c.fix ? fixButton(c) : null],
         fixed: editor.cleanups().map(id => ({text: editor.cleanupLabel(id), undo: () => editor.dropCleanup(id)}))});
+      tour.refresh();
       saveDraft();
     }catch(err){ message(`Önizleme oluşturulamadı: ${err.message}`, 'error'); }
   }
@@ -235,14 +239,14 @@
     $('previewCount').textContent = `≈ ${pg.pages} sayfa · A4`;
     $('pageNote').hidden = !pg.signatureAlone;
     $('pageNote').textContent = pg.signatureAlone ? `Uyarı (yaklaşık): imza bloğu ${pg.pages}. sayfaya tek başına düşüyor; bir paragrafı kısaltmayı düşünün.` : '';
-    fitPaper(); thumbs.update(pg.pages);
+    fitPaper(); thumbs.update(pg.pages); sections.update();
   }
   let timer = 0; function schedule(){ clearTimeout(timer); timer = setTimeout(render, 150); }
   // Paragraph editor on the preview (same as the converter page). Edits are
   // keyed by paragraph text, so changing a template field that alters a
   // paragraph simply leaves that paragraph's old edit unused.
   const editor = WordToUDFEditorUI.attach({paper: $('paper'), toolbar: $('previewTools'), getBlocks: () => state.result?.blocks,
-    onChange: render, onMessage: m => message(m, 'success'), enabled: () => !!state.result, extraStyles: () => settings.experimental ? ['highlight'] : []});
+    onChange: render, onMessage: (m, a) => message(m, 'success', a), enabled: () => !!state.result, extraStyles: () => settings.experimental ? ['highlight'] : []});
 
   // Restore draft or start from the first template.
   // A deleted user template falls back to the first built-in one.

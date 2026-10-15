@@ -2,6 +2,31 @@
 
 WordToUDF'nin bütün sürümleri, yeniden eskiye. Kullanım kılavuzu: [README.md](README.md).
 
+## 1.12.0 — 6 tema, daha hızlı düzenleme, kontrol turu, önce / sonra, UYAP'a göre satır yüksekliği
+
+### Temalar
+- **6 renk teması**, her biri açık ve koyu: **Lacivert & Altın** (varsayılan), **Bordo & Fildişi**, **Zeytin & Kâğıt** (göz yormayan), **Mermer & Pirinç** (damarlı mermer dokusu), **Grafit** (sade; koyuda OLED telefonlar için tam siyah), **Güneş** (yüksek kontrast, güneş altında okunur).
+- Üst çubuktaki tema düğmesi bir **kartela** açar: renk kartları ve Otomatik / Açık / Koyu. Komut aramasında “Tema: Bordo”, “Koyu görünüm” gibi komutlar da var. Seçim cihazda saklanır; Chrome'un açılır penceresi de seçilen temayı kullanır. Telefonun durum çubuğu temanın rengini alır, tema değişirken renkler yumuşakça geçer.
+- **Dilekçe kâğıdı her temada beyaz ve Times New Roman kalır** (UYAP'ta göreceğiniz gibi). Her temanın yazı renkleri en az WCAG AA kontrastındadır (4,5:1); tema üreteci (`tools/themes.py`) bunu sağlamayan bir rengi kabul etmez.
+
+### Düzenleme
+- **Bildirimde Geri al:** seçimle biçimlendirme, taşıma, ekleme, “Tümünü değiştir” gibi bir işlemden sonra çıkan bildirimde **Geri al**; geri alınca **Yinele**.
+- **Panelde ‹ ›:** düzenleme panelini kapatmadan önceki / sonraki paragrafa geçin (klavyede **Alt+↑ / Alt+↓**). Uygulanmamış metin varsa geçmeden önce uyarır.
+- **Sürükleyerek taşıma (masaüstü):** fareyle paragrafın soluna gelince bir tutamaç çıkar; tutup başka bir paragrafın üstüne ya da altına bırakın. Bırakılacak yer bir çizgiyle gösterilir, sayfa kenarına gelince önizleme kendiliğinden kayar. Esc vazgeçer; Ctrl+Z geri alır.
+- **Değişen paragraf parlar:** her düzenlemeden sonra etkilenen paragraflar (numarası değişen talepler dahil) bir kez temanın metal renginde parlar; neyin değiştiğini gözle anında görürsünüz.
+
+### Kontrol
+- **Kontrol turu:** Denetim kartındaki “Kontrol turu” ile maddeler tek tek gezilir; her maddenin ilgili olduğu paragraf sayfada işaretlenir ve görünür yere getirilir (hangi VEKİLİ satırı, hangi tarih, fazla boşluğun geçtiği paragraflar…). Öneriler turdan “Düzelt” ile düzeltilir; düzeltilen madde listeden düşer, tur sıradakine geçer.
+- **Bölüm haritası:** önizlemenin üstünde Başlık · Künye · Konu · Açıklamalar · I., II. … · Hukuki sebepler · Sonuç ve istem · İmza · Ekler; dokununca o bölüme gider, kaydırdıkça bulunduğunuz bölüm işaretlenir.
+- **Önce / sonra (Dönüştür):** kaynağın asıl hali (Word ya da yapıştırılan metin) sonuçla aynı sayfada; ortadaki ayırıcıyı sürükleyin ya da ok tuşlarıyla kaydırın. Yakınlaştırma ve tam ekranda da çalışır.
+
+### Telefon
+- **Paylaşımdan aç:** telefona eklenmiş web uygulamasına (ör. GitHub Pages'te yayınlanmış) WhatsApp, e-posta ya da Dosyalar'dan bir Word dosyası paylaşılınca Dönüştür sayfasında, bir UDF paylaşılınca UDF → Word sayfasında açılır. Dosya yalnız cihazdaki geçici bir önbelleğe yazılır ve sayfa açar açmaz silinir. Chrome uzantısında bu yol yoktur.
+- **UDF'yi paylaş:** UDF dosyası paylaşabilen tarayıcılarda (ör. iPhone'da Safari) indirme düğmelerinin altında görünür. Chrome yalnız resim / PDF / metin paylaşımına izin verdiği için Android'deki Chrome'da ve masaüstünde düğme görünmez.
+
+### Doğruluk
+- **Satır yüksekliği UYAP'a göre ayarlandı:** UYAP'tan yazdırılmış bir sayfa ölçüldü: tek satır 13,8 pt, “1,5 satır” 20,7 pt (12 pt Times New Roman). Önizleme satırları yazı boyutunun katı aldığı için yaklaşık %13 kısa çiziliyordu; artık Word ve UYAP gibi yazı tipinin kendi satır yüksekliğinin (1,15 em) katıdır. “≈ sayfa” sayısı ve “imza son sayfada yalnız kalıyor” uyarısı UYAP'a daha yakındır; PDF çıktısı ve UDF → Word önizlemesi de aynı hesabı kullanır.
+
 ## 1.11.0 — Yeni tasarım: lacivert / altın arayüz, tam ekran önizleme, komut arama
 
 Bütün özellikler ve dönüşüm kuralları aynen korunur; UDF, Word ve PDF çıktısı değişmez. Değişen, görünüm ve etkileşim katmanıdır.

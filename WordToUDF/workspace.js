@@ -6,13 +6,13 @@
   const fileInput=$('fileInput'),drop=$('dropZone'),status=$('status');
   const download=$('download'),downloadDocx=$('downloadDocx'),reportDownload=$('reportDownload'),review=$('review'),profileSelect=$('typographyProfile');
   // #status is the persistent, announced message; a toast echoes successes and errors where the user is looking.
-  function message(text,kind='') {status.textContent=text;status.className=`status ${kind}`;if(kind==='success'||kind==='error')UI.toast(text,kind);}
+  function message(text,kind='',action) {status.textContent=text;status.className=`status ${kind}`;if(kind==='success'||kind==='error')UI.toast(text,kind,undefined,action);}
   // Warnings that can lose content need "inceledim"; minor ones are information.
   const blocking=source=>(source?.warnings||[]).filter(w=>!w.minor);
   function setReady(){
     const blocked=!state.source||!state.result||(blocking(state.source).length>0&&!review.checked);
     // A UDF being written keeps its button locked even if the preview re-renders meanwhile.
-    download.disabled=blocked||download.dataset.state==='working';downloadDocx.disabled=blocked;$('printPdf').disabled=blocked;
+    download.disabled=blocked||download.dataset.state==='working';downloadDocx.disabled=blocked;$('printPdf').disabled=blocked;$('shareUdf').disabled=blocked;
     reportDownload.disabled=!state.source||!state.result;
     // Phone: quick actions at the bottom once a document is loaded.
     $('mobileBar').hidden=!state.source;$('mbDownload').disabled=blocked;
@@ -42,7 +42,7 @@
   function setLoading(on){state.loading=on;$('previewSection').classList.toggle('is-loading',on);drop.classList.toggle('busy',on);syncSteps();}
   // The empty-state card shipped in the HTML comes back whenever no document is loaded.
   const emptyPaper=$('paper').firstElementChild?.cloneNode(true);
-  function clearPaper(){$('paper').replaceChildren(...(emptyPaper?[emptyPaper.cloneNode(true)]:[]));$('paper').style.minHeight='';$('pageNote').hidden=true;$('chgLegend').hidden=true;thumbs?.update(0);syncSource();}
+  function clearPaper(){compare.off();tour.stop();$('compareToggle').hidden=true;$('paper').replaceChildren(...(emptyPaper?[emptyPaper.cloneNode(true)]:[]));$('paper').style.minHeight='';$('pageNote').hidden=true;$('chgLegend').hidden=true;thumbs?.update(0);sections.update();syncSource();}
   const safeName=s=>P.safeName(s);
   // Download name from the user's pattern (settings: fileName).
   function outBase(){
@@ -137,24 +137,28 @@
   }
   const LEVEL_TEXT=UI.LEVEL_TEXT;
   const button=(text,onclick)=>{const b=document.createElement('button');b.type='button';b.className='secondary inline-btn';b.textContent=text;b.addEventListener('click',onclick);return b;};
-  // The paragraphs a fix changed glow for a moment.
-  function flashChanged(fn){
-    const text=()=>new Map([...$('paper').querySelectorAll('.paragraph[data-key]')].map(p=>[p.dataset.key,p.textContent]));
-    const before=text();fn();
-    for(const p of $('paper').querySelectorAll('.paragraph[data-key]'))if(before.has(p.dataset.key)&&before.get(p.dataset.key)!==p.textContent)p.classList.add('flash');
-  }
   function showChecks(checks){
     $('checksPanel').hidden=!state.result;
     UI.checks({list:'checkList',stats:'checkStats',ring:'checkRing',big:'ringBig',small:'ringSmall',legend:'ringLegend'},checks,{
       buttons:c=>[
         c.code==='request-split'&&!$('splitRequests').checked?button('Maddelere ayır',()=>{$('splitRequests').checked=true;settingsChanged();}):null,
         // Format suggestion: one press fixes it everywhere (undoable).
-        c.fix?button('Düzelt',()=>holdPosition(()=>flashChanged(()=>editor.applyFix(c.fix)))):null],
+        // The paragraphs it changes glow (editor-ui.js).
+        c.fix?button('Düzelt',()=>holdPosition(()=>editor.applyFix(c.fix))):null],
       fixed:editor.cleanups().map(id=>({text:editor.cleanupLabel(id),undo:()=>holdPosition(()=>editor.dropCleanup(id))}))});
   }
 
   /* ------------------------------ preview ------------------------------ */
-  const zoom=UI.zoomer({viewport:$('previewViewport'),wrapper:$('paperScale'),paper:$('paper'),toggle:$('zoomToggle'),zoomIn:$('zoomIn'),zoomOut:$('zoomOut'),full:$('previewFull'),section:$('previewSection')});
+  // "Önce / sonra": the source as it came (Word, pasted text) over the result.
+  let compareSource=null;
+  const compare=UI.compare({button:$('compareToggle'),wrapper:$('paperScale'),paper:$('paper'),label:'Önce · kaynak',renderSource:p=>{
+    const s=state.source;compareSource=s;
+    WordToUDFPreview.render(p,s.blocks,{margins:s.options.margins,landscape:s.options.landscape,font:s.options.font,size:s.options.size,guides:false});}});
+  const zoom=UI.zoomer({viewport:$('previewViewport'),wrapper:$('paperScale'),paper:$('paper'),toggle:$('zoomToggle'),zoomIn:$('zoomIn'),zoomOut:$('zoomOut'),full:$('previewFull'),section:$('previewSection'),onChange:()=>compare.sync()});
+  // The petition's parts above the preview, and the check tour.
+  const sections=UI.sections({nav:$('secMap'),paper:$('paper'),viewport:$('previewViewport')});
+  const tour=UI.tour({button:$('tourStart'),getChecks:()=>state.result?.checks,locate:c=>editor.locate(c),
+    actions:c=>[c.fix?button('Düzelt',()=>holdPosition(()=>editor.applyFix(c.fix))):null]});
   const thumbs=UI.thumbs({rail:$('thumbs'),viewport:$('previewViewport'),paper:$('paper'),getScale:()=>zoom.scale});
   const fitPaper=()=>zoom.apply();
   // A re-render rebuilds the report and check lists, which sit above most
@@ -201,6 +205,10 @@
     const ty=t.typography;
     const typeInfo=ty?.enabled?` · ${ty.metadataMerged||0} künye satırı birleştirildi · ${ty.resultItems||0} talep ve ${ty.attachments||0} ek numaralı listede · hukuk tipografisi etkin`:' · Word biçimi profili';
     $('sectionInfo').textContent=norm.selection.start<0?'AÇIKLAMALAR başlığı bulunamadı; gerekirse başlangıç başlığını seçin.':`${norm.bodyCount} gövde paragrafı ve ${norm.headingCount||0} ara başlık açıklamalar düzeninde işlendi${typeInfo}.`;
+    // A new source ends the comparison; the tour follows the re-rendered page.
+    if(compare.on&&compareSource!==state.source)compare.off();
+    $('compareToggle').hidden=false;
+    tour.refresh();
     showFileName();
     setReady();
   }
@@ -208,7 +216,7 @@
   function showPages(pg){
     state.pages=pg.pages;showPageNote(pg);
     $('previewCount').textContent=`${state.source.statistics.paragraphs} paragraf · ≈ ${pg.pages} sayfa · A4 ${state.source.options.landscape?'yatay':'dikey'}`;
-    fitPaper();thumbs.update(pg.pages);syncSource(pg.pages);
+    fitPaper();thumbs.update(pg.pages);syncSource(pg.pages);sections.update();
   }
   function showPageNote(pg){
     $('pageNote').hidden=!pg.signatureAlone;
@@ -220,7 +228,7 @@
   });
   // Paragraph editor (editor-ui.js): tap a paragraph in the preview.
   const editor=WordToUDFEditorUI.attach({paper:$('paper'),toolbar:$('previewTools'),getBlocks:()=>state.result?.blocks,
-    onChange:render,onMessage:m=>message(m,'success'),enabled:()=>!!state.result,extraStyles:()=>state.settings.experimental?['highlight']:[]});
+    onChange:render,onMessage:(m,a)=>message(m,'success',a),enabled:()=>!!state.result,extraStyles:()=>state.settings.experimental?['highlight']:[]});
 
   /* ------------------------------ files ------------------------------ */
   async function handleFile(file){
@@ -459,6 +467,30 @@
     }catch(err){UI.download(download,'idle');message(`Dönüştürme başarısız: ${err.message}`,'error');}
     finally{setReady();}
   });
+  // "UDF'yi paylaş": only where the browser can share such a file (Chrome
+  // allows only images / PDF / text there, Safari any file). The file goes only
+  // where the user sends it from the share sheet.
+  const shareBtn=$('shareUdf');
+  const canShareUdf=(()=>{try{return !!navigator.canShare?.({files:[new File([new Uint8Array(1)],'x.udf',{type:'application/octet-stream'})]});}catch{return false;}})();
+  shareBtn.hidden=!canShareUdf;
+  let prepared=null; // {result, file}: a second tap shares at once when the first one ran out of time
+  shareBtn.addEventListener('click',async()=>{
+    if(!state.source||!state.result||shareBtn.disabled)return;
+    try{
+      if(!prepared||prepared.result!==state.result){
+        if(state.profile==='legal')render();
+        if(!state.result)return;
+        const made=state.result,res=await P.toUdf(made.blocks,outputOptions());
+        prepared={result:made,file:new File([res.bytes],outBase()+'.udf',{type:'application/octet-stream'})};
+      }
+      await navigator.share({files:[prepared.file],title:prepared.file.name});
+      message('UDF paylaşıldı.','success');
+    }catch(err){
+      if(err?.name==='AbortError')return;
+      if(err?.name==='NotAllowedError'&&prepared){message('Dosya hazır: paylaşmak için düğmeye yeniden dokunun.','success');return;}
+      message(`Paylaşılamadı: ${err.message}`,'error');
+    }
+  });
   downloadDocx.addEventListener('click',async()=>{
     if(!state.source||!state.result||downloadDocx.disabled)return;
     if(state.profile==='legal')render();
@@ -577,5 +609,7 @@
 
   // Offline web-app mode (outside the Chrome extension): cache the app files.
   if('serviceWorker' in navigator&&/^https?:$/u.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});
+  // A Word file shared to the installed app (phone share sheet) opens here.
+  UI.takeShared().then(f=>{if(f)handleFile(f);});
   setReady();
 })();

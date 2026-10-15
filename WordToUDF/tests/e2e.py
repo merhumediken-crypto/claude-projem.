@@ -36,7 +36,8 @@ def load_page(page,name,scripts=None,storage=None):
     html=re.sub(r'<link\s+rel="stylesheet"[^>]*>', '', html)
     page.set_content(html,wait_until='load')
     page.evaluate(STORAGE_SHIM,storage or {})
-    for css_name in (['workspace.css','reverse.css'] if name=='reverse.html' else ['workspace.css']):
+    # Stylesheets as the page lists them (themes.css, workspace.css, reverse.css…).
+    for css_name in re.findall(r'<link rel="stylesheet" href="([^"]+)"',(ROOT/name).read_text(encoding='utf-8')):
         page.add_style_tag(content=(ROOT/css_name).read_text(encoding='utf-8'))
     for script in scripts:page.add_script_tag(content=(ROOT/script).read_text(encoding='utf-8'))
 
@@ -316,6 +317,8 @@ def main():
         v1101_audit(browser,tmp,petition)
         v111_design(browser,tmp,petition)
         v111_editing(browser,tmp,petition)
+        v112_features(browser,tmp,petition)
+        v112_share(browser,petition)
         csp_check(browser)
         browser.close()
 
@@ -1165,6 +1168,101 @@ def v111_editing(browser,tmp,petition):
     assert not errors,errors
     ctx.close()
     print('PASS 1.11 düzenleme: geç yüklenen yazı tipi önizlemeyi yeniden kurmaz (seçim kalır), telefonda biçim çubuğu tek satır ve bildirim üstünde, tam ekranda taşınan paragraf görünür, masaüstü tam ekranda panel sayfayı örtmez, UDF → Word telefonda ekrana sığar')
+
+def v112_features(browser,tmp,petition):
+    """1.12: themes (picker, palette commands, status bar colour, the paper
+    stays white), Word / UYAP line height, previous / next paragraph in the
+    panel, toast undo / redo, the touched paragraph glows, drag to move,
+    section map, check tour, before / after."""
+    ctx=browser.new_context(viewport={'width':1440,'height':900})
+    page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    load_page(page,'workspace.html');fetch_data(page,petition)
+    # Tema: kartela (6 tema), palet ve mod; kâğıt beyaz kalır; seçim saklanır; durum çubuğu rengi.
+    page.locator('#themeToggle').click();page.wait_for_timeout(150)
+    assert page.locator('.theme-pop .tp-swatch').count()==6
+    page.locator('.tp-swatch[data-palette="bordo"]').click();page.locator('.tp-modes [data-mode="dark"]').click();page.wait_for_timeout(500)
+    st=page.evaluate("[document.documentElement.dataset.palette,document.documentElement.dataset.theme,getComputedStyle(document.getElementById('paper')).backgroundColor,localStorage.getItem('wordtoudf.palette'),document.querySelector('meta[name=theme-color]').content]")
+    assert st==['bordo','dark','rgb(255, 255, 255)','bordo','#2a0810'],st
+    page.keyboard.press('Escape');page.wait_for_timeout(100);assert page.locator('.theme-pop').count()==0
+    page.keyboard.press('Control+k');page.keyboard.type('tema grafit');page.wait_for_timeout(100);page.keyboard.press('Enter');page.wait_for_timeout(300)
+    assert page.evaluate("document.documentElement.dataset.palette")=='grafit'
+    page.evaluate("WordToUDFTheme.setPalette('lacivert');WordToUDFTheme.setMode('auto')");page.wait_for_timeout(450)
+    # Satır yüksekliği Word / UYAP gibi: 1,5 satır = 1,5 × 1,15 × 12 pt (20,7 pt = 27,6 px); tek satır 13,8 pt.
+    lh=page.evaluate("['explanation-body','metadata'].map(r=>parseFloat(getComputedStyle(document.querySelector(`#paper .paragraph[data-role=\"${r}\"]`)).lineHeight))")
+    assert abs(lh[0]-27.6)<.2 and abs(lh[1]-18.4)<.2,lh
+    # Panelde önceki / sonraki paragraf (düğme ve Alt+↑/↓).
+    page.locator('#paper .paragraph[data-role="explanation-body"]').first.click();page.wait_for_timeout(300)
+    title=lambda:page.locator('.edit-sheet .sheet-head small').text_content()
+    t0=title();page.locator('.edit-sheet [data-ctl="nav-next"]').click();page.wait_for_timeout(200);t1=title()
+    page.keyboard.press('Alt+ArrowUp');page.wait_for_timeout(200)
+    assert t1!=t0 and title()==t0,(t0,t1,title())
+    page.keyboard.press('Escape');page.wait_for_timeout(100)
+    # Seçimle kalın → bildirimde "Geri al", sonra "Yinele"; değişen paragraf parlar.
+    assert page.evaluate(SELECT_JS,['#paper .paragraph','verilen karara']);page.wait_for_timeout(300)
+    page.locator('.mark-pop .mp-bold').click();page.wait_for_timeout(250)
+    bold=lambda:'verilen karara' in page.evaluate("[...document.querySelectorAll('#paper span')].filter(s=>s.style.fontWeight==='700').map(s=>s.textContent)")
+    assert bold() and page.locator('#paper .paragraph.glow').count()>=1
+    page.locator('.toast:not(.leaving) .t-act',has_text='Geri al').click();page.wait_for_timeout(250);assert not bold()
+    page.locator('.toast:not(.leaving) .t-act',has_text='Yinele').click();page.wait_for_timeout(250);assert bold()
+    page.keyboard.press('Escape');page.wait_for_timeout(100)
+    # Sürükleyerek taşı: tutamaç, bırakma çizgisi, paragraf hedefin altına.
+    order=lambda:page.evaluate("[...document.querySelectorAll('#paper .paragraph[data-key]')].map(p=>p.textContent.slice(0,18))")
+    before=order()
+    page.evaluate("(()=>{const r=document.querySelectorAll('#paper .paragraph[data-key]')[13].getBoundingClientRect();scrollBy(0,r.top-450)})()");page.wait_for_timeout(150)
+    page.locator('#paper .paragraph[data-key]').nth(12).hover();page.wait_for_timeout(150)
+    g=page.locator('.drag-grip');assert g.is_visible()
+    gb=g.bounding_box();db=page.locator('#paper .paragraph[data-key]').nth(15).bounding_box()
+    page.mouse.move(gb['x']+10,gb['y']+10);page.mouse.down();page.mouse.move(gb['x']+300,db['y']+db['height']-3,steps=10)
+    assert page.locator('.drop-line').is_visible()
+    page.mouse.up();page.wait_for_timeout(300)
+    after=order();assert after.index(before[12])==15 and sorted(after)==sorted(before),(before[10:18],after[10:18])
+    # Bölüm haritası.
+    chips=page.locator('#secMap .sec-chip').all_text_contents()
+    assert {'Künye','Konu','Açıklamalar','Sonuç ve istem','İmza'}<=set(chips),chips
+    # Kontrol turu: madde sayfadaki yerinde işaretlenir; Esc bitirir.
+    page.locator('#tourStart').click();page.wait_for_timeout(300)
+    assert page.locator('.tour-bar').is_visible() and page.locator('#paper .tour-hit').count()==1
+    page.keyboard.press('Escape');page.wait_for_timeout(100)
+    assert page.locator('.tour-bar').count()==0 and page.locator('#paper .tour-hit').count()==0
+    # Önce / sonra: kaynak sayfanın üstünde, ayırıcı klavyeyle de oynar.
+    page.locator('#compareToggle').click();page.wait_for_timeout(300)
+    assert page.locator('.compare-paper .paragraph').count()>5 and page.locator('.cmp-handle').get_attribute('aria-valuenow')=='50'
+    page.locator('.cmp-handle').focus();page.keyboard.press('ArrowLeft');page.keyboard.press('ArrowLeft')
+    assert page.locator('.cmp-handle').get_attribute('aria-valuenow')=='40'
+    page.locator('#compareToggle').click();assert page.locator('.compare-paper').count()==0
+    assert not errors,errors
+    ctx.close()
+    print('PASS 1.12: 6 tema (kartela, komut, durum çubuğu, beyaz kâğıt), Word/UYAP satır yüksekliği, panelde önceki/sonraki, bildirimde geri al/yinele, parlama, sürükleyerek taşıma, bölüm haritası, kontrol turu, önce/sonra')
+
+def v112_share(browser,petition):
+    """1.12: a file shared to the installed web app (Android share sheet)
+    reaches the converter through the service worker and a local cache that is
+    emptied at once; the real pages with their CSP."""
+    import threading,functools,http.server,socketserver,base64
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def log_message(self,*a):pass
+    srv=socketserver.ThreadingTCPServer(('127.0.0.1',0),functools.partial(Quiet,directory=str(ROOT)));port=srv.server_address[1]
+    threading.Thread(target=srv.serve_forever,daemon=True).start()
+    try:
+        ctx=browser.new_context(viewport={'width':390,'height':844},is_mobile=True,has_touch=True);page=ctx.new_page();errors=[]
+        page.on('pageerror',lambda e:errors.append(str(e)))
+        page.goto(f'http://127.0.0.1:{port}/workspace.html');page.evaluate("navigator.serviceWorker.ready.then(()=>1)");page.reload();page.wait_for_timeout(500)
+        assert page.evaluate("!!navigator.serviceWorker.controller")
+        # The share sheet POSTs like a form; a same-origin page without the app's CSP stands in for it here.
+        page.goto(f'http://127.0.0.1:{port}/README.md')
+        r=page.evaluate("""async b64=>{const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));const fd=new FormData();fd.append('file',new File([bin],'paylasilan.docx'));
+          const res=await fetch('share-target',{method:'POST',body:fd,redirect:'manual'});return [res.type,!!(await (await caches.open('wordtoudf-share')).match('shared-file'))];}""",base64.b64encode(Path(petition).read_bytes()).decode())
+        assert r==['opaqueredirect',True],r
+        page.goto(f'http://127.0.0.1:{port}/workspace.html?shared=1');page.wait_for_timeout(1500)
+        assert page.locator('#loadedName').text_content()=='paylasilan.docx' and page.locator('#paper .paragraph').count()>10
+        assert page.url.endswith('/workspace.html') and not page.evaluate("caches.open('wordtoudf-share').then(c=>c.match('shared-file')).then(x=>!!x)")
+        # Chromium cannot share a .udf from the page: the button stays hidden there.
+        assert page.locator('#shareUdf').is_hidden()
+        assert not errors,errors
+        ctx.close()
+        print('PASS 1.12 paylaşım: telefonda paylaşılan Word dosyası uygulamada açılır, geçici kopya hemen silinir')
+    finally:
+        srv.shutdown()
 
 def csp_check(browser):
     """The other tests strip the pages' CSP; here the real pages are served

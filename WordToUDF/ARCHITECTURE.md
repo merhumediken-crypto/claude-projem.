@@ -1,4 +1,4 @@
-# WordToUDF 1.11.0 – Mimari
+# WordToUDF 1.12.0 – Mimari
 
 ## Dönüşüm hattı
 
@@ -147,3 +147,17 @@ Dönüşüm hattı, belge modeli ve UDF yazımı değişmedi; bütün öğe kiml
 - **editor-ui.js** — `cleanups()`, `cleanupLabel()`, `dropCleanup()`: denetim halkası listesindeki otomatik düzeltmeler tek tek geri alınır. `reveal()` telefonda alttan açılan panelin dinlenme konumunu (`innerHeight − offsetHeight`) kullanır; yakınlaştırılmış önizlemede önce önizleme kutusunu, sonra sayfayı kaydırır.
 - **deadline.js** `compute(..., {etebligat})` — e-Tebligat'ta tebliğ, ulaştığı günü izleyen 5. gün sayılır (Tebligat K. m. 7/a); `notice: false` türlerde (ek cevap süresi) kapalıdır. Sonuç `reached`, `start`, `total`, `extended`, `recessApplied` alanlarını da verir; takvim ve halka bu alanlardan çizilir.
 - **templates-page.js** — `#tpl` seçim kutusu kaynak kalır; galeri (kategori + arama) onu sürer. Kendi şablonlar başka sekmede değişince `storage` olayıyla yenilenir.
+
+## 1.12.0 — temalar, düzenleme hızı, kontrol araçları
+
+- **themes.css** `tools/themes.py` ile üretilir (CI elle düzenlenmiş olmasını reddeder): 6 palet × açık / koyu, aynı belirteç kümesi (`--surface`, `--ink`, `--accent`… ve üst çubuk / biçim çubuğu / bildirim için `--chrome*`, `--metal*`, kâğıt üzerindeki seçim için `--paper-accent`). Üretici her paletin metin renklerini WCAG AA'ya (4,5:1) göre denetler. `workspace.css` renk tanımlamaz, yalnız belirteç kullanır; üst çubuktaki gravür deseni bir maske, rengi `--metal`. Mermer dokusu `body::before` üzerinde sabit bir katmandır (döşeme eki yok, yazdırmada gizli).
+- **theme.js** palet (`data-palette`) ve modu (`data-theme`) `<head>` içinde uygular; tema düğmesi kartelayı açar (iki radyo grubu, ok tuşları, Esc); `meta[name=theme-color]` temanın `--chrome` rengini alır; `WordToUDFTheme` komut aramasına palet ve mod komutlarını verir.
+- **editor-ui.js**
+  - `changed(msg, action)` bildirime “Geri al” (geri almada “Yinele”) eylemi ekler; değişiklik öncesi durum geri alma geçmişinden okunur ve değişen paragraflar (`.glow`) bir kez parlar.
+  - Panel başlığında ‹ › ve Alt+↑/↓ (`goTo`); uygulanmamış metin varsa geçmez.
+  - Fareyle sürükleme: tutamaç (`.drag-grip`) ve bırakma çizgisi sayfa dışında, `position: fixed`; bırakma, panelin taşıma düğmeleriyle aynı “şu paragrafın üstüne / altına” kaydını yazar (`moveTo`).
+  - `locate(check)` bir denetim maddesinin paragraflarını bulur (mesajdaki tarih ya da alıntı, rol, düzeltme kuralı).
+- **ui.js** yeni bileşenler: `sections` (bölüm haritası, kaydırmada etkin bölüm), `tour` (kontrol turu çubuğu; yeniden çizimden sonra `refresh`), `compare` (kaynak kâğıdı sonucun üstünde, `clip-path` ile bölünür; ayırıcının düğmesi `position: sticky`, bu yüzden kırpma kabı `overflow: clip`), `takeShared` (paylaşılan dosya), bildirimde eylem düğmesi.
+- **Paylaşım hedefi:** `app.webmanifest` `share_target` (POST, `multipart/form-data`); `sw.js` gelen dosyayı `wordtoudf-share` önbelleğine yazar ve `workspace.html?shared=1` / `reverse.html?shared=1` adresine yönlendirir; sayfa dosyayı bir kez okur, önbellekten siler, adresi temizler. Etkinleşmede bu önbellek sürüm temizliğinden muaftır.
+- **preview.js** satır yüksekliği: `line-height: calc(satır × var(--lh))`, `--lh` yazı tipinin kendi satır yüksekliği (Times New Roman / Tinos 1,15; Calibri 1,22). UYAP'tan yazdırılmış bir sayfada ölçülen değerlerle (tek 13,8 pt, 1,5 satır 20,7 pt) aynıdır; yazdırma ve UDF → Word önizlemesi de aynı değişkeni kullanır.
+

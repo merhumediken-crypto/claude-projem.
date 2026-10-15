@@ -1,4 +1,4 @@
-# WordToUDF 1.11.0 güvenlik notları
+# WordToUDF 1.12.0 güvenlik notları
 
 - Manifest V3; host izni ve genişletilmiş tarayıcı izni yoktur.
 - Ağ erişimi kapalıdır (`connect-src 'none'`); uzaktan script/kod kullanılmaz.
@@ -25,5 +25,7 @@
 - 1.10.0: PDF için yalnız tarayıcının kendi yazdırma penceresi kullanılır; `@page` kuralı oluşturulmuş stil sayfasıyla eklenir (CSP'ye `unsafe-inline` eklenmedi; CSP açık sayfa testi yazdırmayı da kapsar). Süre hesabı tamamen yereldir; takvim dosyası (.ics) kullanıcının indirdiği düz metindir. Deneysel vurgu varsayılan olarak kapalıdır ve yalnız kullanıcı açarsa UDF'ye `background` özniteliği yazılır.
 
 - 1.11.0 arayüz: yazı tipleri (Manrope, Instrument Serif, Tinos; SIL OFL, lisansları `fonts/` içinde) paketle gelir ve `@font-face` ile aynı kaynaktan yüklenir; Google Fonts veya başka bir CDN çağrılmaz, CSP değişmedi (`font-src` tanımsız olduğu için `default-src 'self'` geçerlidir). `ui.js` (bildirimler, komut arama, denetim halkası) kullanıcı ve belge metnini yalnız `textContent` ile yazar; komut listesi sayfa kodunun tanımladığı sabit komutlardır, belge içeriğinden komut üretilmez. Adresle gelen şablon / süre seçimi (`templates.html#id`, `sure.html#id`) yalnız bilinen kimliklerle eşleştirilir, bir kez kullanılıp adresten silinir; bozuk adres yok sayılır. Manifest izinleri değişmedi (`permissions: []`, `host_permissions: []`, `connect-src 'none'`).
+
+- 1.12.0: tema seçimi (`wordtoudf.palette`: altı değerden biri, yoksa yok sayılır) yalnız yerel depolamadadır. Web uygulamasının paylaşım hedefi (`share_target`) telefonun paylaş menüsünden gelen dosyayı servis çalışanında yalnız aynı kaynaktaki `wordtoudf-share` önbelleğine yazar; sayfa onu bir kez okuyup hemen siler, dosya ağa gönderilmez ve normal dosya seçimiyle aynı sınır ve doğrulamalardan geçer. “UDF'yi paylaş” tarayıcının kendi paylaş penceresini açar (yalnız tarayıcı bu dosya türünü paylaşabiliyorsa görünür); dosya yalnız kullanıcının seçtiği uygulamaya gider. CSP ve manifest izinleri değişmedi.
 
 Bu kontroller dosyanın hukuki veya içerik doğruluğunu garanti etmez; yalnızca dönüştürme yüzeyini sertleştirir.

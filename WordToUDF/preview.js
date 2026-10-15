@@ -17,6 +17,11 @@
   // Times New Roman is not installed on most phones: the bundled Tinos (same
   // metrics, workspace.css) keeps the line breaks and tab stops of UYAP.
   const family = f => /^\s*(?:"?times new roman"?|times)\s*$/iu.test(f || '') ? '"Times New Roman", Tinos, Times, serif' : f;
+  // Line spacing as Word and UYAP lay it out: a multiple of the font's own line
+  // height (Times New Roman / Tinos 1.15 em), not of the font size. Measured on
+  // a page printed from UYAP: single 13.8 pt and "1,5 satır" 20.7 pt for 12 pt.
+  const LINE = [[/calibri/iu, 1.22], [/cambria/iu, 1.17]];
+  const lineFactor = font => LINE.find(([re]) => re.test(String(font || '')))?.[1] || 1.15;
   function makeParagraph(block, listState = new Map()){
     const p = document.createElement('div'); p.className = 'paragraph' + (block.source === 'table' ? ' table-row' : ''); if(block.role) p.dataset.role = block.role;
     p.style.textAlign = block.alignment === 'justify' ? 'justify' : (block.alignment || 'left');
@@ -26,7 +31,7 @@
     if(Number.isFinite(block.first)) p.style.textIndent = `${block.first / .75}px`;
     if(Number.isFinite(block.left)) p.style.paddingLeft = `${Math.max(0, block.left) / .75}px`;
     if(Number.isFinite(block.right)) p.style.paddingRight = `${Math.max(0, block.right) / .75}px`;
-    if(Number.isFinite(block.line)) p.style.lineHeight = String(block.line);
+    if(Number.isFinite(block.line)) p.style.lineHeight = `calc(${block.line} * var(--lh, 1.15))`;
     const marker = listMarker(block.list, listState);
     if(marker !== null){
       // Real list number (not document text): drawn in the hanging column.
@@ -151,7 +156,7 @@
     paper.style.width = landscape ? '1123px' : '794px';
     paper.style.minHeight = landscape ? '794px' : '1123px';
     for(const side of ['top', 'right', 'bottom', 'left']) paper.style[`padding${side[0].toUpperCase() + side.slice(1)}`] = `${(margins?.[side] ?? 42.52) * 96 / 72}px`;
-    paper.style.fontFamily = family(font); paper.style.fontSize = `${size}pt`;
+    paper.style.fontFamily = family(font); paper.style.fontSize = `${size}pt`; paper.style.setProperty('--lh', String(lineFactor(font)));
     const frag = document.createDocumentFragment(), listState = new Map();
     blocks.forEach((block, i) => {
       if(block.kind === 'page-break'){ const line = document.createElement('div'); line.className = 'page-break' + (block.inserted ? ' inserted' : ''); line.setAttribute('aria-label', 'Sayfa sonu'); frag.append(line); }
@@ -207,5 +212,5 @@
     }
     return scale;
   }
-  globalThis.WordToUDFPreview = {render, relayout, fit, makeParagraph, positionTabs, listMarker, paginate, markChanges};
+  globalThis.WordToUDFPreview = {render, relayout, fit, makeParagraph, positionTabs, listMarker, paginate, markChanges, lineFactor};
 })();

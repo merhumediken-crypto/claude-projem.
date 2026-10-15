@@ -25,7 +25,7 @@ def icon(name, cls='icon'):
     return f'<svg class="{cls}" aria-hidden="true"><use href="#{name}"/></svg>'
 
 def head(title, extra_css=()):
-    css = ''.join(f'<link rel="stylesheet" href="{c}">' for c in ('workspace.css', *extra_css))
+    css = ''.join(f'<link rel="stylesheet" href="{c}">' for c in ('themes.css', 'workspace.css', *extra_css))
     return ('<!doctype html><html lang="tr"><head><meta charset="utf-8"><link rel="icon" href="icon48.png">'
             '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             '<meta name="color-scheme" content="light dark"><link rel="manifest" href="app.webmanifest">'

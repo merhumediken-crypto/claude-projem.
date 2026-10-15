@@ -38,7 +38,7 @@
   if(Number.isFinite(b.first))p.style.textIndent=`${b.first}pt`;
   if(Number.isFinite(b.left))p.style.paddingLeft=`${b.left}pt`;
   if(Number.isFinite(b.right))p.style.paddingRight=`${b.right}pt`;
-  if(Number.isFinite(b.line))p.style.lineHeight=String(b.line);
+  if(Number.isFinite(b.line))p.style.lineHeight=`calc(${b.line} * var(--lh, 1.15))`;
   if(b.tabStops?.length)p.dataset.tabStops=JSON.stringify(b.tabStops);
   const marker=listMarker(b.list,listState);
   if(marker!==null){const m=document.createElement('span');m.className='list-marker';m.textContent=marker;m.setAttribute('aria-hidden','true');p.append(m);}
@@ -102,6 +102,8 @@
   paper.style.paddingBottom=`${source.options.margins.bottom*96/72}px`;
   paper.style.paddingLeft=`${source.options.margins.left*96/72}px`;
   paper.style.fontFamily=family(source.options.font);
+  // Word / UYAP line height: a multiple of the font's own line height (preview.js).
+  paper.style.setProperty('--lh',String(globalThis.WordToUDFPreview?.lineFactor(source.options.font)||1.15));
   paper.style.fontSize=`${source.options.size}pt`;
   if(source.headers.length){const header=document.createElement('div');header.className='preview-header';header.append(blocksNode(source.headers,new Map()));paper.append(header);}
   paper.append(blocksNode(source.blocks,new Map()));
@@ -111,7 +113,7 @@
  }
  function printDOM(source){
   for(const [id,blocks] of [['printBody',source.blocks],['printHeader',source.headers],['printFooter',source.footers]]){
-   const node=$(id);node.replaceChildren();node.append(blocksNode(blocks,new Map()));node.style.fontFamily=family(source.options.font);node.style.fontSize=`${source.options.size}pt`;
+   const node=$(id);node.replaceChildren();node.append(blocksNode(blocks,new Map()));node.style.fontFamily=family(source.options.font);node.style.fontSize=`${source.options.size}pt`;node.style.setProperty('--lh',String(globalThis.WordToUDFPreview?.lineFactor(source.options.font)||1.15));
   }
   const {margins:m,landscape,headerOffset,footerOffset}=source.options;
   for(const style of document.styleSheets){
@@ -153,6 +155,8 @@
   }catch(err){state.source=null;ready();say(`UDF açılamadı: ${err.message}`,'error');}
  }
  fileInput.addEventListener('change',e=>handle(e.target.files?.[0]));
+ // A UDF shared to the installed app (phone share sheet) opens here.
+ globalThis.WordToUDFUI?.takeShared?.().then(f=>{if(f)handle(f);});
  const drop=$('dropZone');for(const e of ['dragover','dragenter'])drop.addEventListener(e,x=>{x.preventDefault();drop.classList.add('drag');});
  for(const e of ['dragleave','drop'])drop.addEventListener(e,x=>{x.preventDefault();drop.classList.remove('drag');});
  drop.addEventListener('drop',e=>{if(e.dataTransfer?.files?.length)handle(e.dataTransfer.files[0]);});

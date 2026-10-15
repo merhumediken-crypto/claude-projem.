@@ -7,11 +7,49 @@
   "scope": "./",
   "display": "standalone",
   "background_color": "#f6f8fc",
-  "theme_color": "#284787",
+  "theme_color": "#0b1b42",
   "icons": [
-    {"src": "icon48.png", "sizes": "48x48", "type": "image/png"},
-    {"src": "icon128.png", "sizes": "128x128", "type": "image/png", "purpose": "any"},
-    {"src": "icon192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-    {"src": "icon512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
-  ]
+    {
+      "src": "icon48.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "icon128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "share_target": {
+    "action": "share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "files": [
+        {
+          "name": "file",
+          "accept": [
+            ".docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".udf",
+            "application/octet-stream"
+          ]
+        }
+      ]
+    }
+  }
 }

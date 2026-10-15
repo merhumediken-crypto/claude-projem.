@@ -49,6 +49,7 @@
     let multi = false, sheet = null, sentSel = new Set(), sentFor = null, addOpen = false;
     // Text typed in the panel but not applied yet survives the panel's rebuilds.
     let textDraft = null; // {key, base, value}
+    let gripFor = null, drag = null; // drag to move (below)
 
     /* ---------- toolbar ---------- */
     const multiBtn = el('button', {type: 'button', class: 'secondary tool-btn', 'aria-pressed': 'false', text: 'Çoklu seçim', title: 'Birden çok paragrafı seçip birlikte düzenleyin (masaüstünde Ctrl/Shift + tıklama da olur)'});
@@ -83,7 +84,7 @@
     function undo(){
       if(!history.length) return;
       future.push(dump()); load(history.pop());
-      changed('Son düzenleme geri alındı.');
+      changed('Son düzenleme geri alındı.', 'redo');
       refreshSheet();
     }
     function redo(){
@@ -92,10 +93,30 @@
       changed('Düzenleme yeniden uygulandı.');
       refreshSheet();
     }
-    function changed(msg){
+    // msg: the note for the page (a toast with "Geri al", or "Yinele" after an
+    // undo). The paragraphs the change touched glow once (glow()).
+    function changed(msg, action = 'undo'){
+      // The state before this change: what undo would bring back (redo for an undo).
+      const pre = action === 'redo' ? future.at(-1) : history.at(-1);
+      const before = domSig();
       onChange();
       decorate();
-      if(msg) onMessage(msg);
+      glow(before, pre);
+      if(msg) onMessage(msg, action === 'redo' ? {label: 'Yinele', run: redo} : action === 'undo' && history.length ? {label: 'Geri al', run: undo} : undefined);
+    }
+    // What each paragraph looks like and which edit it carries: compared
+    // before and after a change, the differences glow in the theme's metal colour.
+    const sigOf = p => `${p.getAttribute('style') || ''}|${p.className.replace(/\b(selected|glow|dragging)\b/gu, '')}|${p.innerHTML}`;
+    function domSig(){ const m = new Map(); for(const p of paper.querySelectorAll('.paragraph[data-key]')) m.set(p.dataset.key, sigOf(p)); return m; }
+    function glow(before, pre){
+      if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+      const now = new Map([...edits].map(([k, v]) => [k, JSON.stringify(v)]));
+      const was = new Map(pre ? JSON.parse(pre).map(([k, v]) => [k, JSON.stringify(v)]) : []);
+      const touched = new Set([...now.keys(), ...was.keys()].filter(k => k !== DOC && now.get(k) !== was.get(k)));
+      for(const p of paper.querySelectorAll('.paragraph[data-key]')){
+        const k = p.dataset.key;
+        if(touched.has(k) || !before.has(k) || before.get(k) !== sigOf(p)){ p.classList.remove('glow'); void p.offsetWidth; p.classList.add('glow'); }
+      }
     }
     function decorate(){
       // Nothing to edit yet: keep the toolbar out of the way.
@@ -112,6 +133,7 @@
         // Keyboard: Tab reaches each paragraph, Enter / Space opens its panel.
         if(on){ p.tabIndex = 0; p.setAttribute('aria-keyshortcuts', 'Enter'); } else { p.removeAttribute('tabindex'); p.removeAttribute('aria-keyshortcuts'); }
       }
+      if(gripFor && (!gripFor.isConnected || !canDrag())) hideGrip();
       bar.hidden = !on || !(multi || selected.size > 1);
       bar.querySelector('.select-count').textContent = selected.size ? `${selected.size} paragraf seçili` : 'Paragraf seçin';
       bar.querySelector('.primary-btn').disabled = !selected.size;
@@ -505,10 +527,142 @@
       const q = p.getBoundingClientRect();
       if(q.top < 8 || q.bottom > sheetTop - 8) window.scrollBy({top: q.top - Math.max(8, (sheetTop - q.height) / 2), behavior: 'smooth'});
     }
+    // The paragraphs a finding of the check list is about (Kontrol turu): by the
+    // role it names, a date or a quoted text in its message, or the tidy-up
+    // rule behind a suggestion. Findings about something missing have none.
+    function locate(c){
+      const ps = [...paper.querySelectorAll('.paragraph')], code = c?.code || '', msg = c?.message || '';
+      const byRole = (...roles) => ps.filter(p => roles.includes(p.dataset.role));
+      const startsWith = re => ps.filter(p => re.test(p.textContent.trimStart()));
+      // A quoted text or a date in the message is the most precise place (which VEKİLİ row, which date).
+      if(!code.startsWith('fix-')){
+        const date = /\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/u.exec(msg), quoted = /[“"]([^”"]{3,80})[”"]/u.exec(msg);
+        const hit = date ? ps.filter(p => p.textContent.includes(date[0])) : quoted ? ps.filter(p => p.textContent.includes(quoted[1])) : [];
+        if(hit.length) return hit;
+      }
+      if(code === 'court-suffix') return byRole('court-heading').slice(0, 1);
+      if(code === 'case-format') return startsWith(/^DOSYA\s*NO/u);
+      if(code.startsWith('uets-')) return startsWith(/^VEK[İI]L[İI]/u);
+      if(code.startsWith('signature-') && code !== 'signature-missing') return byRole('signature');
+      if(code === 'result-empty') return byRole('result-heading');
+      if(code === 'request-split') return byRole('result-item');
+      if(code === 'closing-added') return byRole('result-closing');
+      if(code === 'uyap-tab-justify') return ps.filter(p => p.querySelector('.tab-stop') && getComputedStyle(p).textAlign === 'justify');
+      if(code.startsWith('fix-')){
+        const rule = E().CLEANUPS?.[code.slice(4)];
+        if(rule?.re) return ps.filter(p => { rule.re.lastIndex = 0; const hit = rule.re.test(p.textContent); rule.re.lastIndex = 0; return hit; });
+      }
+      return [];
+    }
+    const editableKeys = () => (getBlocks() || []).filter(b => b.kind === 'paragraph' && b.editKey).map(b => b.editKey);
+    // The panel moves to the previous / next paragraph; an unapplied text stays a decision for the user.
+    function goTo(step){
+      const k = keys()[0]; if(!sheet || keys().length !== 1 || !k) return;
+      if(textDraft?.key === k && textDraft.value !== textDraft.base){ onMessage('Bu paragrafın metninde uygulanmamış değişiklik var: önce “Metni uygula”ya basın ya da metni eski haline getirin.'); return; }
+      const order = editableKeys(), next = order[order.indexOf(k) + step];
+      if(!next) return;
+      textDraft = null; addOpen = false;
+      selected.clear(); selected.add(next);
+      decorate(); refreshSheet(); reveal();
+    }
     // Position of a paragraph among the visible editable paragraphs.
     function placeOf(key){
       const list = (getBlocks() || []).filter(b => b.kind === 'paragraph' && b.editKey);
       return {i: list.findIndex(b => b.editKey === key), n: list.length};
+    }
+    /* ---------- drag to move (mouse, pen) ---------- */
+    // A grip appears left of the paragraph under the pointer; dropped above or
+    // below another paragraph it is stored like the panel's move buttons.
+    const canDrag = () => enabled() && !multi && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
+    const grip = el('button', {type: 'button', class: 'drag-grip', tabindex: '-1', 'aria-hidden': 'true', title: 'Sürükleyerek taşıyın', hidden: true});
+    const dropLine = el('div', {class: 'drop-line', 'aria-hidden': 'true', hidden: true});
+    document.body.append(grip, dropLine);
+    function hideGrip(){ if(drag) return; grip.hidden = true; gripFor = null; }
+    function placeGrip(p){
+      gripFor = p;
+      const r = p.getBoundingClientRect();
+      grip.style.left = `${Math.round(r.left - 34)}px`;
+      grip.style.top = `${Math.round(r.top + Math.min(r.height, 44) / 2 - 13)}px`;
+      grip.hidden = false;
+    }
+    paper.addEventListener('pointermove', ev => {
+      if(drag || ev.pointerType === 'touch' || !canDrag()) return;
+      const p = ev.target.closest?.('.paragraph[data-key]');
+      if(p && paper.contains(p) && p !== gripFor) placeGrip(p);
+    });
+    paper.addEventListener('pointerleave', ev => { if(ev.relatedTarget !== grip) hideGrip(); });
+    grip.addEventListener('pointerleave', ev => { if(!drag && !paper.contains(ev.relatedTarget)) hideGrip(); });
+    document.addEventListener('scroll', () => { if(!drag) hideGrip(); }, {capture: true, passive: true});
+    // The paragraph at height y (probed in the middle of the page) and the side to drop on.
+    function dropAt(y){
+      const pr = paper.getBoundingClientRect();
+      let p = document.elementFromPoint(pr.left + pr.width / 2, y)?.closest?.('.paragraph[data-key]');
+      if(!p || !paper.contains(p)){
+        let d = Infinity; p = null;
+        for(const q of paper.querySelectorAll('.paragraph[data-key]')){
+          const r = q.getBoundingClientRect(), dd = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+          if(dd < d){ d = dd; p = q; }
+        }
+      }
+      if(!p) return null;
+      const r = p.getBoundingClientRect();
+      return {key: p.dataset.key, where: y < r.top + r.height / 2 ? 'before' : 'after', r};
+    }
+    function showDrop(){
+      const t = dropAt(drag.y);
+      drag.to = t && t.key !== drag.key ? t : null;
+      if(!drag.to){ dropLine.hidden = true; return; }
+      dropLine.style.left = `${Math.round(t.r.left)}px`; dropLine.style.width = `${Math.round(t.r.width)}px`;
+      dropLine.style.top = `${Math.round(t.where === 'before' ? t.r.top - 4 : t.r.bottom + 2)}px`;
+      dropLine.hidden = false;
+    }
+    // Near the top or bottom edge the preview scrolls (its own box first, else the page).
+    function edgeScroll(){
+      const box = paper.closest('.preview-viewport'), own = box && box.scrollHeight > box.clientHeight + 1 && getComputedStyle(box).overflowY !== 'hidden' ? box : null;
+      const b = own ? own.getBoundingClientRect() : {top: 0, bottom: window.innerHeight};
+      const top = Math.max(b.top, document.querySelector('.appbar')?.getBoundingClientRect().bottom || 0) + 40, bottom = Math.min(b.bottom, window.innerHeight) - 40;
+      const v = drag.y < top ? -Math.min(12, (top - drag.y) / 4 + 2) : drag.y > bottom ? Math.min(12, (drag.y - bottom) / 4 + 2) : 0;
+      if(!v) return;
+      if(own) own.scrollTop += v; else window.scrollBy(0, v);
+      showDrop();
+    }
+    grip.addEventListener('pointerdown', ev => {
+      if(!gripFor || ev.button !== 0) return;
+      ev.preventDefault();
+      grip.setPointerCapture(ev.pointerId);
+      drag = {key: gripFor.dataset.key, from: gripFor, y: ev.clientY, to: null, raf: 0};
+      gripFor.classList.add('dragging'); document.documentElement.classList.add('is-dragging');
+      hidePop();
+      const tick = () => { if(!drag) return; edgeScroll(); drag.raf = requestAnimationFrame(tick); };
+      drag.raf = requestAnimationFrame(tick);
+    });
+    grip.addEventListener('pointermove', ev => { if(drag){ drag.y = ev.clientY; showDrop(); } });
+    function endDrag(apply){
+      if(!drag) return;
+      cancelAnimationFrame(drag.raf);
+      const {key, to, from} = drag;
+      drag = null;
+      from.classList.remove('dragging'); document.documentElement.classList.remove('is-dragging');
+      dropLine.hidden = true; hideGrip();
+      if(apply && to) moveTo(key, to.key, to.where);
+    }
+    grip.addEventListener('pointerup', () => endDrag(true));
+    grip.addEventListener('pointercancel', () => endDrag(false));
+    grip.addEventListener('lostpointercapture', () => endDrag(false));
+    document.addEventListener('keydown', ev => { if(ev.key === 'Escape' && drag){ ev.stopPropagation(); endDrag(false); } }, true);
+    function moveTo(key, target, where){
+      const order = editableKeys(), i = order.indexOf(key), j = order.indexOf(target);
+      if(i < 0 || j < 0 || i === j) return;
+      // Just above the next one or just below the previous one: it is already there.
+      if((where === 'before' && j === i + 1) || (where === 'after' && j === i - 1)) return;
+      const seq = Math.max(0, ...[...edits.values()].map(e => e?.move?.seq || 0)) + 1;
+      // An open panel keeps showing its own paragraph.
+      const keep = [...selected];
+      selected.clear(); selected.add(key);
+      update({move: {[where]: target, seq}}, 'Paragraf taşındı.');
+      selected.clear();
+      if(sheet) for(const k of keep) if(blockFor(k)) selected.add(k);
+      decorate(); refreshSheet();
     }
     function move(key, step){
       const {i, n} = placeOf(key);
@@ -560,8 +714,13 @@
       sheet.replaceChildren();
       const added = one && !!E().parentOf(ks[0]);
       const title = one ? `“${clip(st.text, 60)}”` : `${ks.length} paragraf seçili`;
-      sheet.append(el('header', {class: 'sheet-head'}, el('span', {class: 'sheet-handle', 'aria-hidden': 'true'}), el('div', {}, el('strong', {text: added ? 'Eklenen paragraf' : 'Paragrafı düzenle'}), el('small', {text: title})),
-        el('button', {type: 'button', class: 'icon-btn', 'aria-label': 'Kapat', text: '×', onclick: closeSheet})));
+      // ‹ › : the previous / next paragraph without closing the panel.
+      const order = one ? editableKeys() : [], at = order.indexOf(ks[0]);
+      const nav = one ? el('div', {class: 'sheet-nav'},
+        el('button', {type: 'button', class: 'icon-btn', 'aria-label': 'Önceki paragraf', title: 'Önceki paragraf (Alt+↑)', 'data-ctl': 'nav-prev', text: '‹', disabled: at <= 0, onclick: () => goTo(-1)}),
+        el('button', {type: 'button', class: 'icon-btn', 'aria-label': 'Sonraki paragraf', title: 'Sonraki paragraf (Alt+↓)', 'data-ctl': 'nav-next', text: '›', disabled: at < 0 || at >= order.length - 1, onclick: () => goTo(1)})) : null;
+      sheet.append(el('header', {class: 'sheet-head'}, el('span', {class: 'sheet-handle', 'aria-hidden': 'true'}), el('div', {class: 'sheet-title'}, el('strong', {text: added ? 'Eklenen paragraf' : 'Paragrafı düzenle'}), el('small', {text: title})),
+        el('div', {class: 'sheet-head-btns'}, nav, el('button', {type: 'button', class: 'icon-btn', 'aria-label': 'Kapat', text: '×', onclick: closeSheet}))));
       const body = el('div', {class: 'sheet-body'});
       // Type
       const role = common('role');
@@ -719,6 +878,8 @@
       if(ev.key === 'Escape' && !pop.hidden){ hidePop(); window.getSelection()?.removeAllRanges(); return; }
       if(ev.key === 'Escape' && sheet){ closeSheet(); return; }
       if(ev.key === 'Escape' && !findBox.hidden && findBox.contains(document.activeElement)){ toggleFind(false); findBtn.focus(); return; }
+      // Alt+↑ / Alt+↓ with the panel open: the previous / next paragraph.
+      if(sheet && ev.altKey && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && (ev.key === 'ArrowUp' || ev.key === 'ArrowDown')){ ev.preventDefault(); goTo(ev.key === 'ArrowUp' ? -1 : 1); return; }
       if(!(ev.ctrlKey || ev.metaKey) || ev.altKey) return;
       // Turkish Q keyboards give "ı" for the I key: Ctrl+I is italic there too.
       const k = ev.key.toLocaleLowerCase('en-US').replace('ı', 'i');
@@ -753,6 +914,7 @@
       cleanupLabel: id => E().CLEANUPS[id]?.label || id,
       dropCleanup(id){ const i = (E().sanitizeDoc(edits.get(DOC)).cleanups || []).indexOf(id); if(i >= 0) dropRule('cleanups', i); },
       openFind: () => toggleFind(true),
+      locate,
       close: closeSheet
     };
   }

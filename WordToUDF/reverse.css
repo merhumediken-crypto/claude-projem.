@@ -17,7 +17,7 @@
   #printBody .udf-table td{border:0;padding:0;vertical-align:top}
   #printHeader:empty,#printFooter:empty{display:none!important}
   #printHeader,#printFooter{position:fixed;left:0;right:0;width:auto;break-inside:avoid}
-  #printBody,#printHeader,#printFooter{font-family:'Times New Roman',serif;font-size:12pt;line-height:1}
+  #printBody,#printHeader,#printFooter{font-family:'Times New Roman',serif;font-size:12pt;line-height:var(--lh,1.15)}
   #printBody .tab-stop,#printHeader .tab-stop,#printFooter .tab-stop{display:inline-block;white-space:nowrap}
   #printSurface .tab-stop.underlined{border-bottom:1px solid currentColor;vertical-align:-.11em}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}

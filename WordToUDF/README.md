@@ -1,6 +1,6 @@
-# Word ↔ UDF / PDF — WordToUDF 1.11.0
+# Word ↔ UDF / PDF — WordToUDF 1.12.0
 
-**Sürüm:** 1.11.0 · **Çalışma biçimi:** Chrome uzantısı (Manifest V3) ve çevrimdışı web uygulaması (PWA) · sunucusuz · Chrome izni yok · internete bağlanmaz
+**Sürüm:** 1.12.0 · **Çalışma biçimi:** Chrome uzantısı (Manifest V3) ve çevrimdışı web uygulaması (PWA) · sunucusuz · Chrome izni yok · internete bağlanmaz
 
 Hukuk dilekçelerini UYAP Doküman Editörü'nün UDF biçimine çeviren, gönderimden önce denetleyen ve UDF'yi Word/PDF'ye geri çeviren araç. Bütün işlemler cihazda yapılır; dosyalar hiçbir sunucuya gönderilmez.
 
@@ -27,28 +27,31 @@ Sürüm geçmişi: [CHANGELOG.md](CHANGELOG.md) · UYAP kabul kontrol listesi: [
 - **Dosya adı kalıbı:** {TARİH} {MÜVEKKİL} {ESAS} {TÜR} {KAYNAK} ile indirilen dosyaların adını belirleyin.
 - **Vekil profili:** VEKİLİ satırı ayarlardaki vekilden yazılır (varsayılan `Av. Fatih NAKIŞLI (UETS: 16615-16448-62422)`). “Başka vekil var” kutucuğuyla ek vekil ve UETS; UETS boş bırakılırsa numara yazılmaz.
 - **Arayüz (1.11):** lacivert / altın tasarım; açık / koyu / otomatik tema (üst çubuktaki düğme); Kaynak → Denetim → Önizleme → İndir adım çizelgesi; denetim halkası ve geri alınabilir otomatik düzeltmeler; **Ctrl+K** ile komut arama; telefonda alt sekme çubuğu, alt işlem çubuğu ve alttan açılan düzenleme paneli. Ayar veya panel değiştirince sayfa yerinden oynamaz.
-- **Önizleme (1.11):** telefonda “Sığdır” metin sütununu ekran genişliğine sığdırır (boş kenarlar kesilir, satır sonları değişmez); **Tam ekran** düğmesi (telefonda alttaki “Önizleme”) sayfayı tek başına açar, − / + ve iki parmakla yakınlaştırılır, düzenleme tam ekranda da çalışır. UDF → Word / PDF sayfasında da aynı araçlar vardır. Önizleme yazı tipi Times New Roman'dır; cihazda yoksa aynı harf genişliklerindeki Tinos kullanılır (pakette gelir), böylece satır sonları telefonda da Word / UYAP'a yakındır.
+- **Temalar (1.12):** 6 renk teması, her biri açık ve koyu — Lacivert & Altın, Bordo & Fildişi, Zeytin & Kâğıt, Mermer & Pirinç, Grafit (koyuda tam siyah), Güneş (yüksek kontrast). Üst çubuktaki tema düğmesi kartelayı açar; dilekçe kâğıdı her temada beyaz kalır.
+- **Hızlı düzenleme (1.12):** bildirimde **Geri al / Yinele**; düzenleme panelinde **‹ ›** ile önceki / sonraki paragraf (Alt+↑/↓); masaüstünde paragrafı **sürükleyerek taşıma**; her düzenlemeden sonra değişen paragraf bir kez parlar.
+- **Kontrol (1.12):** **Kontrol turu** denetim maddelerini sayfadaki yerleriyle tek tek gösterir; önizlemenin üstündeki **bölüm haritası** (Künye, Konu, Açıklamalar, Sonuç ve istem, İmza…) bir dokunuşla o bölüme götürür; **Önce / sonra** kaynağın asıl halini sonuçla aynı sayfada, sürüklenen bir ayırıcıyla karşılaştırır.
+- **Önizleme (1.11):** telefonda “Sığdır” metin sütununu ekran genişliğine sığdırır (boş kenarlar kesilir, satır sonları değişmez); **Tam ekran** düğmesi (telefonda alttaki “Önizleme”) sayfayı tek başına açar, − / + ve iki parmakla yakınlaştırılır, düzenleme tam ekranda da çalışır. UDF → Word / PDF sayfasında da aynı araçlar vardır. Satır aralığı Word ve UYAP gibi yazı tipinin kendi satır yüksekliğinin katıdır (1,5 satır = 20,7 pt; UYAP çıktısıyla ölçüldü). Önizleme yazı tipi Times New Roman'dır; cihazda yoksa aynı harf genişliklerindeki Tinos kullanılır (pakette gelir), böylece satır sonları telefonda da Word / UYAP'a yakındır.
 
 ## Kurulum (Chrome uzantısı)
 
-1. `WordToUDF-1.11.0.zip` paketini **klasörün tamamını koruyarak** çıkarın.
+1. `WordToUDF-1.12.0.zip` paketini **klasörün tamamını koruyarak** çıkarın.
 2. Masaüstü Chrome adres çubuğuna `chrome://extensions` yazın.
 3. **Geliştirici modu**nu açın → **Paketlenmemiş öğe yükle**yi seçin.
-4. ZIP'ten çıkan `WordToUDF-1.11.0` klasörünü seçin (içinde `manifest.json` bulunan klasör).
+4. ZIP'ten çıkan `WordToUDF-1.12.0` klasörünü seçin (içinde `manifest.json` bulunan klasör).
 5. Araç çubuğundaki **Word ↔ UDF** simgesine tıklayın → bölümü seçin.
 
 **Güncelleme (verileriniz kaybolmasın):** yeni ZIP'in içindeki dosyaları **ilk kurduğunuz klasörün üzerine** kopyalayın ve `chrome://extensions` sayfasında uzantı kartındaki **Yeniden yükle**'ye basın; ayarlar, dosya kartları ve kendi şablonlarınız aynen kalır. Chrome, paketlenmemiş uzantıyı klasör yolundan tanır: uzantıyı **kaldırırsanız** ya da **başka bir klasörden** yüklerseniz yeni bir uzantı sayılır ve bu veriler boş başlar. Böyle bir durumdan önce Word → UDF sayfasında **Ayarlar → Dışa aktar** ile yedek alın, yeni kurulumda **İçe aktar** ile geri yükleyin (yedek, dosya kartlarını ve şablonları da içerir).
 
 Kurumsal Chrome politikaları paketlenmemiş eklenti yüklemeyi engelliyorsa eklenti yönetici izni olmadan yüklenemeyebilir.
 
-**Telefonda (web uygulaması):** klasör bir web sunucusunda (ör. GitHub Pages) yayınlanırsa `index.html` tanıtım ve giriş sayfasıdır; tarayıcı menüsünden “Ana ekrana ekle” ile eklenen uygulama doğrudan Word → UDF sayfasını açar ve `sw.js` sayesinde çevrimdışı çalışır. Dosyalar yine cihazdan çıkmaz.
+**Telefonda (web uygulaması):** klasör bir web sunucusunda (ör. GitHub Pages) yayınlanırsa `index.html` tanıtım ve giriş sayfasıdır; tarayıcı menüsünden “Ana ekrana ekle” ile eklenen uygulama doğrudan Word → UDF sayfasını açar ve `sw.js` sayesinde çevrimdışı çalışır. Eklenen uygulama telefonun **paylaş** menüsünde de görünür: WhatsApp ya da e-postadaki bir Word dosyası (veya UDF) doğrudan uygulamada açılır. Dosyalar yine cihazdan çıkmaz.
 
 ## Kullanım
 
 **Word → UDF**
 1. **Kaynak:** DOCX'i bırakın/seçin ya da “Metni yapıştır” sekmesine dilekçeyi yapıştırın (sayfada herhangi bir yere yapıştırmak da olur). Yapıştırılan metinde eksik parça varsa “Dilekçenin parçaları” kartı yalnız eksikleri sorar.
 2. **Denetim:** hata ve uyarıları okuyun. “Maddelere ayır” gibi öneriler tek dokunuşla uygulanır.
-3. **Önizleme:** gerekirse paragrafa dokunup düzeltin (rahat görmek için **Tam ekran**); bir sözcüğü/cümleyi seçip biçimleyin; yeni paragraf ekleyin veya taşıyın. Dönüşüm raporu, hukuk profilinin yaptığı her metin değişikliğini ve elle düzenlemeleri listeler.
+3. **Önizleme:** “Kontrol turu” ile denetim maddelerini sayfada tek tek görün; gerekirse paragrafa dokunup düzeltin (rahat görmek için **Tam ekran**, kaynağın asıl hali için **Önce / sonra**); bir sözcüğü/cümleyi seçip biçimleyin; yeni paragraf ekleyin veya taşıyın. Dönüşüm raporu, hukuk profilinin yaptığı her metin değişikliğini ve elle düzenlemeleri listeler.
 4. **İndir:** UDF, Word (DOCX), PDF (yazdırma penceresi → “PDF olarak kaydet”) veya rapor. İçerik kaybı olabilecek bir öğe varsa (görsel, dipnot, yorum…) “inceledim” kutusunu işaretleyin → **UDF oluştur ve indir**. Yalnız görünümle ilgili bildirimler (karakter aralığı, A4 dışı kâğıt) “Bilgi” olarak listelenir, onay istemez. İsterseniz Word (DOCX) ve rapor da indirilir.
 
 Tipografi profili **Hukuk dilekçesi** (önerilen) aşağıdaki standardı uygular; **Word biçimini koru** profili belgenin kendi düzenine dokunmaz. AÇIKLAMALAR başlığı farklı adlandırılmışsa başlangıç/bitiş “Gelişmiş” kartından elle seçilir. Ayarlar JSON dosyasıyla başka cihaza taşınabilir.
@@ -81,7 +84,7 @@ Tipografi profili **Hukuk dilekçesi** (önerilen) aşağıdaki standardı uygul
 
 ## Güvenlik ve veri işleme
 
-Manifest V3; `permissions` ve `host_permissions` boştur, ağ bağlantısı kapalıdır (`connect-src 'none'`), dış betik/CDN/`eval` yoktur; yazı tipleri de pakettedir, internetten yüklenmez. Belgeler yalnız bellekte işlenir; DOCX/UDF dosyaları saklanmaz. Bu tarayıcının yerel depolamasında yalnız şunlar durur ve hiçbir yere gönderilmez: vekil/UETS ayarları ve tema seçimi; kaydettiğiniz **dosya kartları** (mahkeme, esas no, taraf ve müvekkil adları); **kendi şablonlarınız**; Şablonlar sayfasının **son taslağı**. Kartlar, şablonlar ve taslak Word → UDF sayfasındaki “Dosya kartları ve şablonlar” kartından tek düğmeyle silinir; ortak kullanılan bir bilgisayarda işiniz bitince silmeniz önerilir. ZIP yolu, boyut, CRC32, XML sözdizimi ve DTD/ENTITY kontrolleri uygulanır; kullanıcı metni sayfaya yalnız `textContent`/`value` ile yazılır. Ayrıntılar: [SECURITY.md](SECURITY.md).
+Manifest V3; `permissions` ve `host_permissions` boştur, ağ bağlantısı kapalıdır (`connect-src 'none'`), dış betik/CDN/`eval` yoktur; yazı tipleri de pakettedir, internetten yüklenmez. Tema seçimi yalnız bu tarayıcıda saklanır. Belgeler yalnız bellekte işlenir; DOCX/UDF dosyaları saklanmaz. Bu tarayıcının yerel depolamasında yalnız şunlar durur ve hiçbir yere gönderilmez: vekil/UETS ayarları ve tema seçimi; kaydettiğiniz **dosya kartları** (mahkeme, esas no, taraf ve müvekkil adları); **kendi şablonlarınız**; Şablonlar sayfasının **son taslağı**. Kartlar, şablonlar ve taslak Word → UDF sayfasındaki “Dosya kartları ve şablonlar” kartından tek düğmeyle silinir; ortak kullanılan bir bilgisayarda işiniz bitince silmeniz önerilir. ZIP yolu, boyut, CRC32, XML sözdizimi ve DTD/ENTITY kontrolleri uygulanır; kullanıcı metni sayfaya yalnız `textContent`/`value` ile yazılır. Ayrıntılar: [SECURITY.md](SECURITY.md).
 
 Bu eklenti LexUDF'den bağımsızdır; LexUDF'yi değiştirmez, onun ayarlarını veya depolama alanını kullanmaz. Açık kaynak örneklerden ve LexUDF'nin UDF çıktılarından yalnız biçim uyumluluğu konusunda yararlanılmıştır.
 
@@ -93,6 +96,7 @@ npm run test:e2e        # Chromium testleri (Python playwright)
 npm run test:fuzz       # tohumlu zorlama testi
 npm run build           # dist/WordToUDF-<sürüm>.zip + SHA-256
 python3 tools/pages.py  # beş HTML sayfasını ortak başlık ve simge setinden yeniden üretir
+python3 tools/themes.py # themes.css: 6 tema, açık ve koyu (kontrast denetimiyle)
 ```
 
 Sayfa gövdeleri `tools/pages/*.body.html` içindedir; `workspace.html`, `templates.html`, `reverse.html`, `sure.html` ve `index.html` elle düzenlenmez, `tools/pages.py` ile üretilir. Paket (`npm run build`) yalnız izin listesindeki dosyaları alır (`sw.js` dosya listesi, açılır pencere, manifest, belgeler); klasöre bırakılmış başka bir dosya pakete girmez. Test katmanları için [tests/README.md](tests/README.md), modül düzeni için [ARCHITECTURE.md](ARCHITECTURE.md).
