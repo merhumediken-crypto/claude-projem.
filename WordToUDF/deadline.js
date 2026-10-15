@@ -71,7 +71,7 @@
     {group: 'Hukuk yargılaması (HMK)', items: [
       {id: 'cevap', label: 'Cevap dilekçesi', amount: 2, unit: 'hafta', law: 'HMK m. 127', recess: true},
       {id: 'replik', label: 'Cevaba cevap / ikinci cevap', amount: 2, unit: 'hafta', law: 'HMK m. 136', recess: true},
-      {id: 'eksure', label: 'Cevap için ek süre (en çok bir ay)', amount: 1, unit: 'ay', law: 'HMK m. 127', recess: true, note: 'Ek süre, cevap süresinin bitiminden itibaren işler: başlangıç olarak cevap süresinin son gününü girin.'},
+      {id: 'eksure', label: 'Cevap için ek süre (en çok bir ay)', amount: 1, unit: 'ay', law: 'HMK m. 127', recess: true, notice: false, note: 'Ek süre, cevap süresinin bitiminden itibaren işler: başlangıç olarak cevap süresinin son gününü girin (e-Tebligat günü eklenmez).'},
       {id: 'bilirkisi', label: 'Bilirkişi raporuna itiraz', amount: 2, unit: 'hafta', law: 'HMK m. 281', recess: true},
       {id: 'istinaf', label: 'İstinaf başvurusu', amount: 2, unit: 'hafta', law: 'HMK m. 345', recess: true},
       {id: 'temyiz', label: 'Temyiz başvurusu', amount: 2, unit: 'hafta', law: 'HMK m. 361', recess: true},
@@ -105,8 +105,8 @@
     const n = Number(amount);
     if(!Number.isInteger(n) || n < 1 || n > MAX[unit]) throw new Error(`Süre 1 ile ${MAX[unit]} ${UNITS[unit]} arasında bir tam sayı olmalıdır.`);
     const steps = [], warnings = [];
+    const reached = start;
     if(etebligat){
-      const reached = start;
       start = addDays(reached, 5);
       steps.push(`e-Tebligat ${longDate(reached)} günü adrese ulaştı → izleyen beşinci günün sonunda, ${longDate(start)} tebliğ edilmiş sayılır (Tebligat K. m. 7/a).`);
     }
@@ -123,7 +123,9 @@
     // 31 August (Sunday) → 1 September still "ends in the recess" and moves to 7 September.
     const raw = end;
     end = shift(end);
+    let recessApplied = false;
     if(recess && (inRecess(raw) || inRecess(end))){
+      recessApplied = true;
       const hit = inRecess(raw) ? raw : end, y = hit.getUTCFullYear();
       steps.push(`${longDate(hit)} adli tatile (20 Temmuz – 31 Ağustos) rastlıyor → tatilin bitiminden itibaren bir hafta uzar (${recessBasis}).`);
       end = shift(addDays(D(y, 8, 31), 7));
@@ -133,14 +135,15 @@
     if(half) warnings.push(`Son gün ${half}: süre uzamaz ve o gün mesai öğleden sonra bitebilir; işlemi sabahtan yapın.`);
     // Only the years the last day can fall in matter (the start year's holidays play no part).
     for(const y of new Set([raw.getUTCFullYear(), end.getUTCFullYear()])) if(!KNOWN_YEARS.includes(y)) warnings.push(`${y} yılının dini bayram tarihleri tabloda yok; Ramazan ve Kurban Bayramı tatillerini kendiniz kontrol edin.`);
-    // start: the day the period runs from (after the e-notification days); total: days in the period.
-    const total = Math.round((end - start) / 864e5);
+    // reached: the date entered; start: the day the period runs from (after the
+    // e-notification days); total: days up to the last day, extensions included.
+    const total = Math.round((end - start) / 864e5), extended = end > raw || recessApplied;
+    const out = {end, steps, warnings, reached, start, total, extended, recessApplied};
     if(today instanceof Date){
-      const left = Math.round((end - today) / 864e5);
-      if(left < 0) warnings.push(`Bu süre ${-left} gün önce dolmuş görünüyor.`);
-      return {end, steps, warnings, left, start, total, recessApplied: recess};
+      out.left = Math.round((end - today) / 864e5);
+      if(out.left < 0) warnings.push(`Bu süre ${-out.left} gün önce dolmuş görünüyor.`);
     }
-    return {end, steps, warnings, start, total, recessApplied: recess};
+    return out;
   }
 
   // RFC 5545 §3.1: content lines are folded at 75 octets (CRLF + space), never inside a UTF-8 sequence.
@@ -199,6 +202,11 @@
     $('dKindNote').textContent = [p.note, icra ? ICRA_NOTE : ''].filter(Boolean).join(' ');
     $('dKindNote').hidden = !$('dKindNote').textContent;
     for(const b of $('dPresets').children) b.setAttribute('aria-pressed', String(b.dataset.preset === p.id));
+    // A period that does not start from a notification (e.g. the extra answer time) never adds the e-Tebligat days.
+    const noNotice = p.notice === false;
+    if(noNotice) $('dEtebligat').checked = false;
+    $('dEtebligat').disabled = noNotice;
+    $('dEtebligat').closest('label').classList.toggle('is-off', noNotice);
   }
   // Countdown ring: the share of the period still left.
   function ringTo(frac){
@@ -212,11 +220,12 @@
   const DOW = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'];
   function calendar(r, saturday, recess, today){
     const months = [];
-    let cur = D(r.start.getUTCFullYear(), r.start.getUTCMonth() + 1, 1);
+    const from = r.reached || r.start;
+    let cur = D(from.getUTCFullYear(), from.getUTCMonth() + 1, 1);
     const lastM = D(r.end.getUTCFullYear(), r.end.getUTCMonth() + 1, 1);
     while(cur <= lastM){ months.push(cur); cur = D(cur.getUTCFullYear(), cur.getUTCMonth() + 2, 1); }
     const shown = months.length > 4 ? [months[0], ...months.slice(-3)] : months;
-    const startK = key(r.start), endK = key(r.end), todayK = key(today);
+    const startK = key(r.start), endK = key(r.end), todayK = key(today), reachedK = r.reached && +r.reached !== +r.start ? key(r.reached) : '';
     $('dMonths').replaceChildren(...shown.map(m => {
       const y = m.getUTCFullYear(), mo = m.getUTCMonth(), days = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
       const box = document.createElement('div'); box.className = 'cal-month';
@@ -232,17 +241,18 @@
         if(w === 0 || (w === 6 && saturday)) cls.push('weekend');
         if(holiday) cls.push('holiday');
         if(recess && inRecess(d) && d > r.start && d <= r.end) cls.push('recess');
+        if(reachedK && d >= r.reached && d < r.start) cls.push(k === reachedK ? 'reached' : 'wait');
         if(k === startK) cls.push('start');
         if(k === endK) cls.push('end');
         if(k === todayK) cls.push('today');
         const cell = document.createElement('span'); cell.className = cls.join(' '); cell.textContent = String(dd);
-        cell.title = [longDate(d), holiday, half, k === startK ? 'başlangıç (sayılmaz)' : '', k === endK ? 'SON GÜN' : '', k === todayK ? 'bugün' : ''].filter(Boolean).join(' · ');
+        cell.title = [longDate(d), holiday, half, k === reachedK ? 'e-Tebligat adrese ulaştı' : '', k === startK ? (reachedK ? 'tebliğ sayılır · başlangıç (sayılmaz)' : 'başlangıç (sayılmaz)') : '', k === endK ? 'SON GÜN' : '', k === todayK ? 'bugün' : ''].filter(Boolean).join(' · ');
         grid.append(cell);
       }
       box.append(h, dow, grid); return box;
     }));
     $('dCalNote').textContent = months.length > 4 ? `Süre ${months.length} aya yayılıyor; ilk ay ile son üç ay gösteriliyor.` : 'Takvim hesap adımlarının görselidir; tarih üzerine gelince tatilin adı görünür.';
-    $('dCalendar').hidden = false;
+    $('dCalendar').hidden = false; $('dCalendar').classList.toggle('etb', !!reachedK);
   }
   function update(){
     const p = preset($('dKind').value);
@@ -257,7 +267,9 @@
         recessBasis: PRESETS[2].items.includes(p) ? 'İYUK m. 8/3' : 'HMK m. 104', etebligat: $('dEtebligat').checked});
       last = {...r, preset: p};
       $('dDate').textContent = longDate(r.end);
-      $('dLeft').textContent = r.left > 0 ? `Bugünden itibaren ${r.left} gün kaldı · süre ${r.total} gün` : r.left === 0 ? 'Son gün bugün.' : `Süre ${-r.left} gün önce doldu.`;
+      const startsIn = Math.round((r.start - today) / 864e5);
+      $('dLeft').textContent = startsIn >= 0 && r.left > 0 ? `Süre ${longDate(addDays(r.start, 1))} günü işlemeye başlar · son güne ${r.left} gün var`
+        : r.left > 0 ? `Bugünden itibaren ${r.left} gün kaldı · süre ${r.total} gün${r.extended ? ' (uzamalar dahil)' : ''}` : r.left === 0 ? 'Son gün bugün.' : `Süre ${-r.left} gün önce doldu.`;
       $('dSteps').replaceChildren(...r.steps.map(t => Object.assign(document.createElement('li'), {textContent: t})));
       $('dWarn').replaceChildren(...r.warnings.map(t => Object.assign(document.createElement('li'), {textContent: t})));
       $('dWarn').hidden = !r.warnings.length;
@@ -295,7 +307,12 @@
     catch{ say('Pano kullanılamadı; notu aşağıdaki adımlardan elle kopyalayın.', 'error'); }
   });
   // sure.html#istinaf (command palette of another page): that period.
-  function fromHash(){ const id = decodeURIComponent(location.hash.slice(1)); if(id && preset(id)){ $('dKind').value = id; syncKind(); update(); } }
+  function fromHash(){
+    let id = ''; try{ id = decodeURIComponent(location.hash.slice(1)); }catch{ /* malformed: ignored */ }
+    if(id && preset(id)){ $('dKind').value = id; syncKind(); update(); }
+    // Used once: the same link works again later and a reload keeps the user's choice.
+    if(location.hash) history.replaceState(null, '', location.pathname + location.search);
+  }
   window.addEventListener('hashchange', fromHash);
   UI?.commands.add([
     ...PRESETS.flatMap(g => g.items).filter(p => p.id !== 'custom').map(p => ({id: `dl:${p.id}`, group: 'Süreler', label: p.label, hint: `${p.amount} ${UNITS[p.unit]} · ${p.law}`, icon: 'i-clock', keywords: `${p.law} süre`, run: () => { $('dKind').value = p.id; syncKind(); update(); $('dResult').scrollIntoView({block: 'nearest'}); }})),

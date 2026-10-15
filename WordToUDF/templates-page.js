@@ -45,7 +45,7 @@
     vekalet: ['file', 'UYAP erişim', 'Vekâletname ve dosyaya erişim yetkisi.'],
     beyan: ['file', 'Serbest', 'Kısa bir beyan ya da talep için sade iskelet.'],
     feragat: ['file', 'HMK m. 307', 'Feragat yetkisi ve yargılama giderleri.'],
-    iade: ['file', 'HMK m. 333', 'Kullanılmayan avans ya da fazla harcın iadesi.']
+    iade: ['file', 'HMK m. 333 (avans)', 'Kullanılmayan avans ya da fazla harcın iadesi.']
   };
   const gal = {cat: 'all', q: ''};
   function entries(){
@@ -64,8 +64,10 @@
       b.addEventListener('click', () => { gal.cat = k; renderGallery(); });
       return b;
     }));
-    const words = UI.fold(gal.q).split(/\s+/u).filter(Boolean);
-    const shown = all.filter(e => (gal.cat === 'all' || e.cat === gal.cat) && words.every(w => UI.fold(`${e.title} ${e.desc} ${e.law} ${CATS[e.cat]}`).includes(w)));
+    // "HMK 281", "hmk m.281", "md. 281" all find the same card: punctuation and "m."/"md." are ignored.
+    const norm = t => ` ${UI.fold(t).replace(/[.,;:()/–-]+/gu, ' ').replace(/(\p{L})(\d)/gu, '$1 $2').replace(/\b(?:m|md|madde)\b/gu, ' ').replace(/\s+/gu, ' ')} `;
+    const words = norm(gal.q).split(' ').filter(Boolean);
+    const shown = all.filter(e => (gal.cat === 'all' || e.cat === gal.cat) && words.every(w => norm(`${e.title} ${e.desc} ${e.law} ${CATS[e.cat]}`).includes(w)));
     $('tplGrid').replaceChildren(...shown.map((e, i) => {
       const card = UI.el('button', {type: 'button', class: `tpl-card cat-${e.cat}`, 'aria-pressed': String(e.id === sel), 'data-tpl': e.id},
         UI.el('span', {class: 'tc-badge', 'aria-hidden': 'true', text: badgeText(e.title)}), UI.el('strong', {text: e.short || e.title}), UI.el('span', {class: 'tc-desc', text: e.desc}), UI.el('span', {class: 'tc-law', text: `${e.law}${e.law ? ' · ' : ''}${CATS[e.cat]}`}));
@@ -87,6 +89,8 @@
     UI.commands.add(entries().map(e => ({id: `tpl:t:${e.id}`, group: 'Şablonlar', label: e.title, hint: `${e.law}${e.law ? ' · ' : ''}${CATS[e.cat]}`, icon: 'i-grid', keywords: `${e.desc} şablon`, run: () => pick(e.id)})));
   }
   function pick(id, scroll = true){
+    // An own template saved in another tab: refresh the list first.
+    if(![...$('tpl').options].some(o => o.value === id)) fillTemplateSelect($('tpl').value);
     if(![...$('tpl').options].some(o => o.value === id)) return;
     if($('tpl').value !== id){ $('tpl').value = id; useTemplate(); }
     else renderGallery();
@@ -321,6 +325,8 @@
   });
   // Settings changed on the converter page (attorney, UETS, file name): follow them here.
   window.addEventListener('storage', e => {
+    // Own templates saved or deleted in another tab: list, gallery and palette follow.
+    if(e.key === 'wordtoudf.userTemplates.v1'){ fillTemplateSelect($('tpl').value); return; }
     if(e.key !== S.KEY) return;
     Object.assign(settings, S.load()); showAttorney();
     if(document.activeElement !== $('fileNamePattern')) $('fileNamePattern').value = settings.fileName || '';
@@ -368,8 +374,10 @@
   ]);
   // templates.html#mazeret (from the command palette of another page): open that template.
   function fromHash(){
-    const id = decodeURIComponent(location.hash.slice(1));
+    let id = ''; try{ id = decodeURIComponent(location.hash.slice(1)); }catch{ /* malformed: ignored */ }
     if(id && [...$('tpl').options].some(o => o.value === id)){ pick(id, false); $('tplGallery').open = false; }
+    // Used once: a reload must restore the draft, not open the linked template again over it.
+    if(location.hash) history.replaceState(null, '', location.pathname + location.search);
   }
   window.addEventListener('hashchange', fromHash);
   fromHash();

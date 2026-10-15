@@ -52,7 +52,7 @@
   --accent-text: #2149b8;
   --on-accent: #ffffff;
   --gold-ink: #8a6418; --gold-soft: #f8ebcb;
-  --ok: #0f7a50;   --ok-soft: #e2f4eb;   --ok-line: #b5dfc9;
+  --ok: #0f7a50;   --ok-soft: #e2f4eb;   --ok-line: #b5dfc9; --on-ok: #ffffff;
   --warn: #9a5800; --warn-soft: #fbf0dc; --warn-line: #efd39f; --warn-ring: #dc9a22;
   --danger: #b42318; --danger-soft: #fce9e7; --danger-line: #f2c3bd;
   --info: #2149b8; --info-soft: #e6edfc; --info-line: #ccdaf7;
@@ -79,7 +79,7 @@
     --pri: #e7c77f; --pri-hover: #f0d597; --pri-ink: #0b1326;
     --accent: #8daeff; --accent-hover: #a9c2ff; --accent-soft: #16264a; --accent-soft-2: #24396a; --accent-text: #a9c2ff; --on-accent: #0b1326;
     --gold-ink: #e7c77f; --gold-soft: #3a2f17;
-    --ok: #5ed3a0; --ok-soft: #0f2a22; --ok-line: #1f5a46;
+    --ok: #5ed3a0; --ok-soft: #0f2a22; --ok-line: #1f5a46; --on-ok: #06261a;
     --warn: #f2b866; --warn-soft: #2e2312; --warn-line: #5e4719; --warn-ring: #f2b866;
     --danger: #ff8c80; --danger-soft: #33171a; --danger-line: #6b2a24;
     --info: #a9c2ff; --info-soft: #16264a; --info-line: #2b4378;
@@ -99,7 +99,7 @@
   --pri: #e7c77f; --pri-hover: #f0d597; --pri-ink: #0b1326;
   --accent: #8daeff; --accent-hover: #a9c2ff; --accent-soft: #16264a; --accent-soft-2: #24396a; --accent-text: #a9c2ff; --on-accent: #0b1326;
   --gold-ink: #e7c77f; --gold-soft: #3a2f17;
-  --ok: #5ed3a0; --ok-soft: #0f2a22; --ok-line: #1f5a46;
+  --ok: #5ed3a0; --ok-soft: #0f2a22; --ok-line: #1f5a46; --on-ok: #06261a;
   --warn: #f2b866; --warn-soft: #2e2312; --warn-line: #5e4719; --warn-ring: #f2b866;
   --danger: #ff8c80; --danger-soft: #33171a; --danger-line: #6b2a24;
   --info: #a9c2ff; --info-soft: #16264a; --info-line: #2b4378;
@@ -205,7 +205,7 @@ main{ max-width: 1480px; margin: 0 auto; padding: 28px max(24px, 2vw) 40px; }
 .steps li.active a{ color: var(--ink); font-weight: 800; }
 .steps li.busy .dot .n{ display: none; }
 .steps li.busy .dot .i-busy{ display: block; animation: spin .8s linear infinite; }
-.steps li.done .dot{ background: var(--ok); color: #fff; box-shadow: none; }
+.steps li.done .dot{ background: var(--ok); color: var(--on-ok); box-shadow: none; }
 .steps li.done .dot .n{ display: none; }
 .steps li.done .dot .i-done{ display: block; animation: pop .35s ease-out both; }
 .steps li.done a{ color: var(--ink); }
@@ -307,7 +307,7 @@ button:disabled, .btn:disabled{ opacity: .48; cursor: not-allowed; box-shadow: n
 .dl-btn[data-state="idle"] .dl-idle, .dl-btn:not([data-state]) .dl-idle{ display: block; }
 .dl-btn[data-state="working"] .dl-working{ display: block; animation: spin .8s linear infinite; }
 .dl-btn[data-state="done"] .dl-done{ display: block; animation: pop .35s ease-out both; }
-.dl-btn[data-state="done"], .dl-btn[data-state="done"]:hover:not(:disabled){ background: var(--ok) !important; border-color: var(--ok) !important; color: #fff !important; box-shadow: none !important; transform: none !important; }
+.dl-btn[data-state="done"], .dl-btn[data-state="done"]:hover:not(:disabled){ background: var(--ok) !important; border-color: var(--ok) !important; color: var(--on-ok) !important; box-shadow: none !important; transform: none !important; }
 .dl-btn[data-state="working"]:disabled{ opacity: 1; cursor: progress; }
 
 /* 8 · Converter ---------------------------------------------------------- */
@@ -715,6 +715,11 @@ body.sheet-open .mark-pop.docked{ top: calc(var(--appbar-h) + 8px); bottom: auto
 .cal-day.recess{ box-shadow: inset 0 -3px 0 var(--accent); }
 .cal-day.holiday, .cal-legend .l-holiday{ background: var(--gold); color: #3a2a06; }
 .cal-day.start, .cal-legend .l-start{ box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-day.reached, .cal-legend .l-reached{ box-shadow: inset 0 0 0 2px var(--gold-ink); border-radius: 50%; }
+.cal-day.wait, .cal-legend .l-wait{ background: var(--gold-soft); color: var(--ink); }
+.check.is-off{ opacity: .55; cursor: not-allowed; }
+.cal-legend .etb-only{ display: none; }
+#dCalendar.etb .cal-legend .etb-only{ display: inline-flex; }
 .cal-day.today{ text-decoration: underline 2px var(--gold-ink); text-underline-offset: 3px; font-weight: 900; }
 .cal-day.end, .cal-legend .l-end{ background: var(--pri); color: var(--pri-ink); font-weight: 800; }
 .cal-day.end{ animation: pulse 1.8s ease-out infinite; }

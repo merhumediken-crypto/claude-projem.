@@ -47,9 +47,9 @@
     if(last && last.dataset.text === t && !last.classList.contains('leaving')){ clearTimeout(Number(last.dataset.timer)); arm(last, ms ?? (kind === 'error' ? 7000 : 3200)); return; }
     const node = el('div', {class: `toast ${kind}`}, el('span', {class: 't-ico'}, icon(kind === 'error' ? 'i-alert' : 'i-tick')), el('span', {text: t}));
     node.dataset.text = t;
-    node.addEventListener('click', () => leave(node));
+    // One note at a time: a new one replaces the previous (several edits in a row do not pile up over the page).
+    for(const old of [...toastBox.children]){ clearTimeout(Number(old.dataset.timer)); leave(old); }
     toastBox.append(node);
-    while(toastBox.children.length > 3) toastBox.firstElementChild.remove();
     arm(node, ms ?? (kind === 'error' ? 7000 : 3200));
   }
   function arm(node, ms){ node.dataset.timer = String(setTimeout(() => leave(node), ms)); }
